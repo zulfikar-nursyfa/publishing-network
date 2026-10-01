@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { EmptyState, PageHeader, Table, Td, Th, formatDateTime } from "@/components/ui";
+import { Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { ButtonLink, EmptyState, PageHeader, Table, Td, Th, formatDateTime } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -39,42 +40,51 @@ export default async function ActivityPage({ searchParams }) {
           <Table>
             <thead>
               <tr>
-                <Th>When</Th>
-                <Th>Who</Th>
                 <Th>Action</Th>
-                <Th>Website</Th>
-                <Th>Details</Th>
+                <Th className="hidden sm:table-cell">Who</Th>
+                <Th className="hidden md:table-cell">Website</Th>
+                <Th className="hidden xl:table-cell">Details</Th>
+                <Th className="text-right">When</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {entries.map((entry) => (
-                <tr key={entry.id}>
-                  <Td className="whitespace-nowrap text-gray-600">{formatDateTime(entry.created_at)}</Td>
-                  <Td>{entry.actor_id ? actorName.get(entry.actor_id) ?? "Unknown user" : "System"}</Td>
-                  <Td>
-                    {entry.entity_type === "article" && entry.entity_id ? (
-                      <Link href={`/articles/${entry.entity_id}`} className="font-mono text-xs underline">{entry.action}</Link>
-                    ) : (
-                      <span className="font-mono text-xs">{entry.action}</span>
-                    )}
-                  </Td>
-                  <Td>{entry.website_id ? websiteName.get(entry.website_id) ?? "—" : "—"}</Td>
-                  <Td>
-                    <code className="block max-w-md truncate text-xs text-gray-600" title={JSON.stringify(entry.details)}>
-                      {JSON.stringify(entry.details)}
-                    </code>
-                  </Td>
-                </tr>
-              ))}
+            <tbody>
+              {entries.map((entry) => {
+                const who = entry.actor_id ? actorName.get(entry.actor_id) ?? "Unknown user" : "System";
+                return (
+                  <tr key={entry.id}>
+                    <Td>
+                      {entry.entity_type === "article" && entry.entity_id ? (
+                        <Link href={`/articles/${entry.entity_id}`} className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground hover:bg-accent hover:text-accent-foreground">{entry.action}</Link>
+                      ) : (
+                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{entry.action}</span>
+                      )}
+                      <div className="mt-1 text-xs text-muted-foreground sm:hidden">{who}</div>
+                    </Td>
+                    <Td className="hidden sm:table-cell">{who}</Td>
+                    <Td className="hidden text-muted-foreground md:table-cell">{entry.website_id ? websiteName.get(entry.website_id) ?? "—" : "—"}</Td>
+                    <Td className="hidden xl:table-cell">
+                      <code className="block max-w-sm truncate text-xs text-muted-foreground" title={JSON.stringify(entry.details)}>
+                        {JSON.stringify(entry.details)}
+                      </code>
+                    </Td>
+                    <Td className="text-right text-xs whitespace-nowrap text-muted-foreground sm:text-sm">{formatDateTime(entry.created_at)}</Td>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
-          <div className="mt-4 flex justify-between text-sm">
-            {page > 1 ? <Link href={`/activity?page=${page - 1}`} className="underline">Newer</Link> : <span />}
-            {entries.length === PAGE_SIZE ? <Link href={`/activity?page=${page + 1}`} className="underline">Older</Link> : null}
+          <div className="mt-4 flex items-center justify-between">
+            {page > 1 ? (
+              <ButtonLink href={`/activity?page=${page - 1}`} variant="secondary" size="sm"><ChevronLeft />Newer</ButtonLink>
+            ) : <span />}
+            <span className="text-sm text-muted-foreground">Page {page}</span>
+            {entries.length === PAGE_SIZE ? (
+              <ButtonLink href={`/activity?page=${page + 1}`} variant="secondary" size="sm">Older<ChevronRight /></ButtonLink>
+            ) : <span />}
           </div>
         </>
       ) : (
-        <EmptyState>No activity recorded yet.</EmptyState>
+        <EmptyState icon={Activity}>No activity recorded yet.</EmptyState>
       )}
     </>
   );

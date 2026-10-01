@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { Plus, RefreshCw } from "lucide-react";
 import { addContentSource, testWebsiteConnection } from "@/app/actions/websites";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Field, inputClass } from "@/components/ui";
@@ -10,7 +11,10 @@ export function TestConnectionButton({ websiteId }) {
   return (
     <form action={action} className="space-y-3">
       <FormAlert state={state} />
-      <SubmitButton variant="secondary" pendingLabel="Testing…">Test connection</SubmitButton>
+      <SubmitButton variant="secondary" pendingLabel="Testing…">
+        <RefreshCw />
+        Test connection
+      </SubmitButton>
     </form>
   );
 }
@@ -19,9 +23,10 @@ export function AddSourceForm({ websiteId }) {
   const [state, action] = useActionState(addContentSource.bind(null, websiteId), {});
   const errors = state.fieldErrors ?? {};
   return (
-    <form action={action} className="space-y-3 border-t border-gray-100 pt-4">
+    <form action={action} className="space-y-4 rounded-lg bg-muted/40 p-4">
+      <div className="text-sm font-medium">Add a source</div>
       <FormAlert state={state} />
-      <div className="grid gap-3 md:grid-cols-[1fr_2fr_auto]">
+      <div className="grid gap-4 md:grid-cols-[1fr_2fr_10rem]">
         <Field label="Name" htmlFor="source-name" error={errors.name}>
           <input id="source-name" name="name" required className={inputClass} />
         </Field>
@@ -39,7 +44,10 @@ export function AddSourceForm({ websiteId }) {
       <Field label="Attribution and media rights note" htmlFor="source-note" error={errors.attribution_note} hint="e.g. licence terms, required credit line, whether images may be reused.">
         <input id="source-note" name="attribution_note" className={inputClass} />
       </Field>
-      <SubmitButton variant="secondary" pendingLabel="Adding…">Add source</SubmitButton>
+      <SubmitButton variant="secondary" pendingLabel="Adding…">
+        <Plus />
+        Add source
+      </SubmitButton>
     </form>
   );
 }

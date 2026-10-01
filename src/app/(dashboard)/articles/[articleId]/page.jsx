@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ExternalLink, History, Info, Lock } from "lucide-react";
 import { saveArticle } from "@/app/actions/articles";
-import { ArticleStatusBadge, Badge, Card, PageHeader, PublicationStatusBadge, formatDateTime } from "@/components/ui";
+import { Alert, ArticleStatusBadge, Badge, Card, DescriptionList, PageHeader, PublicationStatusBadge, formatDateTime } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatSourceLines } from "@/lib/validation";
@@ -10,6 +10,15 @@ import { WorkflowPanel } from "./workflow-panel";
 
 // Publishing makes several WordPress calls in one request; allow for a slow host.
 export const maxDuration = 60;
+
+function Person({ when, who }) {
+  return (
+    <span className="block">
+      {when}
+      <span className="block text-xs text-muted-foreground">by {who}</span>
+    </span>
+  );
+}
 
 export default async function ArticlePage({ params, searchParams }) {
   const { articleId } = await params;
@@ -49,31 +58,31 @@ export default async function ArticlePage({ params, searchParams }) {
   return (
     <>
       <PageHeader
-        title={<span dir={rtl ? "rtl" : "ltr"}>{article.title}</span>}
+        back={{ href: `/websites/${website.id}`, label: website.name }}
+        title={<span dir={rtl ? "rtl" : "ltr"} className="block">{article.title}</span>}
         description={
-          <span className="flex flex-wrap items-center gap-2">
-            <Link href={`/websites/${website.id}`} className="underline">{website.name}</Link>
+          <span className="flex flex-wrap items-center gap-1.5">
             <ArticleStatusBadge status={article.status} />
-            <Badge>{article.origin}</Badge>
+            <Badge tone={article.origin === "automated" ? "purple" : "gray"}>{article.origin}</Badge>
             {publication && publication.status !== "succeeded" ? <PublicationStatusBadge status={publication.status} /> : null}
           </span>
         }
       />
 
       {warning === "sources" ? (
-        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <Alert tone="warning" className="mb-6">
           The article was created but its sources could not be saved. Add them again below.
-        </div>
+        </Alert>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">
+        <div className="min-w-0 space-y-4">
           {!editable ? (
-            <p className="mb-3 text-sm text-gray-600">
+            <Alert tone="info" title={article.status === "published" ? "Published" : "Locked for publishing"}>
               {article.status === "published"
                 ? "Published articles are managed in WordPress. Edit them there directly."
                 : "Approved content is locked so what was approved is what gets published. Return it to draft to edit."}
-            </p>
+            </Alert>
           ) : null}
           <ArticleForm
             key={article.version}
@@ -92,7 +101,7 @@ export default async function ArticlePage({ params, searchParams }) {
           />
         </div>
 
-        <div className="space-y-6">
+        <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
           <WorkflowPanel
             articleId={articleId}
             status={article.status}
@@ -106,46 +115,52 @@ export default async function ArticlePage({ params, searchParams }) {
             } : null}
           />
 
-          <Card title="Details">
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-sm">
-              <dt className="text-gray-500">Created</dt>
-              <dd>{formatDateTime(article.created_at, website.timezone)}<br /><span className="text-xs text-gray-500">by {actorName(article.created_by)}</span></dd>
-              <dt className="text-gray-500">Approved</dt>
-              <dd>{article.approved_at ? <>{formatDateTime(article.approved_at, website.timezone)}<br /><span className="text-xs text-gray-500">by {actorName(article.approved_by)}</span></> : "—"}</dd>
-              <dt className="text-gray-500">Published</dt>
-              <dd>
-                {article.wp_post_url ? (
-                  <>
-                    {formatDateTime(article.published_at, website.timezone)}
-                    <br />
-                    <a href={article.wp_post_url} target="_blank" rel="noreferrer" className="text-xs underline">View post #{article.wp_post_id}</a>
-                  </>
-                ) : "—"}
-              </dd>
-              {article.review_note ? (
-                <>
-                  <dt className="text-gray-500">Review note</dt>
-                  <dd className="whitespace-pre-wrap">{article.review_note}</dd>
-                </>
-              ) : null}
-            </dl>
+          <Card icon={Info} title="Details">
+            <DescriptionList
+              items={[
+                { label: "Created", value: <Person when={formatDateTime(article.created_at, website.timezone)} who={actorName(article.created_by)} /> },
+                {
+                  label: "Approved",
+                  value: article.approved_at ? <Person when={formatDateTime(article.approved_at, website.timezone)} who={actorName(article.approved_by)} /> : "—",
+                },
+                {
+                  label: "Published",
+                  value: article.wp_post_url ? (
+                    <span className="block">
+                      {formatDateTime(article.published_at, website.timezone)}
+                      <a href={article.wp_post_url} target="_blank" rel="noreferrer" className="mt-0.5 flex items-center gap-1 text-xs font-medium text-primary hover:underline sm:justify-end">
+                        View post #{article.wp_post_id}
+                        <ExternalLink className="size-3" />
+                      </a>
+                    </span>
+                  ) : "—",
+                },
+              ]}
+            />
+            {article.review_note ? (
+              <div className="mt-4 rounded-lg bg-muted/60 p-3 text-sm">
+                <div className="mb-1 text-xs font-medium text-muted-foreground">Review note</div>
+                <div className="whitespace-pre-wrap">{article.review_note}</div>
+              </div>
+            ) : null}
           </Card>
 
-          <Card title="History">
+          <Card icon={History} title="History">
             {history && history.length > 0 ? (
-              <ol className="space-y-2 text-sm">
-                {history.map((entry) => (
-                  <li key={entry.id}>
-                    <div className="font-medium">{entry.action.replace("article.", "").replace(/_/g, " ")}</div>
-                    <div className="text-xs text-gray-500">{actorName(entry.actor_id)} · {formatDateTime(entry.created_at, website.timezone)}</div>
+              <ol className="relative space-y-4 border-l pl-5">
+                {history.map((entry, index) => (
+                  <li key={entry.id} className="relative">
+                    <span className={`absolute top-1.5 -left-[1.4rem] size-2.5 rounded-full ring-4 ring-card ${index === 0 ? "bg-primary" : "bg-muted-foreground/40"}`} />
+                    <div className="text-sm font-medium capitalize">{entry.action.replace("article.", "").replace(/_/g, " ")}</div>
+                    <div className="text-xs text-muted-foreground">{actorName(entry.actor_id)} · {formatDateTime(entry.created_at, website.timezone)}</div>
                   </li>
                 ))}
               </ol>
             ) : (
-              <p className="text-sm text-gray-600">No activity yet.</p>
+              <p className="flex items-center gap-2 text-sm text-muted-foreground"><Lock className="size-3.5" />No activity yet.</p>
             )}
           </Card>
-        </div>
+        </aside>
       </div>
     </>
   );

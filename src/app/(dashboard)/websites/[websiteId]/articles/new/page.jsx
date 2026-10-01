@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createArticle } from "@/app/actions/articles";
 import { PageHeader } from "@/components/ui";
@@ -13,16 +12,13 @@ export default async function NewArticlePage({ params }) {
   if (website.archived_at) notFound();
 
   return (
-    <>
+    <div className="mx-auto max-w-4xl">
       <PageHeader
+        back={{ href: `/websites/${websiteId}`, label: website.name }}
         title="New article"
-        description={
-          <>
-            For <Link href={`/websites/${websiteId}`} className="underline">{website.name}</Link>. Manual articles do not count against the automated daily quota.
-          </>
-        }
+        description="Manual articles do not count against the automated daily quota."
       />
       <ArticleForm action={createArticle.bind(null, websiteId)} rtl={website.text_direction === "rtl"} submitLabel="Create draft" />
-    </>
+    </div>
   );
 }

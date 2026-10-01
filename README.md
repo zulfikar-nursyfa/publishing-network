@@ -55,14 +55,3 @@ docs/                     setup, WordPress/SiteGround checklist, operations
 6. Prepare a WordPress site with [docs/wordpress-setup.md](docs/wordpress-setup.md), then use **Add website**.
 
 For first-time database setup in Supabase's SQL Editor, run `npm run db:schema` (or `node build_schema.js`) and paste the generated `supabase/_full_schema.sql` in one go. See [docs/setup.md](docs/setup.md) for the transaction and migration-history details.
-
-## Documentation
-
-For development checks, run `npm run lint` and `npm run build` after configuring `.env.local`. The codebase uses JavaScript/JSX, with JSDoc for core contracts and Zod for runtime validation.
-
-- [docs/HANDOFF.md](docs/HANDOFF.md): current state, invariants and next steps (start here).
-- [docs/project-brief.md](docs/project-brief.md): the client brief.
-- [docs/architecture.md](docs/architecture.md): code structure review and JavaScript conventions.
-- [docs/setup.md](docs/setup.md): Supabase projects, environment variables, Vercel deployment, staging vs production.
-- [docs/wordpress-setup.md](docs/wordpress-setup.md): preparing a WordPress site on SiteGround, connector plugin, Multisite decision.
-- [docs/operations.md](docs/operations.md): publishing failures and recovery, backups, routine tasks.

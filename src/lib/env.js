@@ -13,6 +13,8 @@ const serverEnvSchema = z.object({
     .refine((value) => Buffer.from(value, "base64").length === 32, {
       message: "must be 32 bytes encoded as base64 (run `npm run gen:key`)",
     }),
+  // Shared secret for /api/cron/* (Vercel Cron sends it as a Bearer token).
+  CRON_SECRET: z.union([z.literal(""), z.string().min(16, "must be at least 16 characters")]).optional(),
   // Allows http:// WordPress URLs. Only for the local Docker WordPress; never in staging/production.
   ALLOW_INSECURE_WORDPRESS: z
     .enum(["true", "false"])

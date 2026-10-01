@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   CircleCheck,
   CircleDollarSign,
+  CirclePause,
   ClipboardCheck,
   FileText,
   Globe,
@@ -10,7 +11,10 @@ import {
   TrendingUp,
   TriangleAlert,
 } from "lucide-react";
+import { setNetworkPaused } from "@/app/actions/network";
+import { SubmitButton } from "@/components/form-controls";
 import {
+  Alert,
   ArticleStatusBadge,
   Badge,
   ButtonLink,
@@ -32,7 +36,7 @@ export default async function OverviewPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: websites }, { data: stats }, { data: recent }, { data: failures }] = await Promise.all([
+  const [{ data: websites }, { data: stats }, { data: recent }, { data: failures }, { data: network }] = await Promise.all([
     supabase.from("websites").select("id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at").is("archived_at", null).order("name"),
     supabase.from("website_article_stats").select("*"),
     supabase
@@ -46,6 +50,7 @@ export default async function OverviewPage() {
       .eq("status", "failed")
       .order("updated_at", { ascending: false })
       .limit(10),
+    supabase.from("network_settings").select("automation_paused").maybeSingle(),
   ]);
 
   const statsBySite = new Map((stats ?? []).map((row) => [row.website_id, row]));
@@ -69,13 +74,38 @@ export default async function OverviewPage() {
         description={user.isAdmin ? "Here is what is happening across the network." : "Here is what is happening on your websites."}
         actions={
           user.isAdmin ? (
-            <ButtonLink href="/websites/new">
-              <Plus />
-              Add website
-            </ButtonLink>
+            <>
+              {!network?.automation_paused ? (
+                <form action={setNetworkPaused.bind(null, true)}>
+                  <SubmitButton
+                    variant="secondary"
+                    confirm="Pause automation on every website? Publishing slots stop until you resume. Manual and scheduled publishing continue."
+                    confirmLabel="Pause all automation"
+                  >
+                    <CirclePause />
+                    Pause all automation
+                  </SubmitButton>
+                </form>
+              ) : null}
+              <ButtonLink href="/websites/new">
+                <Plus />
+                Add website
+              </ButtonLink>
+            </>
           ) : null
         }
       />
+
+      {network?.automation_paused ? (
+        <Alert tone="warning" title="Automation is paused across the network" className="mb-8">
+          Publishing slots do not run on any website. Manual and scheduled publishing continue.
+          {user.isAdmin ? (
+            <form action={setNetworkPaused.bind(null, false)} className="mt-3">
+              <SubmitButton size="sm" variant="secondary">Resume automation</SubmitButton>
+            </form>
+          ) : null}
+        </Alert>
+      ) : null}
 
       <div className="mb-10 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
         <Stat label="Pending review" value={totals.inReview} href="/review" icon={ClipboardCheck} tone="amber" />

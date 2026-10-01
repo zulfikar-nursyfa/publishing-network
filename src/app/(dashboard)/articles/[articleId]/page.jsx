@@ -4,6 +4,7 @@ import { saveArticle } from "@/app/actions/articles";
 import { Alert, ArticleStatusBadge, Badge, Card, DescriptionList, PageHeader, PublicationStatusBadge, formatDateTime } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { nextFreeSlot, toLocalInput } from "@/lib/schedule";
 import { formatSourceLines } from "@/lib/validation";
 import { ArticleForm } from "../article-form";
 import { WorkflowPanel } from "./workflow-panel";
@@ -20,6 +21,24 @@ function Person({ when, who }) {
   );
 }
 
+/** Schedule panel data: the current schedule, or the next slot not already taken by another article. */
+async function scheduleFor(supabase, article, website) {
+  const { data: scheduled } = await supabase
+    .from("articles")
+    .select("scheduled_for")
+    .eq("website_id", website.id)
+    .eq("status", "approved")
+    .not("scheduled_for", "is", null);
+  const now = new Date();
+  const taken = new Set((scheduled ?? []).map((row) => new Date(row.scheduled_for).toISOString()));
+  const next = nextFreeSlot(now, website.publish_times, website.timezone, taken) ?? new Date(Math.ceil(now / 3_600_000) * 3_600_000 + 3_600_000);
+  return {
+    timezone: website.timezone,
+    label: article.scheduled_for ? formatDateTime(article.scheduled_for, website.timezone) : null,
+    defaultValue: toLocalInput(next, website.timezone),
+  };
+}
+
 export default async function ArticlePage({ params, searchParams }) {
   const { articleId } = await params;
   const user = await requireUser();
@@ -30,7 +49,7 @@ export default async function ArticlePage({ params, searchParams }) {
   if (!article) notFound();
 
   const [{ data: website }, { data: sources }, { data: publication }, { data: history }] = await Promise.all([
-    supabase.from("websites").select("id, name, timezone, text_direction, archived_at").eq("id", article.website_id).single(),
+    supabase.from("websites").select("id, name, timezone, publish_times, text_direction, archived_at").eq("id", article.website_id).single(),
     supabase.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
     supabase.from("publications").select("*").eq("article_id", articleId).maybeSingle(),
     supabase
@@ -52,6 +71,7 @@ export default async function ArticlePage({ params, searchParams }) {
     return actor ? actor.full_name || actor.email : id ? "Unknown user" : "System";
   };
 
+  const schedule = article.status === "approved" ? await scheduleFor(supabase, article, website) : null;
   const editable = ["draft", "in_review", "rejected"].includes(article.status);
   const rtl = website.text_direction === "rtl";
 
@@ -113,6 +133,7 @@ export default async function ArticlePage({ params, searchParams }) {
               maxAttempts: publication.max_attempts,
               lastError: publication.last_error,
             } : null}
+            schedule={schedule}
           />
 
           <Card icon={Info} title="Details">

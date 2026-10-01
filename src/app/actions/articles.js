@@ -10,6 +10,7 @@ import { createSupabasePublishStore } from "@/lib/publishing/supabase-store";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { createWordPressClient } from "@/lib/wordpress/client";
+import { zonedTimeToUtc } from "@/lib/schedule";
 import { articleSchema, fieldErrorsFrom, parseSourceLines, slugify } from "@/lib/validation";
 
 /** Statuses in which the article's content may be edited. Approved content is frozen. */
@@ -245,4 +246,42 @@ export async function publishArticleAction(articleId, _prev) {
           : `Publishing failed: ${result.error}`,
       };
   }
+}
+
+/** Sets or clears the time an approved article is published. The time is in the website's timezone. */
+export async function scheduleArticle(articleId, _prev, formData) {
+  const { user, supabase, article } = await loadArticle(articleId);
+  if (!article) return { error: "Article not found" };
+  if (article.status !== "approved") return { error: "Only approved articles can be scheduled." };
+
+  let scheduledFor = null;
+  if (formData.get("intent") !== "unschedule") {
+    const value = String(formData.get("scheduled_for") ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) return { error: "Choose a date and time." };
+    const { data: website } = await supabase.from("websites").select("timezone").eq("id", article.website_id).single();
+    const [day, time] = value.split("T");
+    scheduledFor = zonedTimeToUtc(day, time, website.timezone);
+    if (scheduledFor <= new Date()) return { error: "Choose a time in the future." };
+  }
+
+  const { data: updated, error } = await supabase
+    .from("articles")
+    .update({ scheduled_for: scheduledFor?.toISOString() ?? null })
+    .eq("id", articleId)
+    .eq("status", "approved")
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!updated) return { error: "The article changed while you were working. Reload and try again." };
+
+  await recordAudit({
+    action: scheduledFor ? "article.scheduled" : "article.unscheduled",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+    details: { scheduled_for: scheduledFor?.toISOString() ?? null },
+  });
+  refresh(article);
+  return { ok: true, message: scheduledFor ? "Article scheduled." : "Schedule removed." };
 }

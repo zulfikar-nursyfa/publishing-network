@@ -4,7 +4,8 @@ import { useActionState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { addContentSource, testWebsiteConnection } from "@/app/actions/websites";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
-import { Field, inputClass } from "@/components/ui";
+import { CheckboxLabel, Field, inputClass } from "@/components/ui";
+import { SOURCE_KINDS } from "@/lib/validation";
 
 export function TestConnectionButton({ websiteId }) {
   const [state, action] = useActionState(testWebsiteConnection.bind(null, websiteId), {});
@@ -26,24 +27,30 @@ export function AddSourceForm({ websiteId }) {
     <form action={action} className="space-y-4 rounded-lg bg-muted/40 p-4">
       <div className="text-sm font-medium">Add a source</div>
       <FormAlert state={state} />
-      <div className="grid gap-4 md:grid-cols-[1fr_2fr_10rem]">
+      <div className="grid gap-4 md:grid-cols-[1fr_12rem]">
         <Field label="Name" htmlFor="source-name" error={errors.name}>
           <input id="source-name" name="name" required className={inputClass} />
         </Field>
-        <Field label="URL" htmlFor="source-url" error={errors.url}>
-          <input id="source-url" name="url" type="url" required className={inputClass} placeholder="https://…" />
-        </Field>
-        <Field label="Type" htmlFor="source-kind">
-          <select id="source-kind" name="kind" className={inputClass} defaultValue="rss">
-            <option value="rss">RSS feed</option>
-            <option value="website">Website</option>
-            <option value="api">API</option>
+        <Field label="Type" htmlFor="source-kind" hint="Newsrooms and government sources count as primary sources.">
+          <select id="source-kind" name="kind" className={inputClass} defaultValue="news">
+            {Object.entries(SOURCE_KINDS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </Field>
       </div>
-      <Field label="Attribution and media rights note" htmlFor="source-note" error={errors.attribution_note} hint="e.g. licence terms, required credit line, whether images may be reused.">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Website URL" htmlFor="source-url" error={errors.url}>
+          <input id="source-url" name="url" type="url" required className={inputClass} placeholder="https://…" />
+        </Field>
+        <Field label="RSS or Atom feed URL" htmlFor="source-feed" error={errors.feed_url} hint="Optional. New stories are read from this feed every 30 minutes.">
+          <input id="source-feed" name="feed_url" type="url" className={inputClass} placeholder="https://…/rss" />
+        </Field>
+      </div>
+      <Field label="Attribution and usage rights note" htmlFor="source-note" error={errors.attribution_note} hint="e.g. licence terms, required credit line.">
         <input id="source-note" name="attribution_note" className={inputClass} />
       </Field>
+      <CheckboxLabel name="images_reusable">
+        Images from this source may be reused <span className="text-muted-foreground">(with credit, per the source&apos;s terms)</span>
+      </CheckboxLabel>
       <SubmitButton variant="secondary" pendingLabel="Adding…">
         <Plus />
         Add source

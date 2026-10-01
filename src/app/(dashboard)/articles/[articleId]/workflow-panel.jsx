@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { Check, CircleCheck, RotateCcw, Send, Undo2, Workflow, X } from "lucide-react";
-import { publishArticleAction, resetPublicationAttempts, transitionArticle } from "@/app/actions/articles";
+import { CalendarClock, Check, CircleCheck, RotateCcw, Send, Undo2, Workflow, X } from "lucide-react";
+import { publishArticleAction, resetPublicationAttempts, scheduleArticle, transitionArticle } from "@/app/actions/articles";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, cn, inputClass } from "@/components/ui";
 
@@ -32,12 +32,42 @@ function Stepper({ status }) {
   );
 }
 
+function ScheduleForm({ articleId, schedule }) {
+  const [state, action] = useActionState(scheduleArticle.bind(null, articleId), {});
+  return (
+    <form action={action} className="space-y-2 rounded-lg border p-3">
+      <FormAlert state={state} />
+      {schedule.label ? (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm">
+            <CalendarClock className="size-4 shrink-0 text-primary" />
+            <span>Scheduled for <span className="font-medium">{schedule.label}</span></span>
+          </div>
+          <SubmitButton name="intent" value="unschedule" variant="ghost" size="sm">Unschedule</SubmitButton>
+        </div>
+      ) : (
+        <>
+          <label htmlFor="scheduled_for" className="block text-sm font-medium">
+            Schedule <span className="font-normal text-muted-foreground">({schedule.timezone})</span>
+          </label>
+          <div className="flex gap-2">
+            <input id="scheduled_for" name="scheduled_for" type="datetime-local" required defaultValue={schedule.defaultValue} className={inputClass} />
+            <SubmitButton variant="secondary" pendingLabel="Saving…">Schedule</SubmitButton>
+          </div>
+          <p className="text-xs text-muted-foreground">Defaults to the next free publishing slot. Otherwise the next slot publishes the oldest approved article.</p>
+        </>
+      )}
+    </form>
+  );
+}
+
 export function WorkflowPanel({
   articleId,
   status,
   isAdmin,
   websiteArchived,
   publication,
+  schedule,
 }) {
   const [transitionState, transitionAction] = useActionState(transitionArticle.bind(null, articleId), {});
   const [publishState, publishAction] = useActionState(publishArticleAction.bind(null, articleId), {});
@@ -80,6 +110,8 @@ export function WorkflowPanel({
             ) : null}
           </form>
         ) : null}
+
+        {status === "approved" && !websiteArchived && schedule ? <ScheduleForm articleId={articleId} schedule={schedule} /> : null}
 
         {publication?.lastError && status !== "published" ? (
           <Alert tone="error" title="Last publishing error">

@@ -1,5 +1,30 @@
 import Link from "next/link";
-import { ArticleStatusBadge, Badge, ButtonLink, ConnectionBadge, EmptyState, PageHeader, Stat, Table, Td, Th, formatDateTime } from "@/components/ui";
+import {
+  CircleCheck,
+  CircleDollarSign,
+  ClipboardCheck,
+  FileText,
+  Globe,
+  Plus,
+  Send,
+  TrendingUp,
+  TriangleAlert,
+} from "lucide-react";
+import {
+  ArticleStatusBadge,
+  Badge,
+  ButtonLink,
+  ConnectionBadge,
+  EmptyState,
+  PageHeader,
+  SectionHeading,
+  Stat,
+  Table,
+  Td,
+  Th,
+  formatDateTime,
+  linkClass,
+} from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -35,108 +60,143 @@ export default async function OverviewPage() {
     }),
     { inReview: 0, approved: 0, today: 0, week: 0, failed: 0 },
   );
+  const firstName = (user.profile.full_name || "").split(" ")[0];
 
   return (
     <>
       <PageHeader
-        title="Overview"
-        description={user.isAdmin ? "All websites in the network." : "Websites you are assigned to."}
-        actions={user.isAdmin ? <ButtonLink href="/websites/new">Add website</ButtonLink> : null}
+        title={firstName ? `Welcome back, ${firstName}` : "Overview"}
+        description={user.isAdmin ? "Here is what is happening across the network." : "Here is what is happening on your websites."}
+        actions={
+          user.isAdmin ? (
+            <ButtonLink href="/websites/new">
+              <Plus />
+              Add website
+            </ButtonLink>
+          ) : null
+        }
       />
 
-      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <Stat label="Pending review" value={totals.inReview} href="/review" />
-        <Stat label="Ready to publish" value={totals.approved} />
-        <Stat label="Published today" value={totals.today} hint="In each site's timezone" />
-        <Stat label="Published 7 days" value={totals.week} />
-        <Stat label="Failed publishing" value={totals.failed} />
-        <Stat label="AI spend (est.)" value="—" hint="Starts when automation is enabled" />
+      <div className="mb-10 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <Stat label="Pending review" value={totals.inReview} href="/review" icon={ClipboardCheck} tone="amber" />
+        <Stat label="Ready to publish" value={totals.approved} icon={CircleCheck} tone="blue" />
+        <Stat label="Published today" value={totals.today} hint="In each site's timezone" icon={Send} tone="green" />
+        <Stat label="Published 7 days" value={totals.week} icon={TrendingUp} tone="purple" />
+        <Stat label="Failed publishing" value={totals.failed} icon={TriangleAlert} tone="red" alert={totals.failed > 0} />
+        <Stat label="AI spend (est.)" value="—" hint="Starts with automation" icon={CircleDollarSign} />
       </div>
 
-      <h2 className="mb-3 text-lg font-semibold">Websites</h2>
-      {websites && websites.length > 0 ? (
-        <div className="mb-8">
+      <section className="mb-10">
+        <SectionHeading
+          title="Websites"
+          description={`${websites?.length ?? 0} active`}
+          actions={websites && websites.length > 0 ? <Link href="/websites" className="text-sm font-medium text-primary underline-offset-4 hover:underline">View all</Link> : null}
+        />
+        {websites && websites.length > 0 ? (
           <Table>
             <thead>
               <tr>
                 <Th>Website</Th>
-                <Th>Connection</Th>
-                <Th>Automation</Th>
+                <Th className="hidden md:table-cell">Connection</Th>
+                <Th className="hidden md:table-cell">Automation</Th>
                 <Th className="text-right">In review</Th>
-                <Th className="text-right">Approved</Th>
-                <Th className="text-right">Published today</Th>
+                <Th className="hidden text-right sm:table-cell">Approved</Th>
+                <Th className="hidden text-right sm:table-cell">Today</Th>
                 <Th className="text-right">Failed</Th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {websites.map((site) => {
                 const row = statsBySite.get(site.id);
                 return (
                   <tr key={site.id}>
                     <Td>
-                      <Link href={`/websites/${site.id}`} className="font-medium hover:underline">{site.name}</Link>
-                      <div className="text-xs text-gray-500">{site.domain} · {site.language === "ar" ? "Arabic" : "English"}</div>
+                      <div className="flex items-center gap-3">
+                        <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground sm:flex">
+                          {site.language}
+                        </span>
+                        <div className="min-w-0">
+                          <Link href={`/websites/${site.id}`} className={linkClass}>{site.name}</Link>
+                          <div className="truncate text-xs text-muted-foreground">{site.domain} · {site.language === "ar" ? "Arabic" : "English"}</div>
+                          <div className="mt-1.5 flex flex-wrap gap-1 md:hidden">
+                            <ConnectionBadge status={site.wp_connection_status} />
+                          </div>
+                        </div>
+                      </div>
                     </Td>
-                    <Td><ConnectionBadge status={site.wp_connection_status} /></Td>
-                    <Td>{site.automation_paused ? <Badge>paused</Badge> : <Badge tone="green">{site.daily_quota}/day</Badge>}</Td>
+                    <Td className="hidden md:table-cell"><ConnectionBadge status={site.wp_connection_status} /></Td>
+                    <Td className="hidden md:table-cell">{site.automation_paused ? <Badge dot>paused</Badge> : <Badge tone="green" dot>{site.daily_quota}/day</Badge>}</Td>
                     <Td className="text-right tabular-nums">{row?.in_review ?? 0}</Td>
-                    <Td className="text-right tabular-nums">{row?.approved ?? 0}</Td>
-                    <Td className="text-right tabular-nums">{row?.published_today ?? 0}</Td>
-                    <Td className="text-right tabular-nums">{Number(row?.failed_publications ?? 0) > 0 ? <span className="font-semibold text-red-600">{row?.failed_publications}</span> : 0}</Td>
+                    <Td className="hidden text-right tabular-nums sm:table-cell">{row?.approved ?? 0}</Td>
+                    <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_today ?? 0}</Td>
+                    <Td className="text-right tabular-nums">
+                      {Number(row?.failed_publications ?? 0) > 0 ? <span className="font-semibold text-red-600 dark:text-red-400">{row?.failed_publications}</span> : <span className="text-muted-foreground">0</span>}
+                    </Td>
                   </tr>
                 );
               })}
             </tbody>
           </Table>
-        </div>
-      ) : (
-        <div className="mb-8">
-          <EmptyState>
-            {user.isAdmin ? (
-              <>No websites yet. <Link href="/websites/new" className="underline">Add the first website</Link>.</>
-            ) : (
-              "You are not assigned to any websites yet. Ask an administrator to add you."
-            )}
+        ) : (
+          <EmptyState
+            icon={Globe}
+            title="No websites yet"
+            action={user.isAdmin ? <ButtonLink href="/websites/new"><Plus />Add the first website</ButtonLink> : null}
+          >
+            {user.isAdmin ? "Connect a WordPress site to start publishing." : "You are not assigned to any websites yet. Ask an administrator to add you."}
           </EmptyState>
-        </div>
-      )}
+        )}
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div>
-          <h2 className="mb-3 text-lg font-semibold">Recent articles</h2>
+        <section className="min-w-0">
+          <SectionHeading title="Recent articles" />
           {recent && recent.length > 0 ? (
-            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white shadow-sm">
+            <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
               {recent.map((article) => (
-                <li key={article.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <Link href={`/articles/${article.id}`} className="block truncate font-medium hover:underline">{article.title}</Link>
-                    <div className="text-xs text-gray-500">{siteName.get(article.website_id) ?? "Archived website"} · {formatDateTime(article.updated_at)}</div>
-                  </div>
-                  <ArticleStatusBadge status={article.status} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState>No articles yet.</EmptyState>
-          )}
-        </div>
-        <div>
-          <h2 className="mb-3 text-lg font-semibold">Publishing failures</h2>
-          {failures && failures.length > 0 ? (
-            <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white shadow-sm">
-              {failures.map((failure) => (
-                <li key={failure.article_id} className="px-4 py-3">
-                  <Link href={`/articles/${failure.article_id}`} className="font-medium hover:underline">
-                    {siteName.get(failure.website_id) ?? "Website"}: attempt {failure.attempt_count} of {failure.max_attempts}
+                <li key={article.id}>
+                  <Link href={`/articles/${article.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
+                    <span className="hidden size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground sm:flex">
+                      <FileText className="size-4" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{article.title}</div>
+                      <div className="truncate text-xs text-muted-foreground">{siteName.get(article.website_id) ?? "Archived website"} · {formatDateTime(article.updated_at)}</div>
+                    </div>
+                    <ArticleStatusBadge status={article.status} />
                   </Link>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-red-700">{failure.last_error}</p>
                 </li>
               ))}
             </ul>
           ) : (
-            <EmptyState>No failed publishing attempts.</EmptyState>
+            <EmptyState icon={FileText}>No articles yet.</EmptyState>
           )}
-        </div>
+        </section>
+        <section className="min-w-0">
+          <SectionHeading title="Publishing failures" />
+          {failures && failures.length > 0 ? (
+            <ul className="divide-y overflow-hidden rounded-xl border border-red-500/20 bg-card shadow-xs">
+              {failures.map((failure) => (
+                <li key={failure.article_id}>
+                  <Link href={`/articles/${failure.article_id}`} className="flex gap-3 px-4 py-3 transition-colors hover:bg-red-500/5">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
+                      <TriangleAlert className="size-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">
+                        {siteName.get(failure.website_id) ?? "Website"}
+                        <span className="font-normal text-muted-foreground"> · attempt {failure.attempt_count} of {failure.max_attempts}</span>
+                      </div>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-red-700 dark:text-red-300">{failure.last_error}</p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState icon={CircleCheck}>No failed publishing attempts. All clear.</EmptyState>
+          )}
+        </section>
       </div>
     </>
   );

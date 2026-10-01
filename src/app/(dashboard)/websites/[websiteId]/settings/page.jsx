@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Bot, ExternalLink, Plug, Rss } from "lucide-react";
 import {
   deleteContentSource,
   setAutomationPaused,
@@ -7,7 +7,7 @@ import {
   updateWebsite,
 } from "@/app/actions/websites";
 import { SubmitButton } from "@/components/form-controls";
-import { Badge, Card, ConnectionBadge, PageHeader, formatDateTime } from "@/components/ui";
+import { Alert, Badge, Card, ConnectionBadge, DescriptionList, PageHeader, formatDateTime } from "@/components/ui";
 import { requireWebsite } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatPublishTimes } from "@/lib/schedule";
@@ -30,40 +30,40 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
   ]);
 
   return (
-    <>
+    <div className="mx-auto max-w-5xl">
       <PageHeader
-        title={`${website.name}: ${user.isAdmin ? "settings" : "details"}`}
-        description={<Link href={`/websites/${websiteId}`} className="underline">Back to articles</Link>}
+        back={{ href: `/websites/${websiteId}`, label: website.name }}
+        title={user.isAdmin ? "Website settings" : "Website details"}
+        description={`Connection, automation and sources for ${website.name}.`}
       />
 
       {created ? (
-        <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Website added. Check the connection result below before publishing.
-        </div>
+        <Alert tone="success" title="Website added" className="mb-6">
+          Check the connection result below before publishing.
+        </Alert>
       ) : null}
 
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        <Card title="WordPress connection" actions={<ConnectionBadge status={website.wp_connection_status} />}>
-          <dl className="mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-gray-500">Site</dt>
-            <dd className="truncate">{website.wp_base_url}</dd>
-            <dt className="text-gray-500">User</dt>
-            <dd>{website.wp_username}</dd>
-            <dt className="text-gray-500">Connector</dt>
-            <dd>{website.wp_plugin_version ?? "unknown"}</dd>
-            <dt className="text-gray-500">Last checked</dt>
-            <dd>{formatDateTime(website.wp_connection_checked_at, website.timezone)}</dd>
-          </dl>
+        <Card icon={Plug} title="WordPress connection" actions={<ConnectionBadge status={website.wp_connection_status} />}>
+          <DescriptionList
+            className="mb-5"
+            items={[
+              { label: "Site", value: <span className="font-mono text-xs">{website.wp_base_url}</span> },
+              { label: "User", value: website.wp_username },
+              { label: "Connector", value: website.wp_plugin_version ?? "unknown" },
+              { label: "Last checked", value: formatDateTime(website.wp_connection_checked_at, website.timezone) },
+            ]}
+          />
           {website.wp_connection_error ? (
-            <p className={`mb-4 rounded-md px-3 py-2 text-sm ${website.wp_connection_status === "failed" ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-900"}`}>
+            <Alert tone={website.wp_connection_status === "failed" ? "error" : "warning"} className="mb-4">
               {website.wp_connection_error}
-            </p>
+            </Alert>
           ) : null}
           <TestConnectionButton websiteId={websiteId} />
         </Card>
 
-        <Card title="Automation" actions={website.automation_paused ? <Badge>paused</Badge> : <Badge tone="green">running</Badge>}>
-          <p className="mb-4 text-sm text-gray-600">
+        <Card icon={Bot} title="Automation" actions={website.automation_paused ? <Badge dot>paused</Badge> : <Badge tone="green" dot>running</Badge>}>
+          <p className="mb-5 text-sm leading-relaxed text-muted-foreground">
             {website.automation_mode === "off" || website.daily_quota === 0
               ? "Automation is off or has no publishing times, so it will not create articles even when resumed."
               : `${website.daily_quota} automated article${website.daily_quota === 1 ? "" : "s"} per day at ${formatPublishTimes(website.publish_times)} (${website.timezone}), ${
@@ -79,8 +79,9 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
               </form>
               <form action={setWebsiteArchived.bind(null, websiteId, !website.archived_at)}>
                 <SubmitButton
-                  variant={website.archived_at ? "secondary" : "danger"}
+                  variant={website.archived_at ? "secondary" : "danger-outline"}
                   confirm={website.archived_at ? undefined : "Archive this website? Automation stops and it is hidden from the active list. Nothing is deleted."}
+                  confirmLabel="Archive website"
                 >
                   {website.archived_at ? "Restore website" : "Archive website"}
                 </SubmitButton>
@@ -90,25 +91,30 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
         </Card>
       </div>
 
-      <Card className="mb-6" title="Approved content sources" description="Automation only draws stories from active sources on this list.">
+      <Card icon={Rss} className="mb-6" title="Approved content sources" description="Automation only draws stories from active sources on this list.">
         {sources && sources.length > 0 ? (
-          <ul className="mb-4 divide-y divide-gray-100">
+          <ul className="mb-5 divide-y rounded-lg border">
             {sources.map((source) => (
-              <li key={source.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
+              <li key={source.id} className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-4">
                 <div className="min-w-0">
-                  <div className="font-medium">
-                    {source.name} <Badge>{source.kind}</Badge> {source.active ? null : <Badge tone="amber">disabled</Badge>}
+                  <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                    {source.name}
+                    <Badge>{source.kind}</Badge>
+                    {source.active ? null : <Badge tone="amber">disabled</Badge>}
                   </div>
-                  <a href={source.url} target="_blank" rel="noreferrer" className="block truncate text-xs text-gray-500 underline">{source.url}</a>
-                  {source.attribution_note ? <div className="text-xs text-gray-500">{source.attribution_note}</div> : null}
+                  <a href={source.url} target="_blank" rel="noreferrer" className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary">
+                    <span className="truncate">{source.url}</span>
+                    <ExternalLink className="size-3 shrink-0" />
+                  </a>
+                  {source.attribution_note ? <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div> : null}
                 </div>
                 {user.isAdmin ? (
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-2">
                     <form action={setContentSourceActive.bind(null, websiteId, source.id, !source.active)}>
-                      <SubmitButton variant="secondary">{source.active ? "Disable" : "Enable"}</SubmitButton>
+                      <SubmitButton variant="secondary" size="sm">{source.active ? "Disable" : "Enable"}</SubmitButton>
                     </form>
                     <form action={deleteContentSource.bind(null, websiteId, source.id)}>
-                      <SubmitButton variant="secondary" confirm={`Remove ${source.name}?`}>Remove</SubmitButton>
+                      <SubmitButton variant="danger-outline" size="sm" confirm={`Remove ${source.name}?`} confirmLabel="Remove">Remove</SubmitButton>
                     </form>
                   </div>
                 ) : null}
@@ -116,20 +122,23 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
             ))}
           </ul>
         ) : (
-          <p className="mb-4 text-sm text-gray-600">No sources yet.</p>
+          <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No sources yet.</p>
         )}
         {user.isAdmin ? <AddSourceForm websiteId={websiteId} /> : null}
       </Card>
 
       {user.isAdmin ? (
-        <WebsiteForm
-          action={updateWebsite.bind(null, websiteId)}
-          website={website}
-          editors={editors ?? []}
-          assignedEditorIds={(members ?? []).map((member) => member.user_id)}
-          timezones={TIMEZONES}
-        />
+        <>
+          <h2 className="mt-10 mb-4 text-lg font-semibold tracking-tight">Edit website</h2>
+          <WebsiteForm
+            action={updateWebsite.bind(null, websiteId)}
+            website={website}
+            editors={editors ?? []}
+            assignedEditorIds={(members ?? []).map((member) => member.user_id)}
+            timezones={TIMEZONES}
+          />
+        </>
       ) : null}
-    </>
+    </div>
   );
 }

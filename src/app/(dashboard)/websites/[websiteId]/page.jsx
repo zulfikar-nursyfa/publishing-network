@@ -1,5 +1,20 @@
 import Link from "next/link";
-import { ArticleStatusBadge, Badge, ButtonLink, ConnectionBadge, EmptyState, PageHeader, Stat, Table, Td, Th, cn, formatDateTime } from "@/components/ui";
+import { CircleCheck, ClipboardCheck, ExternalLink, FileText, Plus, Send, Settings, TriangleAlert, Upload } from "lucide-react";
+import {
+  ArticleStatusBadge,
+  Badge,
+  ButtonLink,
+  ConnectionBadge,
+  EmptyState,
+  FilterTabs,
+  PageHeader,
+  Stat,
+  Table,
+  Td,
+  Th,
+  formatDateTime,
+  linkClass,
+} from "@/components/ui";
 import { requireWebsite } from "@/lib/auth";
 
 import { createClient } from "@/lib/supabase/server";
@@ -38,49 +53,57 @@ export default async function WebsitePage({ params, searchParams }) {
   return (
     <>
       <PageHeader
+        back={{ href: "/websites", label: "Websites" }}
         title={website.name}
         description={
-          <span className="flex flex-wrap items-center gap-2">
-            <a href={`https://${website.domain}`} target="_blank" rel="noreferrer" className="underline">{website.domain}</a>
-            <span>·</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            <a href={`https://${website.domain}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
+              {website.domain}
+              <ExternalLink className="size-3" />
+            </a>
+            <span className="text-border">|</span>
             <span>{rtl ? "Arabic (RTL)" : "English"}</span>
-            <span>·</span>
+            <span className="text-border">|</span>
             <span>{website.timezone}</span>
-            <ConnectionBadge status={website.wp_connection_status} />
-            {website.automation_paused ? <Badge>automation paused</Badge> : <Badge tone="green">automation {website.daily_quota}/day</Badge>}
-            {website.archived_at ? <Badge tone="red">archived</Badge> : null}
+            <span className="flex w-full flex-wrap gap-1.5 pt-1 sm:w-auto sm:pt-0">
+              <ConnectionBadge status={website.wp_connection_status} />
+              {website.automation_paused ? <Badge dot>automation paused</Badge> : <Badge tone="green" dot>automation {website.daily_quota}/day</Badge>}
+              {website.archived_at ? <Badge tone="red">archived</Badge> : null}
+            </span>
           </span>
         }
         actions={
           <>
-            <ButtonLink href={`/websites/${websiteId}/settings`} variant="secondary">{user.isAdmin ? "Settings" : "Details"}</ButtonLink>
-            {!website.archived_at ? <ButtonLink href={`/websites/${websiteId}/articles/new`}>New article</ButtonLink> : null}
+            <ButtonLink href={`/websites/${websiteId}/settings`} variant="secondary">
+              <Settings />
+              {user.isAdmin ? "Settings" : "Details"}
+            </ButtonLink>
+            {!website.archived_at ? (
+              <ButtonLink href={`/websites/${websiteId}/articles/new`}>
+                <Plus />
+                New article
+              </ButtonLink>
+            ) : null}
           </>
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Stat label="In review" value={stats?.in_review ?? 0} />
-        <Stat label="Approved" value={stats?.approved ?? 0} />
-        <Stat label="Published today" value={stats?.published_today ?? 0} />
-        <Stat label="Published total" value={stats?.published_total ?? 0} />
-        <Stat label="Failed publishing" value={stats?.failed_publications ?? 0} />
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <Stat label="In review" value={stats?.in_review ?? 0} icon={ClipboardCheck} tone="amber" />
+        <Stat label="Approved" value={stats?.approved ?? 0} icon={CircleCheck} tone="blue" />
+        <Stat label="Published today" value={stats?.published_today ?? 0} icon={Send} tone="green" />
+        <Stat label="Published total" value={stats?.published_total ?? 0} icon={Upload} tone="purple" />
+        <Stat label="Failed publishing" value={stats?.failed_publications ?? 0} icon={TriangleAlert} tone="red" alert={Number(stats?.failed_publications ?? 0) > 0} />
       </div>
 
-      <div className="mb-3 flex flex-wrap gap-1">
-        {FILTERS.map((item) => (
-          <Link
-            key={item.key}
-            href={item.key === "all" ? `/websites/${websiteId}` : `/websites/${websiteId}?status=${item.key}`}
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm",
-              filter === item.key ? "bg-gray-900 text-white" : "bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50",
-            )}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </div>
+      <FilterTabs
+        active={filter}
+        items={FILTERS.map((item) => ({
+          key: item.key,
+          label: item.label,
+          href: item.key === "all" ? `/websites/${websiteId}` : `/websites/${websiteId}?status=${item.key}`,
+        }))}
+      />
 
       {articles && articles.length > 0 ? (
         <Table>
@@ -88,31 +111,40 @@ export default async function WebsitePage({ params, searchParams }) {
             <tr>
               <Th>Title</Th>
               <Th>Status</Th>
-              <Th>Origin</Th>
-              <Th>Updated</Th>
-              <Th>Published</Th>
+              <Th className="hidden lg:table-cell">Origin</Th>
+              <Th className="hidden md:table-cell">Updated</Th>
+              <Th className="hidden sm:table-cell">Published</Th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {articles.map((article) => (
               <tr key={article.id}>
-                <Td>
-                  <Link href={`/articles/${article.id}`} dir={rtl ? "rtl" : "ltr"} className="font-medium hover:underline">{article.title}</Link>
+                <Td className="max-w-md">
+                  <Link href={`/articles/${article.id}`} dir={rtl ? "rtl" : "ltr"} className={`${linkClass} line-clamp-2`}>{article.title}</Link>
+                  <div className="mt-0.5 text-xs text-muted-foreground md:hidden">Updated {formatDateTime(article.updated_at, website.timezone)}</div>
                 </Td>
                 <Td><ArticleStatusBadge status={article.status} /></Td>
-                <Td className="text-gray-600">{article.origin}</Td>
-                <Td className="whitespace-nowrap text-gray-600">{formatDateTime(article.updated_at, website.timezone)}</Td>
-                <Td className="whitespace-nowrap text-gray-600">
-                  {article.wp_post_url ? <a href={article.wp_post_url} target="_blank" rel="noreferrer" className="underline">{formatDateTime(article.published_at, website.timezone)}</a> : "—"}
+                <Td className="hidden capitalize text-muted-foreground lg:table-cell">{article.origin}</Td>
+                <Td className="hidden whitespace-nowrap text-muted-foreground md:table-cell">{formatDateTime(article.updated_at, website.timezone)}</Td>
+                <Td className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">
+                  {article.wp_post_url ? (
+                    <a href={article.wp_post_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline-offset-4 hover:text-primary hover:underline">
+                      {formatDateTime(article.published_at, website.timezone)}
+                      <ExternalLink className="size-3" />
+                    </a>
+                  ) : "—"}
                 </Td>
               </tr>
             ))}
           </tbody>
         </Table>
       ) : (
-        <EmptyState>
-          No articles{filter !== "all" ? " with this status" : ""}.{" "}
-          {!website.archived_at ? <Link href={`/websites/${websiteId}/articles/new`} className="underline">Write one</Link> : null}
+        <EmptyState
+          icon={FileText}
+          title={`No articles${filter !== "all" ? " with this status" : " yet"}`}
+          action={!website.archived_at ? <ButtonLink href={`/websites/${websiteId}/articles/new`} variant="secondary"><Plus />Write an article</ButtonLink> : null}
+        >
+          {filter !== "all" ? "Try another filter, or write a new article." : "Articles you write or automation drafts will appear here."}
         </EmptyState>
       )}
     </>

@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Card, Field, inputClass } from "@/components/ui";
+import { DEFAULT_PUBLISH_TIMES, DEFAULT_TIMEZONE, formatPublishTimes } from "@/lib/schedule";
 
 export function WebsiteForm({
   action,
@@ -86,26 +87,41 @@ export function WebsiteForm({
       <Card title="Publishing and automation" description="Automation starts paused. Manual articles are never limited by these settings.">
         <div className="grid gap-4 md:grid-cols-3">
           <Field label="Publishing timezone" htmlFor="timezone" error={errors.timezone}>
-            <select id="timezone" name="timezone" defaultValue={website?.timezone ?? "UTC"} className={inputClass}>
+            <select id="timezone" name="timezone" defaultValue={website?.timezone ?? DEFAULT_TIMEZONE} className={inputClass}>
               {timezones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
             </select>
           </Field>
-          <Field label="Automated articles per day" htmlFor="daily_quota" error={errors.daily_quota} hint="Manual articles are additional.">
-            <select id="daily_quota" name="daily_quota" defaultValue={String(website?.daily_quota ?? 0)} className={inputClass}>
-              <option value="0">0 (automation off)</option>
-              <option value="1">1</option>
-              <option value="2">2</option>
-            </select>
+          <Field
+            label="Publishing times"
+            htmlFor="publish_times"
+            error={errors.publish_times}
+            hint="One automated article at each time, in the website's timezone. Leave empty for none. Manual articles are additional."
+          >
+            <input
+              id="publish_times"
+              name="publish_times"
+              defaultValue={website ? formatPublishTimes(website.publish_times) : DEFAULT_PUBLISH_TIMES.join(", ")}
+              className={inputClass}
+              placeholder="08:00, 14:00, 20:00"
+            />
           </Field>
           <Field label="Monthly AI spending limit (USD)" htmlFor="monthly_ai_budget_usd" error={errors.monthly_ai_budget_usd} hint="Automation stops when the estimate reaches this.">
             <input id="monthly_ai_budget_usd" name="monthly_ai_budget_usd" type="number" min="0" step="0.01" defaultValue={website?.monthly_ai_budget_usd ?? 0} className={inputClass} />
           </Field>
+          <Field label="Automation mode" htmlFor="automation_mode" error={errors.automation_mode}>
+            <select id="automation_mode" name="automation_mode" defaultValue={website?.automation_mode ?? "review"} className={inputClass}>
+              <option value="review">Review: every automated article is approved first</option>
+              <option value="off">Off: no automated articles</option>
+              <option value="automatic" disabled={website?.automation_mode !== "automatic"}>
+                Automatic: allowed categories skip review (after the testing period)
+              </option>
+            </select>
+          </Field>
+          <Field label="AI model" htmlFor="ai_model" error={errors.ai_model} hint="Leave empty to use the network default.">
+            <input id="ai_model" name="ai_model" defaultValue={website?.ai_model ?? ""} className={inputClass} placeholder="Network default" />
+          </Field>
         </div>
         <div className="mt-4 space-y-2 text-sm">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked disabled className="h-4 w-4" />
-            <span>Automated articles require editorial approval <span className="text-gray-500">(required at launch)</span></span>
-          </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="generate_illustrations" defaultChecked={website?.generate_illustrations ?? false} className="h-4 w-4" />
             <span>Generate AI illustrations for automated articles <span className="text-gray-500">(each needs approval)</span></span>

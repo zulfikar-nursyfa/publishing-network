@@ -10,6 +10,7 @@ const FILTERS = [
   { key: "in_review", label: "In review" },
   { key: "approved", label: "Approved" },
   { key: "published", label: "Published" },
+  { key: "unpublished", label: "Unpublished" },
   { key: "rejected", label: "Rejected" },
 ];
 

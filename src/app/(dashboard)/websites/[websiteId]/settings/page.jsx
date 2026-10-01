@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/form-controls";
 import { Badge, Card, ConnectionBadge, PageHeader, formatDateTime } from "@/components/ui";
 import { requireWebsite } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { formatPublishTimes } from "@/lib/schedule";
 import { TIMEZONES } from "@/lib/validation";
 import { WebsiteForm } from "../../website-form";
 import { AddSourceForm, TestConnectionButton } from "./settings-forms";
@@ -63,9 +64,11 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
 
         <Card title="Automation" actions={website.automation_paused ? <Badge>paused</Badge> : <Badge tone="green">running</Badge>}>
           <p className="mb-4 text-sm text-gray-600">
-            {website.daily_quota === 0
-              ? "Daily quota is 0, so automation will not create articles even when resumed."
-              : `Up to ${website.daily_quota} automated article${website.daily_quota === 1 ? "" : "s"} per day, each reviewed before publishing. Manual publishing is unaffected by pausing.`}
+            {website.automation_mode === "off" || website.daily_quota === 0
+              ? "Automation is off or has no publishing times, so it will not create articles even when resumed."
+              : `${website.daily_quota} automated article${website.daily_quota === 1 ? "" : "s"} per day at ${formatPublishTimes(website.publish_times)} (${website.timezone}), ${
+                  website.automation_mode === "review" ? "each reviewed before publishing" : "reviewed unless the category allows automatic publishing"
+                }. Manual publishing is unaffected by pausing.`}
           </p>
           {user.isAdmin ? (
             <div className="flex flex-wrap gap-2">

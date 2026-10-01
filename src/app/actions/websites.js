@@ -20,7 +20,11 @@ function websiteColumns(input) {
     topic: input.topic,
     audience: input.audience,
     timezone: input.timezone,
-    daily_quota: input.daily_quota,
+    // daily_quota must equal the number of publishing times (websites_publish_times_match_quota).
+    publish_times: input.publish_times,
+    daily_quota: input.publish_times.length,
+    automation_mode: input.automation_mode,
+    ai_model: input.ai_model,
     monthly_ai_budget_usd: input.monthly_ai_budget_usd,
     generate_illustrations: input.generate_illustrations,
     branding: {
@@ -150,6 +154,8 @@ export async function updateWebsite(websiteId, _prev, formData) {
       editors_added: toAdd,
       editors_removed: toRemove,
       daily_quota: website.daily_quota,
+      publish_times: website.publish_times,
+      automation_mode: website.automation_mode,
       monthly_ai_budget_usd: website.monthly_ai_budget_usd,
     },
   });

@@ -96,6 +96,7 @@ const articleTone = {
   in_review: "amber",
   approved: "blue",
   published: "green",
+  unpublished: "gray",
   rejected: "red",
 };
 

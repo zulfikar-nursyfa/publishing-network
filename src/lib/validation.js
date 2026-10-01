@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DAILY_ARTICLES } from "@/lib/schedule";
 
 /**
  * @typedef {Object} FormState
@@ -56,6 +57,15 @@ export function slugify(value) {
     .slice(0, 60);
 }
 
+/** "8:00, 14:00 20:00" → ["08:00", "14:00", "20:00"]: 24-hour, unique, sorted. */
+const publishTimes = z
+  .string()
+  .default("")
+  .transform((value) => [...new Set(value.split(/[\s,;]+/).filter(Boolean).map((time) => time.padStart(5, "0")))])
+  .refine((times) => times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)), "Use 24-hour times such as 08:00, 14:00, 20:00")
+  .refine((times) => times.length <= MAX_DAILY_ARTICLES, `At most ${MAX_DAILY_ARTICLES} publishing times per day`)
+  .transform((times) => times.sort());
+
 const hexColor = z
   .string()
   .trim()
@@ -80,7 +90,12 @@ export const websiteSettingsSchema = z.object({
   topic: optionalText(200),
   audience: optionalText(500),
   timezone: z.string().refine((zone) => TIMEZONES.includes(zone), "Choose a valid timezone"),
-  daily_quota: z.coerce.number().int().min(0).max(2),
+  publish_times: publishTimes,
+  automation_mode: z.enum(["off", "review", "automatic"]),
+  ai_model: optionalText(100).refine(
+    (value) => value === null || /^[A-Za-z0-9._:/-]+$/.test(value),
+    "Model names use letters, numbers, dots, dashes and slashes",
+  ),
   monthly_ai_budget_usd: z.coerce.number().min(0, "Cannot be negative").max(100_000),
   generate_illustrations: checkbox,
   brand_tagline: optionalText(200),

@@ -35,6 +35,7 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @param {string|null} actorId
  * @param {PublishStore} store
  * @param {(connection: import("../wordpress/client").WordPressConnection) => import("../wordpress/client").WordPressClient} wordpressFor
+ * @param {{beforeWrite?: () => Promise<string|null>|string|null}} [options] Latest automatic-slot controls, invoked immediately before a WordPress write.
  * @returns {Promise<PublishResult>}
  */
 
@@ -43,6 +44,7 @@ export async function publishArticle(
   actorId,
   store,
   wordpressFor,
+  options = {},
 ) {
   const claim = await store.claim(articleId, actorId);
   if (!claim) {
@@ -82,6 +84,9 @@ export async function publishArticle(
     const reconciled = post !== null;
 
     if (!post) {
+      if (context.article.status === "published") return fail("Published article has no matching WordPress post; review it manually", false);
+      const reason = await options.beforeWrite?.();
+      if (reason) return fail(reason, false);
       post = await wordpress.createPost({
         articleId,
         title: context.article.title,
@@ -96,6 +101,8 @@ export async function publishArticle(
         false,
       );
     } else if (post.status !== "publish" && post.status !== "future") {
+      const reason = await options.beforeWrite?.();
+      if (reason) return fail(reason, false);
       post = await wordpress.updatePostStatus(post.id, "publish");
     }
 
@@ -120,7 +127,7 @@ export async function publishArticle(
 }
 
 function checkControls(context) {
-  if (context.article.status !== "approved") {
+  if (!["approved", "published"].includes(context.article.status)) {
     return `Article must be approved before publishing (current status: ${context.article.status})`;
   }
   if (context.website.archived) return "Website is archived";

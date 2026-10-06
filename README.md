@@ -7,20 +7,28 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 | Dashboard and backend | Next.js 16 (App Router, JavaScript) on Vercel |
 | Database and login | Supabase (PostgreSQL, Auth, row level security) |
 | Public websites | WordPress on SiteGround, published to through the REST API |
-| Scheduling (next phase) | Vercel Cron calling protected `/api/cron/*` routes |
-| AI generation (next phase) | Gemini API with usage tracking |
+| Scheduling | Vercel Cron calling protected `/api/cron/*` routes |
+| AI generation | Gemini API with resumable draft jobs, usage estimates and budget reservations |
 
-## What exists today (Phase 1 and 2 foundation)
+## What exists today
 
 - **Login** with Supabase Auth: administrators and editors, invitation-only, password reset.
 - **Website permissions**: administrators see all websites; editors only see the websites assigned to them. Enforced in server code *and* in database row level security.
-- **Add website**: name, domain, language (Arabic is right-to-left), topic, audience, branding, WordPress connection, timezone, daily quota (0/1/2), AI spending limit, illustrations toggle, editors and approved sources. Automation starts paused.
+- **Add website**: name, domain, language (Arabic is right-to-left), topic, audience, branding, WordPress connection, timezone, publishing time pickers (up to 12 daily slots), AI spending limit, illustrations toggle, editors and approved sources. Automation starts paused. Branding includes a colour picker with hex input and logo upload/preview/replacement/removal.
 - **Test connection**: checks the credentials, the connector plugin, the user's publish permission and the site language/RTL setting.
 - **Manual articles**: write, edit, submit for review, approve, reject with a note, return to draft.
 - **Publishing to WordPress** that is safe to retry: a database lock stops two attempts running at once, WordPress is checked for an existing post before creating one, and the post is read back to confirm it is live.
 - **Overview, review queue, per-website article lists, activity log.**
 
-Not built yet: automation (sources → AI draft → checks), cron jobs, AI usage tracking, Google Analytics / Search Console, CSV exports, WordPress themes. The schema already keys everything by website so these slot in without redesign.
+Feed discovery, a story inbox, Cairo publishing slots and explicit article scheduling are built. Automatic slots use leases, select only automated articles and reload controls before WordPress writes. Expired workers reconcile the same article rather than selecting another one.
+
+Selected stories can now run through permitted evidence collection, primary-source research, Gemini drafting, originality/language/source checks and AI verification into the human review queue. Jobs persist one step per worker invocation, support bounded retries and administrator retry/cancel, and never overwrite existing articles. All AI drafts require human approval during the initial rollout, including sites configured in automatic mode.
+
+AI usage is estimated using configurable model prices. Calls reserve budget atomically before generation; lost responses retain a reservation until an administrator checks provider billing. Network settings, draft-job inspection and research permissions are available in the dashboard.
+
+These changes are local and require migrations **19–23**, Gemini configuration and staging validation before use. See [docs/automation-pipeline.md](docs/automation-pipeline.md) and [docs/website-branding.md](docs/website-branding.md). Do not enable automation or deploy the new cron configuration before applying the corresponding schema to that environment.
+
+Still pending: Google Analytics / Search Console, CSV exports, WordPress themes, category/WordPress sync, image delivery, article preview and dashboard unpublish.
 
 ## Repository layout
 
@@ -55,3 +63,11 @@ docs/                     setup, WordPress/SiteGround checklist, operations
 6. Prepare a WordPress site with [docs/wordpress-setup.md](docs/wordpress-setup.md), then use **Add website**.
 
 For first-time database setup in Supabase's SQL Editor, run `npm run db:schema` (or `node build_schema.js`) and paste the generated `supabase/_full_schema.sql` in one go. See [docs/setup.md](docs/setup.md) for the transaction and migration-history details.
+
+For an existing database with migrations **00–18 already applied**, generate only the pending update:
+
+```bash
+npm run db:schema -- --from 19
+```
+
+Run the entire generated `supabase/_update_from_19.sql` in that project's SQL Editor once. It contains only migrations 19–23. If any of these have already been applied, choose the actual first unapplied migration instead. An `app_role already exists` error means the full setup is being replayed against an existing schema; use the update bundle rather than deleting existing types or tables. If 00–22 are already applied, use `npm run db:schema -- --from 23` for the logo bucket alone.

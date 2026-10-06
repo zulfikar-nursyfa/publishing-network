@@ -4,7 +4,8 @@ import { useActionState, useState } from "react";
 import { CalendarClock, Globe, Palette, Plug, Rss, Users } from "lucide-react";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Card, CheckboxLabel, Field, inputClass } from "@/components/ui";
-import { DEFAULT_PUBLISH_TIMES, DEFAULT_TIMEZONE, formatPublishTimes } from "@/lib/schedule";
+import { DEFAULT_PUBLISH_TIMES, DEFAULT_TIMEZONE } from "@/lib/schedule";
+import { BrandColourPicker, LogoUpload, PublishingTimesPicker } from "./website-inputs";
 
 export function WebsiteForm({
   action,
@@ -13,13 +14,27 @@ export function WebsiteForm({
   assignedEditorIds = [],
   timezones,
 }) {
-  const [state, formAction] = useActionState(action, {});
+  const [branding, setBranding] = useState(website?.branding ?? {});
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoRemoved, setLogoRemoved] = useState(false);
+  const [logoInputKey, setLogoInputKey] = useState(0);
+  const [state, formAction] = useActionState(async (previous, formData) => {
+    if (logoFile) formData.set("brand_logo", logoFile);
+    else formData.delete("brand_logo");
+    formData.set("brand_remove_logo", logoRemoved ? "on" : "");
+    const result = await action(previous, formData);
+    if (result.ok) {
+      setBranding(result.branding);
+      setLogoFile(null);
+      setLogoRemoved(false);
+      setLogoInputKey((key) => key + 1);
+    }
+    return result;
+  }, {});
   const [language, setLanguage] = useState(website?.language ?? "en");
   const [color, setColor] = useState(website?.branding?.primary_color ?? "");
   const errors = state.fieldErrors ?? {};
-  const branding = (website?.branding ?? {});
   const isNew = !website;
-  const validColor = /^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(color);
 
   return (
     <form action={formAction} className="space-y-6">
@@ -56,26 +71,9 @@ export function WebsiteForm({
           <Field label="Tagline" htmlFor="brand_tagline" error={errors.brand_tagline}>
             <input id="brand_tagline" name="brand_tagline" dir={language === "ar" ? "rtl" : "ltr"} defaultValue={branding.tagline ?? ""} className={inputClass} />
           </Field>
-          <Field label="Primary colour" htmlFor="brand_primary_color" error={errors.brand_primary_color}>
-            <div className="relative">
-              <span
-                aria-hidden
-                className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 rounded border"
-                style={{ background: validColor ? color : "transparent" }}
-              />
-              <input
-                id="brand_primary_color"
-                name="brand_primary_color"
-                value={color}
-                onChange={(event) => setColor(event.target.value)}
-                className={`${inputClass} pl-9 font-mono`}
-                placeholder="#1d4ed8"
-              />
-            </div>
-          </Field>
-          <Field label="Logo URL" htmlFor="brand_logo_url" error={errors.brand_logo_url}>
-            <input id="brand_logo_url" name="brand_logo_url" defaultValue={branding.logo_url ?? ""} className={inputClass} placeholder="https://…" />
-          </Field>
+          <BrandColourPicker value={color} onChange={setColor} error={errors.brand_primary_color} />
+          <LogoUpload key={logoInputKey} currentUrl={branding.logo_url} removed={logoRemoved}
+            onFileChange={setLogoFile} onRemove={setLogoRemoved} error={errors.brand_logo} />
         </div>
       </Card>
 
@@ -109,20 +107,7 @@ export function WebsiteForm({
               {timezones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
             </select>
           </Field>
-          <Field
-            label="Publishing times"
-            htmlFor="publish_times"
-            error={errors.publish_times}
-            hint="One automated article at each time, in the website's timezone. Leave empty for none. Manual articles are additional."
-          >
-            <input
-              id="publish_times"
-              name="publish_times"
-              defaultValue={website ? formatPublishTimes(website.publish_times) : DEFAULT_PUBLISH_TIMES.join(", ")}
-              className={`${inputClass} font-mono`}
-              placeholder="08:00, 14:00, 20:00"
-            />
-          </Field>
+          <PublishingTimesPicker initialTimes={website ? website.publish_times : DEFAULT_PUBLISH_TIMES} error={errors.publish_times} />
           <Field label="Monthly AI spending limit (USD)" htmlFor="monthly_ai_budget_usd" error={errors.monthly_ai_budget_usd} hint="Automation stops when the estimate reaches this.">
             <div className="relative">
               <span aria-hidden className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm text-muted-foreground">$</span>

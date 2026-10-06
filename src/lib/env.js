@@ -15,6 +15,8 @@ const serverEnvSchema = z.object({
     }),
   // Shared secret for /api/cron/* (Vercel Cron sends it as a Bearer token).
   CRON_SECRET: z.union([z.literal(""), z.string().min(16, "must be at least 16 characters")]).optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().regex(/^gemini-[A-Za-z0-9._-]+$/).default("gemini-2.5-flash"),
   // Allows http:// WordPress URLs. Only for the local Docker WordPress; never in staging/production.
   ALLOW_INSECURE_WORDPRESS: z
     .enum(["true", "false"])

@@ -71,8 +71,8 @@ function buildSchema() {
   console.log(`Combined ${selected.length} migrations: ${selected.map(({ file }) => file).join(", ")}`);
   console.log(
     from === null
-      ? "Paste the whole file into the Supabase SQL Editor of a new project."
-      : `Paste the whole file into the Supabase SQL Editor of a project that already has migrations up to ${from - 1}.`,
+      ? "NEW PROJECT ONLY: do not run this file if any migrations are already applied. Existing projects must generate only unapplied migrations with npm run db:schema -- --from <first-unapplied-number>."
+      : `UPDATE ONLY: paste this file into a project with migrations 00-${String(from - 1).padStart(2, "0")} already applied and none of the selected migrations applied.`,
   );
 }
 

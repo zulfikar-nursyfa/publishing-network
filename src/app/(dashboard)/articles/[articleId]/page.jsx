@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { ExternalLink, History, Info, Lock } from "lucide-react";
 import { saveArticle } from "@/app/actions/articles";
 import { Alert, ArticleStatusBadge, Badge, Card, DescriptionList, PageHeader, PublicationStatusBadge, formatDateTime } from "@/components/ui";
@@ -48,7 +49,7 @@ export default async function ArticlePage({ params, searchParams }) {
   const { data: article } = await supabase.from("articles").select("*").eq("id", articleId).maybeSingle();
   if (!article) notFound();
 
-  const [{ data: website }, { data: sources }, { data: publication }, { data: history }] = await Promise.all([
+  const [{ data: website }, { data: sources }, { data: publication }, { data: history }, { data: draftJob }] = await Promise.all([
     supabase.from("websites").select("id, name, timezone, publish_times, text_direction, archived_at").eq("id", article.website_id).single(),
     supabase.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
     supabase.from("publications").select("*").eq("article_id", articleId).maybeSingle(),
@@ -59,6 +60,9 @@ export default async function ArticlePage({ params, searchParams }) {
       .eq("entity_id", articleId)
       .order("created_at", { ascending: false })
       .limit(20),
+    article.origin === "automated"
+      ? supabase.from("jobs").select("id").eq("article_id", articleId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   if (!website) notFound();
 
@@ -97,6 +101,9 @@ export default async function ArticlePage({ params, searchParams }) {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">
         <div className="min-w-0 space-y-4">
+          {draftJob ? <Alert tone="info" title="AI draft requires editorial fact checking">
+            <Link href={`/jobs/${draftJob.id}`} className="underline">Review the collected source evidence and AI checks</Link> before approving this article.
+          </Alert> : null}
           {!editable ? (
             <Alert tone="info" title={article.status === "published" ? "Published" : "Locked for publishing"}>
               {article.status === "published"

@@ -100,11 +100,7 @@ export const websiteSettingsSchema = z.object({
   generate_illustrations: checkbox,
   brand_tagline: optionalText(200),
   brand_primary_color: hexColor,
-  brand_logo_url: z
-    .string()
-    .trim()
-    .refine((value) => value === "" || /^https:\/\//.test(value), "Logo URL must start with https://")
-    .default(""),
+  brand_remove_logo: checkbox,
   wp_base_url: z.string().trim().url("Enter the WordPress site URL, for example https://example.com"),
   wp_username: z.string().trim().min(1, "WordPress username is required").max(120),
   wp_app_password: z.string().trim().max(200).default(""),
@@ -162,7 +158,34 @@ export const contentSourceSchema = z.object({
   kind: z.enum(Object.keys(SOURCE_KINDS)),
   feed_url: optionalText(500).refine((value) => value === null || /^https?:\/\/\S+$/.test(value), "Enter a full feed URL"),
   images_reusable: checkbox,
+  research_allowed: checkbox,
   attribution_note: optionalText(500),
+}).refine((source) => !source.research_allowed || Boolean(source.attribution_note), {
+  message: "Record the permitted research use and required attribution", path: ["attribution_note"],
+});
+
+export const networkSettingsSchema = z.object({
+  default_ai_model: optionalText(100).refine((model) => model === null || /^gemini-[A-Za-z0-9._-]+$/.test(model), "Enter a Gemini model ID"),
+  monthly_ai_budget_usd: z.preprocess((value) => value === "" ? null : value, z.coerce.number().min(0).max(100000).nullable()),
+});
+
+export const modelPriceSchema = z.object({
+  model: z.string().trim().regex(/^gemini-[A-Za-z0-9._-]+$/, "Enter a Gemini model ID").max(100),
+  input_per_million_usd: z.coerce.number().min(0).max(10000),
+  output_per_million_usd: z.coerce.number().min(0).max(10000),
+});
+
+export const researchPermissionSchema = z.object({
+  url: z.string().trim().url("Enter a full website URL").optional(),
+  research_allowed: checkbox,
+  attribution_note: optionalText(500),
+}).refine((source) => !source.research_allowed || Boolean(source.attribution_note), {
+  message: "Record the permitted research use and required attribution", path: ["attribution_note"],
+});
+
+export const usageReconciliationSchema = z.object({
+  reviewed_cost: z.coerce.number().min(0).max(10000),
+  explanation: z.string().trim().min(10, "Record how the provider charge was checked").max(500),
 });
 
 export const inviteSchema = z.object({

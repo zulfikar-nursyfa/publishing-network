@@ -149,10 +149,19 @@ export function formatSourceLines(sources) {
     .join("\n");
 }
 
+export const SOURCE_KINDS = {
+  news: "News outlet",
+  newsroom: "Official newsroom",
+  government: "Government",
+  api: "API",
+};
+
 export const contentSourceSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   url: z.string().trim().url("Enter a full URL"),
-  kind: z.enum(["rss", "website", "api"]),
+  kind: z.enum(Object.keys(SOURCE_KINDS)),
+  feed_url: optionalText(500).refine((value) => value === null || /^https?:\/\/\S+$/.test(value), "Enter a full feed URL"),
+  images_reusable: checkbox,
   attribution_note: optionalText(500),
 });
 

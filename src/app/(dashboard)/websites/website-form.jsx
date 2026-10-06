@@ -165,8 +165,8 @@ export function WebsiteForm({
       </Card>
 
       {isNew ? (
-        <Card icon={Rss} title="Approved content sources" description="Optional. One per line as: Name | URL. You can manage sources later.">
-          <textarea name="initial_sources" rows={4} className={`${inputClass} font-mono text-xs leading-relaxed`} placeholder={"Reuters Business | https://example.com/rss\nOfficial press office | https://example.gov/news"} />
+        <Card icon={Rss} title="Approved content sources" description="Optional. One per line as: Name | RSS feed URL. Set the type, image rights and other details later in the website settings.">
+          <textarea name="initial_sources" rows={4} className={`${inputClass} font-mono text-xs leading-relaxed`} placeholder={"Reuters Business | https://example.com/rss\nOfficial press office | https://example.gov/news/rss"} />
         </Card>
       ) : null}
 

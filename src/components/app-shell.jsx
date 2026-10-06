@@ -17,6 +17,7 @@ import {
   Monitor,
   Moon,
   Newspaper,
+  Rss,
   Sun,
   Users,
   X,
@@ -30,6 +31,7 @@ const NAV = [
     label: "Workspace",
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard, exact: true },
+      { href: "/stories", label: "Story inbox", icon: Rss },
       { href: "/review", label: "Review queue", icon: ClipboardCheck },
       { href: "/websites", label: "Websites", icon: Globe, match: ["/websites", "/articles"] },
     ],

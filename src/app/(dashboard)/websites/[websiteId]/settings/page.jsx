@@ -11,7 +11,7 @@ import { Alert, Badge, Card, ConnectionBadge, DescriptionList, PageHeader, forma
 import { requireWebsite } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { formatPublishTimes } from "@/lib/schedule";
-import { TIMEZONES } from "@/lib/validation";
+import { SOURCE_KINDS, TIMEZONES } from "@/lib/validation";
 import { WebsiteForm } from "../../website-form";
 import { AddSourceForm, TestConnectionButton } from "./settings-forms";
 
@@ -99,7 +99,9 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5 font-medium">
                     {source.name}
-                    <Badge>{source.kind}</Badge>
+                    <Badge>{SOURCE_KINDS[source.kind] ?? source.kind}</Badge>
+                    {source.kind === "newsroom" || source.kind === "government" ? <Badge tone="blue">primary</Badge> : null}
+                    {source.images_reusable ? <Badge tone="green">images reusable</Badge> : null}
                     {source.active ? null : <Badge tone="amber">disabled</Badge>}
                   </div>
                   <a href={source.url} target="_blank" rel="noreferrer" className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary">
@@ -107,6 +109,15 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
                     <ExternalLink className="size-3 shrink-0" />
                   </a>
                   {source.attribution_note ? <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div> : null}
+                  <div className={`mt-1 text-xs ${source.last_error ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
+                    {!source.feed_url
+                      ? "No feed: not used for story discovery"
+                      : source.last_error
+                        ? `Feed error: ${source.last_error}`
+                        : source.last_checked_at
+                          ? `Feed checked ${formatDateTime(source.last_checked_at, website.timezone)}`
+                          : "Feed not checked yet"}
+                  </div>
                 </div>
                 {user.isAdmin ? (
                   <div className="flex shrink-0 gap-2">

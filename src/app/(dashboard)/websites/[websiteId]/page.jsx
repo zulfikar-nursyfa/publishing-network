@@ -18,6 +18,7 @@ import {
 import { requireWebsite } from "@/lib/auth";
 
 import { createClient } from "@/lib/supabase/server";
+import { TodaySchedule } from "./today-schedule";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -95,6 +96,8 @@ export default async function WebsitePage({ params, searchParams }) {
         <Stat label="Published total" value={stats?.published_total ?? 0} icon={Upload} tone="purple" />
         <Stat label="Failed publishing" value={stats?.failed_publications ?? 0} icon={TriangleAlert} tone="red" alert={Number(stats?.failed_publications ?? 0) > 0} />
       </div>
+
+      {!website.archived_at ? <TodaySchedule website={website} /> : null}
 
       <FilterTabs
         active={filter}

@@ -84,7 +84,7 @@ export async function createWebsite(_prev, formData) {
     .split(/\r?\n/)
     .map((line) => line.split("|").map((part) => part.trim()))
     .filter(([name, url]) => name && url && /^https?:\/\//.test(url))
-    .map(([name, url]) => ({ website_id: website.id, name, url, kind: "rss" }));
+    .map(([name, url]) => ({ website_id: website.id, name, url, feed_url: url, kind: "news" }));
   if (sources.length > 0) await supabase.from("content_sources").insert(sources);
 
   await recordAudit({

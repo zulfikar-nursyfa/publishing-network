@@ -4,6 +4,7 @@ import { SubmitButton } from "@/components/form-controls";
 import { Badge, EmptyState, FilterTabs, PageHeader, formatDateTime } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { QueueDraftForm } from "../jobs/job-controls";
 
 export const metadata = { title: "Story inbox" };
 
@@ -83,6 +84,7 @@ export default async function StoriesPage({ searchParams }) {
                     <ExternalLink className="mt-1 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
                   </a>
                   {story.summary ? <p dir="auto" className="mt-1 line-clamp-2 text-sm text-muted-foreground">{story.summary}</p> : null}
+                  {status === "selected" ? <QueueDraftForm storyId={story.id} /> : null}
                 </div>
                 <div className="flex shrink-0 gap-2 sm:flex-col">
                   {status === "new" ? (

@@ -15,6 +15,7 @@ export function createSupabasePublishStore() {
       const { data, error } = await db.rpc("claim_publication", {
         target_article: articleId,
         requester: actorId,
+        lock_seconds: 600,
       });
       if (error) throw new Error(`Could not claim publication: ${error.message}`);
       const row = data?.[0];

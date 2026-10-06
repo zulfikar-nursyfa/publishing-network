@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
-import { addContentSource, testWebsiteConnection } from "@/app/actions/websites";
+import { addContentSource, testWebsiteConnection, updateResearchPermission } from "@/app/actions/websites";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { CheckboxLabel, Field, inputClass } from "@/components/ui";
 import { SOURCE_KINDS } from "@/lib/validation";
@@ -51,10 +51,29 @@ export function AddSourceForm({ websiteId }) {
       <CheckboxLabel name="images_reusable">
         Images from this source may be reused <span className="text-muted-foreground">(with credit, per the source&apos;s terms)</span>
       </CheckboxLabel>
+      <CheckboxLabel name="research_allowed">Permitted to collect public page evidence for original reporting, under the recorded terms</CheckboxLabel>
       <SubmitButton variant="secondary" pendingLabel="Adding…">
         <Plus />
         Add source
       </SubmitButton>
     </form>
   );
+}
+
+export function SourceResearchForm({ websiteId, source }) {
+  const [state, action] = useActionState(updateResearchPermission.bind(null, websiteId, source.id), {});
+  const [url, setUrl] = useState(source.url);
+  const [note, setNote] = useState(source.attribution_note ?? "");
+  const [researchAllowed, setResearchAllowed] = useState(source.research_allowed);
+  return <form action={action} className="mt-3 space-y-3">
+    <FormAlert state={state} />
+    <Field label="Website URL" htmlFor={`source-url-${source.id}`} error={state.fieldErrors?.url} hint="Research uses this domain. Articles may have different paths from the homepage or category page. Other subdomains need their own configured source; the feed URL stays separate.">
+      <input id={`source-url-${source.id}`} name="url" type="url" required value={url} onChange={(event) => setUrl(event.target.value)} className={inputClass} />
+    </Field>
+    <Field label="Permitted use and attribution" htmlFor={`rights-${source.id}`} error={state.fieldErrors?.attribution_note} hint="Record the applicable permission or licence. Public access and RSS alone do not grant reuse rights.">
+      <textarea id={`rights-${source.id}`} name="attribution_note" rows={2} maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} className={inputClass} required={researchAllowed} />
+    </Field>
+    <CheckboxLabel name="research_allowed" checked={researchAllowed} onChange={(event) => setResearchAllowed(event.target.checked)}>Allow research evidence collection</CheckboxLabel>
+    <SubmitButton size="sm" variant="secondary">Save research permission</SubmitButton>
+  </form>;
 }

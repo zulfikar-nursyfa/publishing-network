@@ -36,7 +36,7 @@ export default async function OverviewPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: websites }, { data: stats }, { data: recent }, { data: failures }, { data: network }] = await Promise.all([
+  const [{ data: websites }, { data: stats }, { data: recent }, { data: failures }, { data: network }, { data: spend, error: spendError }] = await Promise.all([
     supabase.from("websites").select("id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at").is("archived_at", null).order("name"),
     supabase.from("website_article_stats").select("*"),
     supabase
@@ -51,6 +51,7 @@ export default async function OverviewPage() {
       .order("updated_at", { ascending: false })
       .limit(10),
     supabase.from("network_settings").select("automation_paused").maybeSingle(),
+    supabase.from("website_ai_spend").select("*"),
   ]);
 
   const statsBySite = new Map((stats ?? []).map((row) => [row.website_id, row]));
@@ -66,6 +67,8 @@ export default async function OverviewPage() {
     { inReview: 0, approved: 0, today: 0, week: 0, failed: 0 },
   );
   const firstName = (user.profile.full_name || "").split(" ")[0];
+  const estimatedSpend = (spend ?? []).reduce((sum, row) => sum + Number(row.estimated_cost_usd), 0);
+  const reservedSpend = (spend ?? []).reduce((sum, row) => sum + Number(row.reserved_cost_usd), 0);
 
   return (
     <>
@@ -113,7 +116,7 @@ export default async function OverviewPage() {
         <Stat label="Published today" value={totals.today} hint="In each site's timezone" icon={Send} tone="green" />
         <Stat label="Published 7 days" value={totals.week} icon={TrendingUp} tone="purple" />
         <Stat label="Failed publishing" value={totals.failed} icon={TriangleAlert} tone="red" alert={totals.failed > 0} />
-        <Stat label="AI spend (est.)" value="—" hint="Starts with automation" icon={CircleDollarSign} />
+        <Stat label="AI spend (est.)" value={spendError ? "—" : `$${estimatedSpend.toFixed(2)}`} hint={spendError ? "Apply automation migrations" : `UTC month · $${reservedSpend.toFixed(2)} reserved`} href="/jobs" icon={CircleDollarSign} />
       </div>
 
       <section className="mb-10">

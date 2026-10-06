@@ -1,5 +1,7 @@
 "use server";
 
+import { researchPermissionSchema } from "@/lib/validation";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { recordAudit } from "@/lib/audit";
@@ -7,11 +9,12 @@ import { requireAdmin, requireWebsite } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { prepareLogo, uploadLogo, removeLogo, LogoUploadError } from "@/lib/storage/logos";
 import { assertAllowedWordPressUrl, testConnection } from "@/lib/wordpress/connection";
 import { normaliseBaseUrl } from "@/lib/wordpress/client";
 import { contentSourceSchema, fieldErrorsFrom, slugify, websiteSettingsSchema } from "@/lib/validation";
 
-function websiteColumns(input) {
+function websiteColumns(input, branding = {}) {
   return {
     name: input.name,
     slug: input.slug || slugify(input.name),
@@ -28,9 +31,9 @@ function websiteColumns(input) {
     monthly_ai_budget_usd: input.monthly_ai_budget_usd,
     generate_illustrations: input.generate_illustrations,
     branding: {
+      ...branding,
       tagline: input.brand_tagline,
       primary_color: input.brand_primary_color || null,
-      logo_url: input.brand_logo_url || null,
     },
     wp_base_url: normaliseBaseUrl(input.wp_base_url),
     wp_username: input.wp_username,
@@ -47,6 +50,9 @@ export async function createWebsite(_prev, formData) {
   if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
 
   const input = parsed.data;
+  let logo;
+  try { logo = await prepareLogo(formData.get("brand_logo")); }
+  catch (error) { return { error: error.message, fieldErrors: { brand_logo: error.message } }; }
   const urlProblem = assertAllowedWordPressUrl(input.wp_base_url);
   if (urlProblem) return { error: urlProblem, fieldErrors: { wp_base_url: urlProblem } };
   if (!input.wp_app_password) {
@@ -74,6 +80,21 @@ export async function createWebsite(_prev, formData) {
     return { error: `Could not store credentials: ${credentialError.message}` };
   }
 
+  let storedLogo;
+  if (logo) {
+    try {
+      storedLogo = await uploadLogo(supabase, website.id, logo);
+      const { error: brandingError } = await supabase.from("websites")
+        .update({ branding: { ...website.branding, ...storedLogo } }).eq("id", website.id);
+      if (brandingError) throw new LogoUploadError("Could not save the uploaded logo with the website.");
+    } catch (error) {
+      if (storedLogo) await removeLogo(supabase, website.id, storedLogo.logo_path);
+      const { error: rollbackError } = await supabase.from("websites").delete().eq("id", website.id);
+      return { error: rollbackError ? `Website was added, but its logo could not be saved. Open its settings to retry: ${website.id}` : error.message,
+        fieldErrors: { brand_logo: error.message } };
+    }
+  }
+
   const editorIds = editorIdsFrom(formData);
   if (editorIds.length > 0) {
     await supabase.from("website_members").insert(editorIds.map((userId) => ({ website_id: website.id, user_id: userId })));
@@ -93,7 +114,7 @@ export async function createWebsite(_prev, formData) {
     entityId: website.id,
     websiteId: website.id,
     actorId: user.id,
-    details: { name: website.name, domain: website.domain, language: website.language, editors: editorIds.length },
+    details: { name: website.name, domain: website.domain, language: website.language, editors: editorIds.length, logo_uploaded: Boolean(storedLogo) },
   });
 
   await testConnection(website);
@@ -106,19 +127,36 @@ export async function updateWebsite(websiteId, _prev, formData) {
   if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
 
   const input = parsed.data;
+  let logo;
+  try { logo = await prepareLogo(formData.get("brand_logo")); }
+  catch (error) { return { error: error.message, fieldErrors: { brand_logo: error.message } }; }
   const urlProblem = assertAllowedWordPressUrl(input.wp_base_url);
   if (urlProblem) return { error: urlProblem, fieldErrors: { wp_base_url: urlProblem } };
 
+  const { website: previous } = await requireWebsite(websiteId);
   const supabase = await createClient();
+  let storedLogo;
+  try { if (logo) storedLogo = await uploadLogo(supabase, websiteId, logo); }
+  catch (error) { return { error: error.message, fieldErrors: { brand_logo: error.message } }; }
+  const branding = { ...previous.branding, ...(storedLogo ?? (input.brand_remove_logo ? { logo_url: null, logo_path: null } : {})) };
   const { data: website, error } = await supabase
     .from("websites")
-    .update(websiteColumns(input))
+    .update(websiteColumns(input, branding))
     .eq("id", websiteId)
+    .eq("updated_at", previous.updated_at)
     .select("*")
     .single();
   if (error || !website) {
+    if (storedLogo) await removeLogo(supabase, websiteId, storedLogo.logo_path);
     if (error?.code === "23505") return { error: "A website with that slug already exists", fieldErrors: { slug: "Already in use" } };
-    return { error: error?.message ?? "Website not found" };
+    return { error: error?.code === "PGRST116" ? "Settings changed while you were saving. Reload and try again." : error?.message ?? "Website not found" };
+  }
+
+  let logoCleanupSucceeded = true;
+  if (storedLogo || input.brand_remove_logo) {
+    logoCleanupSucceeded = await removeLogo(supabase, websiteId, previous.branding?.logo_path);
+    await recordAudit({ action: storedLogo ? "website.logo_uploaded" : "website.logo_removed", entityType: "website",
+      entityId: websiteId, websiteId, actorId: user.id, details: { old_file_removed: logoCleanupSucceeded } });
   }
 
   const credentialsChanged = Boolean(input.wp_app_password);
@@ -162,7 +200,7 @@ export async function updateWebsite(websiteId, _prev, formData) {
 
   if (credentialsChanged) await testConnection(website);
   revalidatePath(`/websites/${websiteId}`, "layout");
-  return { ok: true, message: "Settings saved." };
+  return { ok: true, branding: website.branding, message: logoCleanupSucceeded ? "Settings saved." : "Settings saved. The previous logo file could not be removed from storage." };
 }
 
 export async function testWebsiteConnection(websiteId, _prev) {
@@ -259,4 +297,17 @@ export async function deleteContentSource(websiteId, sourceId) {
   await supabase.from("content_sources").delete().eq("id", sourceId).eq("website_id", websiteId);
   await recordAudit({ action: "source.removed", entityType: "content_source", entityId: sourceId, websiteId, actorId: user.id });
   revalidatePath(`/websites/${websiteId}/settings`);
+}
+
+export async function updateResearchPermission(websiteId, sourceId, _prev, formData) {
+  const user = await requireAdmin();
+  const parsed = researchPermissionSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Check the usage terms", fieldErrors: fieldErrorsFrom(parsed.error) };
+  const db = await createClient();
+  const { data, error } = await db.from("content_sources").update(parsed.data).eq("website_id", websiteId).eq("id", sourceId).select("id").maybeSingle();
+  if (error || !data) return { error: error?.message ?? "Source not found" };
+  await recordAudit({ action: "source.research_permission_updated", entityType: "content_source", entityId: sourceId,
+    websiteId, actorId: user.id, details: parsed.data });
+  revalidatePath(`/websites/${websiteId}/settings`);
+  return { ok: true, message: "Research permission saved." };
 }

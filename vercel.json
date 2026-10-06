@@ -1,6 +1,8 @@
 {
   "crons": [
     { "path": "/api/cron/publish", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/discover", "schedule": "*/30 * * * *" }
+    { "path": "/api/cron/discover", "schedule": "*/30 * * * *" },
+    { "path": "/api/cron/draft", "schedule": "* * * * *" },
+    { "path": "/api/cron/queue", "schedule": "*/5 * * * *" }
   ]
 }

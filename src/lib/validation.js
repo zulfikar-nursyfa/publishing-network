@@ -158,10 +158,7 @@ export const contentSourceSchema = z.object({
   kind: z.enum(Object.keys(SOURCE_KINDS)),
   feed_url: optionalText(500).refine((value) => value === null || /^https?:\/\/\S+$/.test(value), "Enter a full feed URL"),
   images_reusable: checkbox,
-  research_allowed: checkbox,
   attribution_note: optionalText(500),
-}).refine((source) => !source.research_allowed || Boolean(source.attribution_note), {
-  message: "Record the permitted research use and required attribution", path: ["attribution_note"],
 });
 
 export const networkSettingsSchema = z.object({
@@ -173,14 +170,7 @@ export const modelPriceSchema = z.object({
   model: z.string().trim().regex(/^gemini-[A-Za-z0-9._-]+$/, "Enter a Gemini model ID").max(100),
   input_per_million_usd: z.coerce.number().min(0).max(10000),
   output_per_million_usd: z.coerce.number().min(0).max(10000),
-});
-
-export const researchPermissionSchema = z.object({
-  url: z.string().trim().url("Enter a full website URL").optional(),
-  research_allowed: checkbox,
-  attribution_note: optionalText(500),
-}).refine((source) => !source.research_allowed || Boolean(source.attribution_note), {
-  message: "Record the permitted research use and required attribution", path: ["attribution_note"],
+  search_per_thousand_usd: z.coerce.number().min(0).max(10000),
 });
 
 export const usageReconciliationSchema = z.object({

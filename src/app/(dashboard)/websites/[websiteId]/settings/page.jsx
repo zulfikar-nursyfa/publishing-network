@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatPublishTimes } from "@/lib/schedule";
 import { SOURCE_KINDS, TIMEZONES } from "@/lib/validation";
 import { WebsiteForm } from "../../website-form";
-import { AddSourceForm, SourceResearchForm, TestConnectionButton } from "./settings-forms";
+import { AddSourceForm, TestConnectionButton } from "./settings-forms";
 
 export default async function WebsiteSettingsPage({ params, searchParams }) {
   const { websiteId } = await params;
@@ -109,8 +109,6 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
                     <ExternalLink className="size-3 shrink-0" />
                   </a>
                   {source.attribution_note ? <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div> : null}
-                  <div className="mt-1 text-xs text-muted-foreground">Research {source.research_allowed ? "permitted" : "disabled"}</div>
-                  {user.isAdmin ? <details className="mt-2"><summary className="cursor-pointer text-xs text-primary">Research permission</summary><SourceResearchForm websiteId={websiteId} source={source} /></details> : null}
                   <div className={`mt-1 text-xs ${source.last_error ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
                     {!source.feed_url
                       ? "No feed: not used for story discovery"

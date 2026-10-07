@@ -8,13 +8,21 @@ export class GeminiError extends Error {
   }
 }
 
+// Low thinking keeps each call well inside the cron's 60 s: on Gemini 3 default thinking took 20-35 s
+// for research, low about 8 s. Quotes, sources and copying are checked in code, and Inas reviews every draft.
+function thinkingConfig(model) {
+  if (model.startsWith("gemini-2.5-flash")) return { thinkingConfig: { thinkingBudget: 0 } };
+  if (model.startsWith("gemini-3")) return { thinkingConfig: { thinkingLevel: "low" } };
+  return {};
+}
+
 export function createGeminiClient({ apiKey, fetch: fetchImpl = globalThis.fetch }) {
   const generationRequest = (model, contents, schema, maxOutputTokens = 8192) => ({
     contents,
     generationConfig: {
       candidateCount: 1, maxOutputTokens, temperature: 0.2,
       responseFormat: { text: { mimeType: "APPLICATION_JSON", schema } },
-      ...(model.startsWith("gemini-2.5-flash") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+      ...thinkingConfig(model),
     },
   });
   async function call(model, method, body, timeoutMs) {
@@ -46,9 +54,23 @@ export function createGeminiClient({ apiKey, fetch: fetchImpl = globalThis.fetch
       return result.totalTokens;
     },
     async generate(model, contents, schema, maxOutputTokens = 8192) {
-      return call(model, "generateContent", generationRequest(model, contents, schema, maxOutputTokens), 35_000);
+      return call(model, "generateContent", generationRequest(model, contents, schema, maxOutputTokens), 50_000);
+    },
+    // Grounded search: the useful output is groundingMetadata (pages Google found), not the text.
+    async search(model, contents, maxOutputTokens = 2048) {
+      return call(model, "generateContent", {
+        contents, tools: [{ google_search: {} }],
+        generationConfig: { candidateCount: 1, maxOutputTokens, temperature: 0, ...thinkingConfig(model) },
+      }, 40_000);
     },
   };
+}
+
+/** Pages found by a grounded search (Google redirect links, resolved when fetched) and the query count. */
+export function groundingResults(response) {
+  const metadata = response.candidates?.[0]?.groundingMetadata ?? {};
+  const urls = (metadata.groundingChunks ?? []).map((chunk) => chunk.web?.uri).filter((uri) => typeof uri === "string");
+  return { urls: [...new Set(urls)], queries: metadata.webSearchQueries?.length ?? 0 };
 }
 
 export function responseUsage(response) {

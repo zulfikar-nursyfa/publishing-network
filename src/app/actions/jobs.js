@@ -4,10 +4,17 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { recordAudit } from "@/lib/audit";
 import { requireAdmin, requireUser, requireWebsite } from "@/lib/auth";
-import { sourceForUrl } from "@/lib/automation/evidence";
+import { isFetchableUrl } from "@/lib/automation/evidence";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { fieldErrorsFrom, usageReconciliationSchema } from "@/lib/validation";
+
+const URL_ERROR = "Provide at most four full https:// URLs, one per line.";
+
+function supportingUrls(formData) {
+  const urls = [...new Set(String(formData.get("evidence_urls") ?? "").split(/\s+/).filter(Boolean))];
+  return urls.length <= 4 && urls.every((url) => url.length <= 2000 && isFetchableUrl(url)) ? urls : null;
+}
 
 export async function queueStoryDraft(storyId, _prev, formData) {
   const user = await requireUser();
@@ -16,13 +23,13 @@ export async function queueStoryDraft(storyId, _prev, formData) {
   if (storyError || !story) return { error: "Story not found" };
   const { website } = await requireWebsite(story.website_id);
   if (website.archived_at || story.status !== "selected") return { error: "Select a story on an active website before queuing a draft." };
-  const urls = [...new Set(String(formData.get("evidence_urls") ?? "").split(/\s+/).filter(Boolean))];
-  if (urls.length > 4 || urls.some((url) => url.length > 2000)) return { error: "Provide at most four evidence URLs." };
-  const { data: sources, error: sourceError } = await db.from("content_sources").select("*").eq("website_id", story.website_id);
-  if (sourceError) return { error: sourceError.message };
-  if (urls.some((url) => !sourceForUrl(url, sources))) return { error: "Evidence URLs must belong to active sources with research permission and recorded usage terms." };
-  const { data: jobId, error } = await createAdminClient().rpc("queue_story_draft", { target_story: storyId, requester: user.id, evidence_urls: urls });
+  const urls = supportingUrls(formData);
+  if (!urls) return { error: URL_ERROR };
+  const admin = createAdminClient();
+  const { data: jobId, error } = await admin.rpc("queue_story_draft", { target_story: storyId, requester: user.id, evidence_urls: urls });
   if (error) return { error: error.message };
+  const { data: job } = await admin.from("jobs").select("status").eq("id", jobId).single();
+  if (["failed", "cancelled"].includes(job?.status)) return { error: `This story already has a ${job.status} draft job. Retry it from Draft jobs.` };
   await recordAudit({ action: "automation.draft_queued", entityType: "job", entityId: jobId, websiteId: story.website_id, actorId: user.id, details: { story_id: storyId } });
   revalidatePath("/stories");
   revalidatePath("/jobs");
@@ -56,12 +63,8 @@ export async function manageDraftJob(jobId, intent, _prev, formData) {
   if (intent === "retry") {
     const { data: story } = await db.from("story_candidates").select("status").eq("id", job.story_id).single();
     if (story?.status !== "selected") return { error: "Select the story again before retrying." };
-    const urls = [...new Set(String(formData.get("evidence_urls") ?? "").split(/\s+/).filter(Boolean))];
-    if (urls.length > 4 || urls.some((url) => url.length > 2000)) return { error: "Provide at most four evidence URLs." };
-    if (urls.length) {
-      const { data: sources, error } = await db.from("content_sources").select("*").eq("website_id", job.website_id);
-      if (error || urls.some((url) => !sourceForUrl(url, sources))) return { error: "Evidence URLs need active research permission and usage terms." };
-    }
+    const urls = supportingUrls(formData);
+    if (!urls) return { error: URL_ERROR };
     const restart = urls.length > 0 || formData.get("restart") === "on";
     patch = { status: "queued", locked_by: null, locked_until: null, last_error: null, attempt_count: 0,
       run_after: new Date().toISOString(), ...(restart ? { step: "collect", state: { pending_urls: urls, generation: randomUUID() } } : {}) };

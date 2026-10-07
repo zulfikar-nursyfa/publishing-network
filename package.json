@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --import ./tests/setup.mjs --test \"tests/*.test.mjs\"",
     "gen:key": "node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\"",
     "create-admin": "node --env-file=.env.local scripts/create-admin.mjs",
     "db:link": "supabase link",

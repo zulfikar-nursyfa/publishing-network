@@ -22,11 +22,11 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 
 Feed discovery, a story inbox, Cairo publishing slots and explicit article scheduling are built. Automatic slots use leases, select only automated articles and reload controls before WordPress writes. Expired workers reconcile the same article rather than selecting another one.
 
-Selected stories can now run through permitted evidence collection, primary-source research, Gemini drafting, originality/language/source checks and AI verification into the human review queue. Jobs persist one step per worker invocation, support bounded retries and administrator retry/cancel, and never overwrite existing articles. All AI drafts require human approval during the initial rollout, including sites configured in automatic mode.
+Selected stories can now run through a web search for coverage (Gemini with Google Search), page collection that respects robots.txt and paywalls, research that prefers the official source (or two independent outlets), Gemini drafting, originality/language/source checks and AI verification into the human review queue. Jobs persist one step per worker invocation, support bounded retries and administrator retry/cancel, and never overwrite existing articles. All AI drafts require human approval during the initial rollout, including sites configured in automatic mode.
 
-AI usage is estimated using configurable model prices. Calls reserve budget atomically before generation; lost responses retain a reservation until an administrator checks provider billing. Network settings, draft-job inspection and research permissions are available in the dashboard.
+AI usage is estimated using configurable model prices. Calls reserve budget atomically before generation; lost responses retain a reservation until an administrator checks provider billing. Network settings and draft-job inspection are available in the dashboard. Run `npm test` for the unit tests.
 
-These changes are local and require migrations **19–23**, Gemini configuration and staging validation before use. See [docs/automation-pipeline.md](docs/automation-pipeline.md) and [docs/website-branding.md](docs/website-branding.md). Do not enable automation or deploy the new cron configuration before applying the corresponding schema to that environment.
+These changes are local and require migrations **19–25**, Gemini configuration and staging validation before use. See [docs/automation-pipeline.md](docs/automation-pipeline.md) and [docs/website-branding.md](docs/website-branding.md). Do not enable automation or deploy the new cron configuration before applying the corresponding schema to that environment.
 
 Still pending: Google Analytics / Search Console, CSV exports, WordPress themes, category/WordPress sync, image delivery, article preview and dashboard unpublish.
 

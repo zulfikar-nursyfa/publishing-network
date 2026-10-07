@@ -8,7 +8,7 @@ export function QueueDraftForm({ storyId }) {
   const [state, action] = useActionState(queueStoryDraft.bind(null, storyId), {});
   return <form action={action} className="mt-3 space-y-3">
     <FormAlert state={state} />
-    <Field label="Supporting evidence URLs" htmlFor={`evidence-${storyId}`} hint="Optional: one per line, up to four. Include an official primary source. Research must be permitted in Website settings.">
+    <Field label="Supporting evidence URLs" htmlFor={`evidence-${storyId}`} hint="Optional: one per line, up to four. The system also searches the web for coverage; add the official announcement here if you know it.">
       <textarea id={`evidence-${storyId}`} name="evidence_urls" rows={2} className={inputClass} placeholder="https://…" />
     </Field>
     <SubmitButton size="sm" variant="secondary">Queue AI draft</SubmitButton>
@@ -35,7 +35,7 @@ export function JobControls({ jobId, status }) {
   return <div className="space-y-4">
     {["failed", "cancelled"].includes(status) ? <form action={retryAction} className="space-y-3">
       <FormAlert state={retryState} />
-      <Field label="Replacement supporting URLs" htmlFor="retry-evidence" hint="Adding URLs restarts research. Leave blank to retry the current step.">
+      <Field label="Extra supporting URLs" htmlFor="retry-evidence" hint="Optional, up to four. Adding URLs restarts research with a new web search plus these pages. Leave blank to retry the current step.">
         <textarea id="retry-evidence" name="evidence_urls" rows={3} className={inputClass} />
       </Field>
       <CheckboxLabel name="restart">Restart research and generate a fresh draft</CheckboxLabel>

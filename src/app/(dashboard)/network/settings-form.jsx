@@ -9,7 +9,7 @@ export function NetworkSettingsForm({ settings }) {
   return <form action={action} className="space-y-4">
     <FormAlert state={state} />
     <Field label="Default Gemini model" htmlFor="default-model" error={state.fieldErrors?.default_ai_model} hint="Leave empty to use the deployment default.">
-      <input id="default-model" name="default_ai_model" defaultValue={settings.default_ai_model ?? ""} className={inputClass} placeholder="gemini-2.5-flash" />
+      <input id="default-model" name="default_ai_model" defaultValue={settings.default_ai_model ?? ""} className={inputClass} placeholder="gemini-3.8-flash" />
     </Field>
     <Field label="Network monthly AI limit (USD)" htmlFor="network-budget" error={state.fieldErrors?.monthly_ai_budget_usd} hint="Blank means no network limit. Each website still has its own limit. Zero stops new AI calls.">
       <input id="network-budget" name="monthly_ai_budget_usd" type="number" min="0" max="100000" step="0.01" defaultValue={settings.monthly_ai_budget_usd ?? ""} className={inputClass} />
@@ -30,6 +30,9 @@ export function ModelPriceForm({ price }) {
         <input id={`${kind}-${price?.model ?? "new"}`} name={`${kind}_per_million_usd`} required type="number" min="0" max="10000" step="0.000001" defaultValue={price?.[`${kind}_per_million_usd`] ?? ""} className={inputClass} />
       </Field>)}
     </div>
+    <Field label="Web search USD / thousand searches" htmlFor={`search-${price?.model ?? "new"}`} hint="Google Search grounding used to find coverage for each story.">
+      <input id={`search-${price?.model ?? "new"}`} name="search_per_thousand_usd" required type="number" min="0" max="10000" step="0.000001" defaultValue={price?.search_per_thousand_usd ?? 35} className={inputClass} />
+    </Field>
     <SubmitButton variant="secondary">{price ? "Update estimate" : "Add model pricing"}</SubmitButton>
   </form>;
 }

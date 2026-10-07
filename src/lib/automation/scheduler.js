@@ -6,7 +6,7 @@ import { createSupabasePublishStore } from "@/lib/publishing/supabase-store";
 import { localDate, slotsOn } from "@/lib/schedule";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createWordPressClient } from "@/lib/wordpress/client";
-import { automationBlockReason, budgetBlockReason } from "./policy";
+import { automationBlockReason } from "./policy";
 
 const SLOT_WINDOW_MS = 30 * 60_000;
 const MAX_PER_RUN = 10;
@@ -22,27 +22,26 @@ export function dueSlots(site, now) {
     .filter((slot) => slot <= now && now - slot <= SLOT_WINDOW_MS);
 }
 
-/** Reloads immediately before a WordPress write, including after reconciliation's network call. */
+/**
+ * Reloads immediately before a WordPress write, including after reconciliation's network call.
+ * The AI budget is not checked: publishing an approved article costs no AI.
+ */
 async function slotWriteBlock(db, slot, worker) {
   const [{ data: website, error: siteError }, { data: network, error: networkError }, { data: lease, error: leaseError },
-    { data: article, error: articleError }, { data: spend, error: spendError }] = await Promise.all([
+    { data: article, error: articleError }] = await Promise.all([
     db.from("websites").select("*").eq("id", slot.website_id).single(),
     db.from("network_settings").select("*").single(),
     db.from("publish_slots").select("status, locked_by, locked_until").eq("id", slot.id).single(),
     db.from("articles").select("status, origin, website_id").eq("id", slot.article_id).single(),
-    db.from("website_ai_spend").select("website_id, estimated_cost_usd, reserved_cost_usd"),
   ]);
-  [siteError, networkError, leaseError, articleError, spendError].forEach(failOn);
+  [siteError, networkError, leaseError, articleError].forEach(failOn);
   if (lease.status !== "running" || lease.locked_by !== worker || new Date(lease.locked_until) <= new Date()) return "Slot lease lost";
   if (Date.now() - Date.parse(slot.slot_at) > SLOT_WINDOW_MS) return "Slot expired; only existing posts may be reconciled";
   if (article.website_id !== slot.website_id || article.origin !== "automated" || article.status !== "approved") return "Article is no longer eligible for automatic publishing";
   const reason = automationBlockReason(website, network);
   if (reason) return reason;
   if (website.wp_connection_status !== "ok") return "WordPress connection needs attention";
-  const cost = (row) => Number(row.estimated_cost_usd) + Number(row.reserved_cost_usd);
-  return budgetBlockReason(website, network,
-    cost(spend.find((row) => row.website_id === slot.website_id) ?? { estimated_cost_usd: 0, reserved_cost_usd: 0 }),
-    spend.reduce((sum, row) => sum + cost(row), 0));
+  return null;
 }
 
 async function runSlot(db, websiteId, slotAt) {

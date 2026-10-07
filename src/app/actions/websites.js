@@ -1,7 +1,5 @@
 "use server";
 
-import { researchPermissionSchema } from "@/lib/validation";
-
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { recordAudit } from "@/lib/audit";
@@ -297,17 +295,4 @@ export async function deleteContentSource(websiteId, sourceId) {
   await supabase.from("content_sources").delete().eq("id", sourceId).eq("website_id", websiteId);
   await recordAudit({ action: "source.removed", entityType: "content_source", entityId: sourceId, websiteId, actorId: user.id });
   revalidatePath(`/websites/${websiteId}/settings`);
-}
-
-export async function updateResearchPermission(websiteId, sourceId, _prev, formData) {
-  const user = await requireAdmin();
-  const parsed = researchPermissionSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Check the usage terms", fieldErrors: fieldErrorsFrom(parsed.error) };
-  const db = await createClient();
-  const { data, error } = await db.from("content_sources").update(parsed.data).eq("website_id", websiteId).eq("id", sourceId).select("id").maybeSingle();
-  if (error || !data) return { error: error?.message ?? "Source not found" };
-  await recordAudit({ action: "source.research_permission_updated", entityType: "content_source", entityId: sourceId,
-    websiteId, actorId: user.id, details: parsed.data });
-  revalidatePath(`/websites/${websiteId}/settings`);
-  return { ok: true, message: "Research permission saved." };
 }

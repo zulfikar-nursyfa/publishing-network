@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hostOf } from "./evidence";
 
 const sourceUrls = z.array(z.url()).min(1).max(4);
 export class DraftCheckError extends Error {}
@@ -9,8 +10,11 @@ export const researchSchema = z.object({
     source_urls: sourceUrls,
     evidence: z.array(z.object({ url: z.url(), quote: z.string().min(15).max(500) })).min(1).max(4),
   })).min(3).max(15),
+  // The collected page that is the original company/government/regulator announcement, if any.
+  primary_source_url: z.url().nullable(),
   sensitive: z.boolean(),
   needs_corroboration: z.boolean(),
+  // Facts the pages do not confirm. The draft leaves them out and the job page shows them to the reviewer.
   unresolved: z.array(z.string().max(500)).max(10),
 });
 export const draftSchema = z.object({
@@ -32,21 +36,43 @@ export const verificationSchema = z.object({
 const normalise = (value) => value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
 const words = (value) => normalise(value).match(/[\p{L}\p{N}]+/gu) ?? [];
 
+const domainCount = (urls) => new Set(urls.map(hostOf)).size;
+
+/** Official pages the research relies on: configured newsroom/government sources or the one research identified. */
+function primaryUrls(research, evidence) {
+  const cited = new Set(research.claims.flatMap((claim) => claim.source_urls));
+  return new Set(evidence.filter((page) => cited.has(page.url) && (page.primary || page.url === research.primary_source_url)).map((page) => page.url));
+}
+
+// Loose match: same words in order ignoring punctuation, or most of the quote's words on the page.
+function quoteFound(quote, text) {
+  const quoteWords = words(quote);
+  const pageWords = words(text);
+  if (!quoteWords.length) return false;
+  if (` ${pageWords.join(" ")} `.includes(` ${quoteWords.join(" ")} `)) return true;
+  const onPage = new Set(pageWords);
+  return quoteWords.filter((word) => onPage.has(word)).length / quoteWords.length >= 0.8;
+}
+
+/*
+ * Checks return warnings for the reviewer instead of failing, except where no usable article
+ * could follow. Only copying, HTML, length and language block a draft (Ali's core rules).
+ * Tighten individual warnings into errors once the end-to-end flow is proven.
+ */
 export function checkResearch(research, evidence) {
-  if (!evidence.some((item) => item.primary)) throw new DraftCheckError("A permitted primary source is required");
-  if (research.unresolved.length) throw new DraftCheckError(`Research needs editorial attention: ${research.unresolved.join("; ")}`);
-  const byUrl = new Map(evidence.map((item) => [item.url, item]));
-  for (const claim of research.claims) {
-    if (claim.source_urls.some((url) => !byUrl.has(url))) throw new DraftCheckError("Research cites a source that was not collected");
-    for (const ref of claim.evidence) {
-      const page = byUrl.get(ref.url);
-      if (!page || !claim.source_urls.includes(ref.url) || !normalise(page.text).includes(normalise(ref.quote))) throw new DraftCheckError("Research evidence quote could not be verified against the collected page");
-    }
-  }
-  if (!research.claims.some((claim) => claim.source_urls.some((url) => byUrl.get(url)?.primary))) throw new DraftCheckError("Research claims must cite primary evidence");
-  if ((research.sensitive || research.needs_corroboration) && new Set(evidence.map((page) => new URL(page.url).hostname.replace(/^www\./, ""))).size < 2) {
-    throw new DraftCheckError("Sensitive or consequential stories need a second independent permitted source");
-  }
+  const byUrl = new Map(evidence.map((page) => [page.url, page]));
+  const warnings = [];
+  const claims = research.claims
+    .map((claim) => ({ ...claim, source_urls: claim.source_urls.filter((url) => byUrl.has(url)) }))
+    .filter((claim) => claim.source_urls.length && claim.evidence.some((ref) => byUrl.has(ref.url) && quoteFound(ref.quote, byUrl.get(ref.url).text)));
+  if (!claims.length) throw new DraftCheckError("None of the researched facts could be matched to the collected pages");
+  if (claims.length < research.claims.length) warnings.push(`${research.claims.length - claims.length} researched facts were dropped because their quotes were not found on the pages`);
+  const checked = { ...research, claims, primary_source_url: byUrl.has(research.primary_source_url) ? research.primary_source_url : null };
+  const cited = claims.flatMap((claim) => claim.source_urls);
+  if (!primaryUrls(checked, evidence).size && domainCount(cited) < 2) warnings.push("No official source and only one outlet supports the story");
+  if ((research.sensitive || research.needs_corroboration) && domainCount(cited) < 2) warnings.push("Sensitive or consequential story with a single source");
+  if (research.unresolved.length) warnings.push(`Not confirmed by the sources (left out): ${research.unresolved.join("; ")}`);
+  return { research: checked, warnings };
 }
 
 export function checkDraft(draft, research, evidence, categories, language) {
@@ -56,10 +82,6 @@ export function checkDraft(draft, research, evidence, categories, language) {
   const letters = draft.body.match(/\p{L}/gu) ?? [];
   const arabic = draft.body.match(/\p{Script=Arabic}/gu) ?? [];
   if (!letters.length || (language === "ar" ? arabic.length / letters.length < 0.5 : arabic.length / letters.length > 0.2)) throw new DraftCheckError("Draft language does not match the website");
-  if (draft.category_id && !categories.some((category) => category.id === draft.category_id)) throw new DraftCheckError("Draft selected a category outside this website");
-  const byUrl = new Map(evidence.map((page) => [page.url, page]));
-  if (draft.source_urls.some((url) => !byUrl.has(url)) || !draft.source_urls.some((url) => byUrl.get(url)?.primary)) throw new DraftCheckError("Draft must cite collected sources including the primary source");
-  if (research.claims.some((claim) => !claim.source_urls.some((url) => draft.source_urls.includes(url)))) throw new DraftCheckError("Draft omitted a source needed to support the research");
   const draftWords = words(`${draft.title} ${draft.excerpt} ${draft.body}`);
   const shingles = (tokens, length) => new Set(tokens.slice(0, Math.max(0, tokens.length - length + 1)).map((_, index) => tokens.slice(index, index + length).join(" ")));
   const phrases = shingles(draftWords, 12);
@@ -69,15 +91,30 @@ export function checkDraft(draft, research, evidence, categories, language) {
   const shortPhrases = shingles(draftWords, 5);
   const sourcePhrases = new Set(evidence.flatMap((page) => [...shingles(words(page.text), 5)]));
   if ([...shortPhrases].filter((phrase) => sourcePhrases.has(phrase)).length / Math.max(1, shortPhrases.size) > 0.35) throw new DraftCheckError("Draft is too similar to the collected source text");
-  return { ...draft, sensitive: draft.sensitive || research.sensitive || research.needs_corroboration };
+
+  const warnings = [];
+  const collected = new Set(evidence.map((page) => page.url));
+  const researched = [...new Set(research.claims.flatMap((claim) => claim.source_urls))];
+  let sourceUrls = draft.source_urls.filter((url) => collected.has(url));
+  if (sourceUrls.length < draft.source_urls.length) warnings.push("The draft cited pages that were not collected; they were removed");
+  if (!sourceUrls.length) sourceUrls = researched.slice(0, 4);
+  const primary = primaryUrls(research, evidence);
+  if (primary.size && !sourceUrls.some((url) => primary.has(url))) warnings.push("The draft does not cite the official source");
+  if (research.claims.some((claim) => !claim.source_urls.some((url) => sourceUrls.includes(url)))) warnings.push("Some researched facts are not covered by the draft's cited sources");
+  const categoryId = categories.some((category) => category.id === draft.category_id) ? draft.category_id : null;
+  return {
+    draft: { ...draft, source_urls: sourceUrls, category_id: categoryId, sensitive: draft.sensitive || research.sensitive || research.needs_corroboration },
+    warnings,
+  };
 }
 
-export function checkVerification(verification, draft, evidence) {
-  const allowed = new Set(evidence.map((page) => page.url));
-  if (!verification.passed || verification.issues.length || verification.checked_claims.some((claim) => !claim.supported)) {
-    throw new DraftCheckError(`Verification failed: ${verification.issues.join("; ") || "unsupported claims"}`);
-  }
-  if (verification.checked_claims.some((claim) => claim.source_urls.some((url) => !allowed.has(url) || !draft.source_urls.includes(url)))) throw new DraftCheckError("Verification cites an uncollected or omitted source");
+export function checkVerification(verification) {
+  const unsupported = verification.checked_claims.filter((claim) => !claim.supported).map((claim) => claim.claim);
+  return [
+    ...(verification.passed ? [] : ["AI verification did not pass"]),
+    ...verification.issues.map((issue) => `Verification: ${issue}`),
+    ...unsupported.map((claim) => `Unsupported claim: ${claim}`),
+  ];
 }
 
 /** Google's response schema uses a subset; all tighter constraints are also checked by Zod. */

@@ -7,9 +7,3 @@ export function automationBlockReason(website, network) {
   if (website.automation_mode === "off") return "Website automation is off";
   return null;
 }
-
-export function budgetBlockReason(website, network, siteSpend, networkSpend) {
-  if (siteSpend >= Number(website.monthly_ai_budget_usd)) return "Website AI spending limit has been reached";
-  if (network.monthly_ai_budget_usd !== null && networkSpend >= Number(network.monthly_ai_budget_usd)) return "Network AI spending limit has been reached";
-  return null;
-}

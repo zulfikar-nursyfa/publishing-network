@@ -116,7 +116,10 @@ async function allowedByRobots(url, requestImpl, cache) {
 export function plainEvidence(html) {
   return html.replace(/<(script|style|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
     .replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
+    .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    // Postgres jsonb rejects \u0000, and other control characters are never useful evidence.
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/\s+/g, " ").trim().slice(0, MAX_TEXT);
 }
 
 /** Publication date from common article metadata, or null when the page does not state one. */

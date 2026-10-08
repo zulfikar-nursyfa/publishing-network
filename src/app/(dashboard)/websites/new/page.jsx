@@ -10,7 +10,10 @@ export const metadata = { title: "Add website" };
 export default async function NewWebsitePage() {
   await requireAdmin();
   const supabase = await createClient();
-  const { data: editors } = await supabase.from("profiles").select("id, email, full_name").eq("role", "editor").order("email");
+  const [{ data: editors }, { data: niches }] = await Promise.all([
+    supabase.from("profiles").select("id, email, full_name").eq("role", "editor").order("email"),
+    supabase.from("niches").select("id, name").order("sort_order"),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -19,7 +22,7 @@ export default async function NewWebsitePage() {
         title="Add website"
         description="Connect a WordPress site that is already installed. Install the Publishing Network connector plugin on it first (see docs/wordpress-setup.md)."
       />
-      <WebsiteForm action={createWebsite} editors={editors ?? []} timezones={TIMEZONES} />
+      <WebsiteForm action={createWebsite} editors={editors ?? []} timezones={TIMEZONES} niches={niches ?? []} />
     </div>
   );
 }

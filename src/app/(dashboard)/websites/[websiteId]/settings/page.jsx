@@ -1,6 +1,7 @@
 import { Bot, ExternalLink, Plug, Rss, Tags } from "lucide-react";
 import { setCategoryArchived } from "@/app/actions/categories";
 import {
+  addContentSource,
   deleteContentSource,
   setAutomationPaused,
   setContentSourceActive,
@@ -22,14 +23,16 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
   const created = (await searchParams).created === "1";
   const supabase = await createClient();
 
-  const [{ data: sources }, { data: categories }, { data: members }, { data: editors }] = await Promise.all([
+  const [{ data: sources }, { data: categories }, { data: members }, { data: editors }, { data: niches }] = await Promise.all([
     supabase.from("content_sources").select("*").eq("website_id", websiteId).order("name"),
     supabase.from("categories").select("*").eq("website_id", websiteId).order("sort_order").order("name"),
     supabase.from("website_members").select("user_id").eq("website_id", websiteId),
     user.isAdmin
       ? supabase.from("profiles").select("id, email, full_name").eq("role", "editor").order("email")
       : Promise.resolve({ data: [] }),
+    supabase.from("niches").select("id, name").order("sort_order"),
   ]);
+  const niche = niches?.find((row) => row.id === website.niche_id);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -93,7 +96,10 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
         </Card>
       </div>
 
-      <Card icon={Rss} className="mb-6" title="Approved content sources" description="Automation only draws stories from active sources on this list.">
+      <Card icon={Rss} className="mb-6" title="Approved content sources"
+        description={niche
+          ? `Sources marked "niche" come from the ${niche.name} source group (Niches page) and can only be disabled here. Automation only draws stories from active sources.`
+          : "Automation only draws stories from active sources on this list. Choose a niche below to add its source group."}>
         {sources && sources.length > 0 ? (
           <ul className="mb-5 divide-y rounded-lg border">
             {sources.map((source) => (
@@ -102,6 +108,7 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
                   <div className="flex flex-wrap items-center gap-1.5 font-medium">
                     {source.name}
                     <Badge>{SOURCE_KINDS[source.kind] ?? source.kind}</Badge>
+                    {source.niche_source_id ? <Badge tone="purple">niche</Badge> : null}
                     {source.kind === "newsroom" || source.kind === "government" ? <Badge tone="blue">primary</Badge> : null}
                     {source.images_reusable ? <Badge tone="green">images reusable</Badge> : null}
                     {source.active ? null : <Badge tone="amber">disabled</Badge>}
@@ -126,9 +133,11 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
                     <form action={setContentSourceActive.bind(null, websiteId, source.id, !source.active)}>
                       <SubmitButton variant="secondary" size="sm">{source.active ? "Disable" : "Enable"}</SubmitButton>
                     </form>
-                    <form action={deleteContentSource.bind(null, websiteId, source.id)}>
-                      <SubmitButton variant="danger-outline" size="sm" confirm={`Remove ${source.name}?`} confirmLabel="Remove">Remove</SubmitButton>
-                    </form>
+                    {source.niche_source_id ? null : (
+                      <form action={deleteContentSource.bind(null, websiteId, source.id)}>
+                        <SubmitButton variant="danger-outline" size="sm" confirm={`Remove ${source.name}?`} confirmLabel="Remove">Remove</SubmitButton>
+                      </form>
+                    )}
                   </div>
                 ) : null}
               </li>
@@ -137,7 +146,7 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
         ) : (
           <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No sources yet.</p>
         )}
-        {user.isAdmin ? <AddSourceForm websiteId={websiteId} /> : null}
+        {user.isAdmin ? <AddSourceForm addSource={addContentSource.bind(null, websiteId)} /> : null}
       </Card>
 
       <Card icon={Tags} className="mb-6" title="Categories" description="Editors and the AI choose from active categories. Each one is linked to a WordPress category of the same slug.">
@@ -182,6 +191,7 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
             editors={editors ?? []}
             assignedEditorIds={(members ?? []).map((member) => member.user_id)}
             timezones={TIMEZONES}
+            niches={niches ?? []}
           />
         </>
       ) : null}

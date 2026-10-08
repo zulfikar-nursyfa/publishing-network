@@ -4,10 +4,12 @@ import { ExternalLink, History, Info, Lock } from "lucide-react";
 import { saveArticle } from "@/app/actions/articles";
 import { Alert, ArticleStatusBadge, Badge, Card, DescriptionList, PageHeader, PublicationStatusBadge, formatDateTime } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { ARTICLE_IMAGE_BUCKET } from "@/lib/storage/article-images";
 import { createClient } from "@/lib/supabase/server";
 import { nextFreeSlot, toLocalInput } from "@/lib/schedule";
 import { formatSourceLines } from "@/lib/validation";
 import { ArticleForm } from "../article-form";
+import { FeaturedImage } from "./featured-image";
 import { WorkflowPanel } from "./workflow-panel";
 
 // Publishing makes several WordPress calls in one request; allow for a slow host.
@@ -49,7 +51,7 @@ export default async function ArticlePage({ params, searchParams }) {
   const { data: article } = await supabase.from("articles").select("*").eq("id", articleId).maybeSingle();
   if (!article) notFound();
 
-  const [{ data: website }, { data: sources }, { data: publication }, { data: history }, { data: draftJob }] = await Promise.all([
+  const [{ data: website }, { data: sources }, { data: publication }, { data: history }, { data: draftJob }, { data: categories }, { data: image }] = await Promise.all([
     supabase.from("websites").select("id, name, timezone, publish_times, text_direction, archived_at").eq("id", article.website_id).single(),
     supabase.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
     supabase.from("publications").select("*").eq("article_id", articleId).maybeSingle(),
@@ -63,8 +65,13 @@ export default async function ArticlePage({ params, searchParams }) {
     article.origin === "automated"
       ? supabase.from("jobs").select("id").eq("article_id", articleId).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase.from("categories").select("id, name, archived_at").eq("website_id", article.website_id).order("sort_order").order("name"),
+    supabase.from("article_images").select("*").eq("article_id", articleId).eq("role", "featured").maybeSingle(),
   ]);
   if (!website) notFound();
+  const { data: preview } = image?.storage_path
+    ? await supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrl(image.storage_path, 3600)
+    : { data: null };
 
   const actorIds = [...new Set([article.created_by, article.approved_by, ...(history ?? []).map((entry) => entry.actor_id)].filter((id) => Boolean(id)))];
   const { data: actors } = actorIds.length
@@ -121,11 +128,14 @@ export default async function ArticlePage({ params, searchParams }) {
               body: article.body,
               sources: formatSourceLines(sources ?? []),
               version: article.version,
+              category_id: article.category_id,
             }}
+            categories={(categories ?? []).filter((category) => !category.archived_at || category.id === article.category_id)}
             rtl={rtl}
             readOnly={!editable}
             submitLabel="Save changes"
           />
+          <FeaturedImage articleId={articleId} image={image} previewUrl={preview?.signedUrl ?? image?.url ?? null} readOnly={!editable} />
         </div>
 
         <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">

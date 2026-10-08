@@ -8,21 +8,37 @@
 const BLOCK_TAG = /<(p|h[1-6]|ul|ol|li|blockquote|figure|img|table|div|section|pre|hr|!-- wp:)[\s>/]/i;
 
 /**
+ * Visible credit for a featured image. AI illustrations are always labelled, so they are never
+ * presented as photographs of a real event.
+ * @param {{sourceKind: string, credit?: string|null}} image
+ * @param {"en"|"ar"} language
+ */
+export function imageCredit(image, language) {
+  const ar = language === "ar";
+  if (image.sourceKind === "ai_generated") return ar ? "رسم توضيحي مُنشأ بالذكاء الاصطناعي" : "AI-generated illustration";
+  return image.credit ? `${ar ? "الصورة" : "Image"}: ${image.credit}` : null;
+}
+
+/**
  * Turns the dashboard's article body into WordPress post content. Bodies that already contain
  * block-level HTML are passed through; plain text becomes paragraphs (blank line = new
- * paragraph). Sources are appended so attribution travels with the published article.
+ * paragraph). The image credit and sources are appended so attribution travels with the post.
  * @param {string} body
  * @param {ArticleSourceRef[]} sources
  * @param {"en"|"ar"} language
+ * @param {{sourceKind: string, credit?: string|null}|null} [image]
  * @returns {string}
  */
 export function toWordPressContent(
   body,
   sources,
   language,
+  image = null,
 ) {
   const trimmed = body.trim();
-  const main = BLOCK_TAG.test(trimmed) ? trimmed : paragraphs(trimmed);
+  const credit = image ? imageCredit(image, language) : null;
+  const main = (BLOCK_TAG.test(trimmed) ? trimmed : paragraphs(trimmed))
+    + (credit ? `\n<p class="pn-image-credit">${escapeHtml(credit)}</p>` : "");
   if (sources.length === 0) return main;
 
   const heading = language === "ar" ? "المصادر" : "Sources";

@@ -10,6 +10,7 @@ export function ArticleForm({
   rtl,
   readOnly = false,
   submitLabel,
+  categories = [],
 }) {
   const [state, formAction] = useActionState(action, {});
   const errors = state.fieldErrors ?? {};
@@ -31,9 +32,17 @@ export function ArticleForm({
             <textarea id="excerpt" name="excerpt" dir={dir} rows={2} defaultValue={values?.excerpt ?? ""} className={`${inputClass} leading-relaxed`} />
           </Field>
           <div className="grid gap-5 border-t pt-5 md:grid-cols-[1fr_2fr]">
-            <Field label="URL slug" htmlFor="slug" error={errors.slug} hint="Optional. WordPress generates one from the title if empty.">
-              <input id="slug" name="slug" dir="ltr" defaultValue={values?.slug ?? ""} className={`${inputClass} font-mono text-xs`} placeholder="auto" />
-            </Field>
+            <div className="space-y-5">
+              <Field label="Category" htmlFor="category_id" error={errors.category_id}>
+                <select id="category_id" name="category_id" defaultValue={values?.category_id ?? ""} className={inputClass}>
+                  <option value="">None</option>
+                  {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </Field>
+              <Field label="URL slug" htmlFor="slug" error={errors.slug} hint="Optional. WordPress generates one from the title if empty.">
+                <input id="slug" name="slug" dir="ltr" defaultValue={values?.slug ?? ""} className={`${inputClass} font-mono text-xs`} placeholder="auto" />
+              </Field>
+            </div>
             <Field label="Sources" htmlFor="sources" error={errors.sources} hint="One per line: URL | title | publisher. Listed under the article when published.">
               <textarea id="sources" name="sources" dir="ltr" rows={3} defaultValue={values?.sources} className={`${inputClass} font-mono text-xs leading-relaxed`} placeholder="https://example.com/story | Original headline | Publisher" />
             </Field>

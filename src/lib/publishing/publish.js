@@ -1,4 +1,4 @@
-import { toWordPressContent } from "@/lib/publishing/content";
+import { imageCredit, toWordPressContent } from "@/lib/publishing/content";
 import { WordPressError } from "@/lib/wordpress/client";
 
 /**
@@ -8,7 +8,11 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @property {{id: string, websiteId: string, status: string, title: string, slug: string|null, excerpt: string|null, body: string}} article
  * @property {{id: string, language: "en"|"ar", archived: boolean}} website
  * @property {import("./content").ArticleSourceRef[]} sources
+ * @property {{name: string, wpTermId: number|null}|null} category
+ * @property {FeaturedImage|null} image
  * @property {import("../wordpress/client").WordPressConnection|null} connection
+ *
+ * @typedef {{id: string, storagePath: string|null, wpMediaId: number|null, altText: string|null, caption: string|null, credit: string|null, sourceKind: string}} FeaturedImage
  *
  * @typedef {Object} PublishStore
  * @property {(articleId: string, actorId: string|null) => Promise<ClaimedPublication|null>} claim
@@ -16,6 +20,8 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @property {(articleId: string) => Promise<PublishContext|null>} loadContext
  * @property {(input: {publicationId: string, articleId: string, post: import("../wordpress/client").WordPressPost}) => Promise<void>} markSucceeded
  * @property {(input: {publicationId: string, error: string}) => Promise<void>} markFailed
+ * @property {(image: FeaturedImage) => Promise<{bytes: Buffer, contentType: string, filename: string}>} loadImageFile
+ * @property {(imageId: string, wpMediaId: number) => Promise<void>} markImageUploaded
  * @property {(entry: {websiteId: string, actorId: string|null, action: string, articleId: string, details: Record<string, unknown>}) => Promise<void>} audit
  *
  * @typedef {{outcome: "published", post: import("../wordpress/client").WordPressPost, reconciled: boolean}|{outcome: "already_published", url: string|null}|{outcome: "in_progress"}|{outcome: "attempts_exhausted", attempts: number}|{outcome: "blocked", reason: string}|{outcome: "failed", error: string, retryable: boolean}} PublishResult
@@ -87,13 +93,16 @@ export async function publishArticle(
       if (context.article.status === "published") return fail("Published article has no matching WordPress post; review it manually", false);
       const reason = await options.beforeWrite?.();
       if (reason) return fail(reason, false);
+      const featuredMediaId = context.image ? await uploadFeaturedImage(context, store, wordpress) : null;
       post = await wordpress.createPost({
         articleId,
         title: context.article.title,
-        content: toWordPressContent(context.article.body, context.sources, context.website.language),
+        content: toWordPressContent(context.article.body, context.sources, context.website.language, context.image),
         excerpt: context.article.excerpt,
         slug: context.article.slug,
         status: "publish",
+        categoryIds: context.category ? [context.category.wpTermId] : [],
+        featuredMediaId,
       });
     } else if (post.status === "trash") {
       return fail(
@@ -126,6 +135,17 @@ export async function publishArticle(
   }
 }
 
+/** The media id is saved once uploaded, so a retry reuses it instead of uploading a duplicate. */
+async function uploadFeaturedImage(context, store, wordpress) {
+  const { image, website } = context;
+  if (image.wpMediaId) return image.wpMediaId;
+  const file = await store.loadImageFile(image);
+  const caption = [image.caption, imageCredit(image, website.language)].filter(Boolean).join(" — ");
+  const id = await wordpress.uploadMedia({ ...file, altText: image.altText, caption });
+  await store.markImageUploaded(image.id, id);
+  return id;
+}
+
 function checkControls(context) {
   if (!["approved", "published"].includes(context.article.status)) {
     return `Article must be approved before publishing (current status: ${context.article.status})`;
@@ -134,5 +154,9 @@ function checkControls(context) {
   if (!context.connection) return "Website has no WordPress credentials";
   if (!context.article.title.trim()) return "Article has no title";
   if (!context.article.body.trim()) return "Article has no body";
+  if (context.category && !context.category.wpTermId) {
+    return `Category "${context.category.name}" is not linked to WordPress. Use "Sync with WordPress" in the website settings, then retry.`;
+  }
+  if (context.image && !context.image.wpMediaId && !context.image.storagePath) return "Featured image has no stored file";
   return null;
 }

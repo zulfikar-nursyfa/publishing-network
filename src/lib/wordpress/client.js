@@ -11,7 +11,8 @@ export const REQUIRED_PLUGIN_VERSION = "1.0.0";
  * @typedef {{baseUrl: string, username: string, appPassword: string}} WordPressConnection
  * @typedef {"publish"|"future"|"draft"|"pending"|"private"|"trash"} WordPressPostStatus
  * @typedef {{id: number, status: WordPressPostStatus, link: string, slug: string}} WordPressPost
- * @typedef {{articleId: string, title: string, content: string, excerpt?: string|null, slug?: string|null, status: "publish"|"draft"}} NewPost
+ * @typedef {{articleId: string, title: string, content: string, excerpt?: string|null, slug?: string|null, status: "publish"|"draft", categoryIds?: number[], featuredMediaId?: number|null}} NewPost
+ * @typedef {{id: number, name: string, slug: string}} WordPressCategory
  * @typedef {ReturnType<typeof createWordPressClient>} WordPressClient
  */
 
@@ -46,7 +47,8 @@ export function createWordPressClient(
   const password = connection.appPassword.replace(/\s+/g, "");
   const authorization = `Basic ${Buffer.from(`${connection.username}:${password}`).toString("base64")}`;
 
-  async function request(method, path, body) {
+  /** `file` sends raw bytes (media uploads) instead of a JSON body. */
+  async function request(method, path, body, file) {
     let response;
     try {
       response = await fetchImpl(`${root}/wp-json${path}`, {
@@ -54,9 +56,11 @@ export function createWordPressClient(
         headers: {
           Authorization: authorization,
           Accept: "application/json",
-          ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+          ...(file
+            ? { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="${file.filename}"` }
+            : body === undefined ? {} : { "Content-Type": "application/json" }),
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: file ? file.bytes : body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
         cache: "no-store",
       });
@@ -120,8 +124,35 @@ export function createWordPressClient(
         excerpt: post.excerpt ?? undefined,
         slug: post.slug || undefined,
         status: post.status,
+        categories: post.categoryIds?.length ? post.categoryIds : undefined,
+        featured_media: post.featuredMediaId ?? undefined,
         meta: { pn_article_id: post.articleId },
       });
+    },
+
+    /** @returns {Promise<WordPressCategory[]>} The first 100 categories, enough for one site's sections. */
+    async listCategories() {
+      return request("GET", "/wp/v2/categories?per_page=100&_fields=id,name,slug");
+    },
+
+    /** @param {{name: string, slug: string, description?: string|null}} category @returns {Promise<WordPressCategory>} */
+    async createCategory(category) {
+      return request("POST", "/wp/v2/categories?_fields=id,name,slug", {
+        name: category.name,
+        slug: category.slug,
+        description: category.description ?? "",
+      });
+    },
+
+    /**
+     * Uploads an image to the media library, then sets its alt text and caption.
+     * @param {{bytes: Buffer, filename: string, contentType: string, altText?: string|null, caption?: string|null}} media
+     * @returns {Promise<number>} The attachment id.
+     */
+    async uploadMedia(media) {
+      const created = await request("POST", "/wp/v2/media?_fields=id", undefined, media);
+      await request("POST", `/wp/v2/media/${created.id}?_fields=id`, { alt_text: media.altText ?? "", caption: media.caption ?? "" });
+      return created.id;
     },
 
     async updatePostStatus(id, status) {

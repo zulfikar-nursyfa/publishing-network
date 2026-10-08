@@ -64,6 +64,7 @@ export async function createArticle(websiteId, _prev, formData) {
       slug: parsed.data.slug ? slugify(parsed.data.slug) || null : null,
       excerpt: parsed.data.excerpt,
       body: parsed.data.body,
+      category_id: parsed.data.category_id,
       created_by: user.id,
       updated_by: user.id,
       human_edited_at: now,
@@ -106,6 +107,7 @@ export async function saveArticle(articleId, _prev, formData) {
       slug: parsed.data.slug ? slugify(parsed.data.slug) || null : null,
       excerpt: parsed.data.excerpt,
       body: parsed.data.body,
+      category_id: parsed.data.category_id,
       updated_by: user.id,
       human_edited_at: new Date().toISOString(),
     })

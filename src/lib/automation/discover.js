@@ -8,7 +8,7 @@ const BATCH_SIZE = 5;
 
 async function fetchFeed(url) {
   const response = await fetch(url, {
-    headers: { "user-agent": "PublishingNetworkBot/1.0", accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
+    headers: { "user-agent": "Mozilla/5.0 (compatible; PublishingNetworkBot/1.0)", accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
     signal: AbortSignal.timeout(15_000),
     cache: "no-store",
   });

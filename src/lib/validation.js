@@ -118,6 +118,36 @@ export const articleSchema = z.object({
   excerpt: optionalText(1000),
   body: z.string().max(200_000).default(""),
   sources: z.string().max(20_000).default(""),
+  category_id: optionalText(36).refine((value) => value === null || /^[0-9a-f-]{36}$/i.test(value), "Choose a category"),
+});
+
+export const categorySchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(80),
+  slug: z.string().trim().max(60).regex(/^([a-z0-9]+(-[a-z0-9]+)*)?$/, "Lowercase letters, numbers and single hyphens only").default(""),
+  description: optionalText(300),
+});
+
+/** Preference order from the brief: owned, licensed, official press assets, then AI illustrations. */
+export const IMAGE_SOURCE_KINDS = {
+  owned: "Owned",
+  licensed: "Licensed",
+  press: "Official press/media asset",
+  ai_generated: "AI-generated illustration",
+};
+
+export const MAX_ARTICLE_IMAGE_BYTES = 3 * 1024 * 1024;
+
+export const articleImageSchema = z.object({
+  source_kind: z.enum(Object.keys(IMAGE_SOURCE_KINDS)),
+  alt_text: z.string().trim().min(1, "Describe the image for screen readers and search").max(300),
+  caption: optionalText(500),
+  credit: optionalText(200),
+  source_url: optionalText(500).refine((value) => value === null || /^https?:\/\/\S+$/.test(value), "Enter a full URL"),
+  license: optionalText(200),
+}).superRefine((image, context) => {
+  if (!["licensed", "press"].includes(image.source_kind)) return;
+  if (!image.credit) context.addIssue({ code: "custom", path: ["credit"], message: "Credit is required for licensed and press images" });
+  if (!image.source_url && !image.license) context.addIssue({ code: "custom", path: ["license"], message: "Record the licence or the page granting use" });
 });
 
 /** Parses "url | title | publisher" lines. Returns the sources or a line-specific error. */

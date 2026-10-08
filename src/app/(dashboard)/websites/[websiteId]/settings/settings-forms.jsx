@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
+import { addCategory, syncCategories } from "@/app/actions/categories";
 import { addContentSource, testWebsiteConnection } from "@/app/actions/websites";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { CheckboxLabel, Field, inputClass } from "@/components/ui";
@@ -54,6 +55,45 @@ export function AddSourceForm({ websiteId }) {
       <SubmitButton variant="secondary" pendingLabel="Adding…">
         <Plus />
         Add source
+      </SubmitButton>
+    </form>
+  );
+}
+
+export function SyncCategoriesButton({ websiteId }) {
+  const [state, action] = useActionState(syncCategories.bind(null, websiteId), {});
+  return (
+    <form action={action} className="space-y-3">
+      <FormAlert state={state} />
+      <SubmitButton variant="secondary" size="sm" pendingLabel="Syncing…">
+        <RefreshCw />
+        Sync with WordPress
+      </SubmitButton>
+    </form>
+  );
+}
+
+export function AddCategoryForm({ websiteId }) {
+  const [state, action] = useActionState(addCategory.bind(null, websiteId), {});
+  const errors = state.fieldErrors ?? {};
+  return (
+    <form action={action} className="space-y-4 rounded-lg bg-muted/40 p-4">
+      <div className="text-sm font-medium">Add a category</div>
+      <FormAlert state={state} />
+      <div className="grid gap-4 md:grid-cols-[1fr_14rem]">
+        <Field label="Name" htmlFor="category-name" error={errors.name}>
+          <input id="category-name" name="name" required className={inputClass} />
+        </Field>
+        <Field label="Slug" htmlFor="category-slug" error={errors.slug} hint="Optional for Latin names.">
+          <input id="category-slug" name="slug" dir="ltr" className={`${inputClass} font-mono text-xs`} placeholder="auto" />
+        </Field>
+      </div>
+      <Field label="Description" htmlFor="category-description" error={errors.description} hint="Helps the AI choose the right category for a story.">
+        <input id="category-description" name="description" className={inputClass} />
+      </Field>
+      <SubmitButton variant="secondary" pendingLabel="Adding…">
+        <Plus />
+        Add category
       </SubmitButton>
     </form>
   );

@@ -1,5 +1,6 @@
 import "server-only";
 import { recordAudit } from "@/lib/audit";
+import { downloadArticleImage } from "@/lib/storage/article-images";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadConnection } from "@/lib/wordpress/connection";
 
@@ -40,9 +41,13 @@ export function createSupabasePublishStore() {
     async loadContext(articleId) {
       const { data: article } = await db.from("articles").select("*").eq("id", articleId).maybeSingle();
       if (!article) return null;
-      const [{ data: website }, { data: sources }] = await Promise.all([
+      const [{ data: website }, { data: sources }, { data: category }, { data: image }] = await Promise.all([
         db.from("websites").select("*").eq("id", article.website_id).single(),
         db.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
+        article.category_id
+          ? db.from("categories").select("name, wp_term_id").eq("id", article.category_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        db.from("article_images").select("*").eq("article_id", articleId).eq("role", "featured").maybeSingle(),
       ]);
       if (!website) return null;
       return {
@@ -57,6 +62,16 @@ export function createSupabasePublishStore() {
         },
         website: { id: website.id, language: website.language, archived: website.archived_at !== null },
         sources: sources ?? [],
+        category: category ? { name: category.name, wpTermId: category.wp_term_id } : null,
+        image: image ? {
+          id: image.id,
+          storagePath: image.storage_path,
+          wpMediaId: image.wp_media_id,
+          altText: image.alt_text,
+          caption: image.caption,
+          credit: image.credit,
+          sourceKind: image.source_kind,
+        } : null,
         connection: await loadConnection(website),
       };
     },
@@ -88,6 +103,15 @@ export function createSupabasePublishStore() {
         .from("publications")
         .update({ status: "failed", last_error: error.slice(0, 2000), locked_until: null })
         .eq("id", publicationId);
+    },
+
+    async loadImageFile(image) {
+      return downloadArticleImage(db, image.storagePath);
+    },
+
+    async markImageUploaded(imageId, wpMediaId) {
+      const { error } = await db.from("article_images").update({ wp_media_id: wpMediaId }).eq("id", imageId);
+      if (error) throw new Error(`Image uploaded to WordPress (media ${wpMediaId}) but recording it failed: ${error.message}`);
     },
 
     async audit({ websiteId, actorId, action, articleId, details }) {

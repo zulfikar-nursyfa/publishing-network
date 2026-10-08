@@ -1,4 +1,5 @@
-import { Bot, ExternalLink, Plug, Rss } from "lucide-react";
+import { Bot, ExternalLink, Plug, Rss, Tags } from "lucide-react";
+import { setCategoryArchived } from "@/app/actions/categories";
 import {
   deleteContentSource,
   setAutomationPaused,
@@ -13,7 +14,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatPublishTimes } from "@/lib/schedule";
 import { SOURCE_KINDS, TIMEZONES } from "@/lib/validation";
 import { WebsiteForm } from "../../website-form";
-import { AddSourceForm, TestConnectionButton } from "./settings-forms";
+import { AddCategoryForm, AddSourceForm, SyncCategoriesButton, TestConnectionButton } from "./settings-forms";
 
 export default async function WebsiteSettingsPage({ params, searchParams }) {
   const { websiteId } = await params;
@@ -21,8 +22,9 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
   const created = (await searchParams).created === "1";
   const supabase = await createClient();
 
-  const [{ data: sources }, { data: members }, { data: editors }] = await Promise.all([
+  const [{ data: sources }, { data: categories }, { data: members }, { data: editors }] = await Promise.all([
     supabase.from("content_sources").select("*").eq("website_id", websiteId).order("name"),
+    supabase.from("categories").select("*").eq("website_id", websiteId).order("sort_order").order("name"),
     supabase.from("website_members").select("user_id").eq("website_id", websiteId),
     user.isAdmin
       ? supabase.from("profiles").select("id, email, full_name").eq("role", "editor").order("email")
@@ -136,6 +138,39 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
           <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No sources yet.</p>
         )}
         {user.isAdmin ? <AddSourceForm websiteId={websiteId} /> : null}
+      </Card>
+
+      <Card icon={Tags} className="mb-6" title="Categories" description="Editors and the AI choose from active categories. Each one is linked to a WordPress category of the same slug.">
+        {categories && categories.length > 0 ? (
+          <ul className="mb-5 divide-y rounded-lg border">
+            {categories.map((category) => (
+              <li key={category.id} className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                    {category.name}
+                    <span className="font-mono text-xs font-normal text-muted-foreground">{category.slug}</span>
+                    {category.wp_term_id ? null : <Badge tone="amber">not in WordPress</Badge>}
+                    {category.archived_at ? <Badge>archived</Badge> : null}
+                  </div>
+                  {category.description ? <div className="mt-0.5 text-xs text-muted-foreground">{category.description}</div> : null}
+                </div>
+                {user.isAdmin ? (
+                  <form action={setCategoryArchived.bind(null, websiteId, category.id, !category.archived_at)} className="shrink-0">
+                    <SubmitButton variant="secondary" size="sm">{category.archived_at ? "Restore" : "Archive"}</SubmitButton>
+                  </form>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No categories yet. Add them here or sync to import the WordPress site&apos;s categories.</p>
+        )}
+        {user.isAdmin ? (
+          <div className="space-y-5">
+            <SyncCategoriesButton websiteId={websiteId} />
+            <AddCategoryForm websiteId={websiteId} />
+          </div>
+        ) : null}
       </Card>
 
       {user.isAdmin ? (

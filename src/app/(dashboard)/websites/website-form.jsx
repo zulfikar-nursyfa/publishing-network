@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CalendarClock, Globe, Palette, Plug, Rss, Users } from "lucide-react";
+import { CalendarClock, Globe, Palette, Plug, Users } from "lucide-react";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Card, CheckboxLabel, Field, inputClass } from "@/components/ui";
 import { DEFAULT_PUBLISH_TIMES, DEFAULT_TIMEZONE } from "@/lib/schedule";
@@ -13,6 +13,7 @@ export function WebsiteForm({
   editors,
   assignedEditorIds = [],
   timezones,
+  niches = [],
 }) {
   const [branding, setBranding] = useState(website?.branding ?? {});
   const [logoFile, setLogoFile] = useState(null);
@@ -55,6 +56,12 @@ export function WebsiteForm({
             <select id="language" name="language" value={language} onChange={(event) => setLanguage(event.target.value)} className={inputClass}>
               <option value="en">English</option>
               <option value="ar">Arabic (right to left)</option>
+            </select>
+          </Field>
+          <Field label="Niche" htmlFor="niche_id" error={errors.niche_id} hint="The site gets this niche's source group. English and Arabic sites of a niche share it.">
+            <select id="niche_id" name="niche_id" defaultValue={website?.niche_id ?? ""} className={inputClass}>
+              <option value="">None</option>
+              {niches.map((niche) => <option key={niche.id} value={niche.id}>{niche.name}</option>)}
             </select>
           </Field>
           <Field label="Topic" htmlFor="topic" error={errors.topic}>
@@ -148,12 +155,6 @@ export function WebsiteForm({
           </div>
         )}
       </Card>
-
-      {isNew ? (
-        <Card icon={Rss} title="Approved content sources" description="Optional. One per line as: Name | RSS feed URL. Set the type, image rights and other details later in the website settings.">
-          <textarea name="initial_sources" rows={4} className={`${inputClass} font-mono text-xs leading-relaxed`} placeholder={"Reuters Business | https://example.com/rss\nOfficial press office | https://example.gov/news/rss"} />
-        </Card>
-      ) : null}
 
       <div className="sticky bottom-0 z-10 -mx-4 flex justify-end border-t bg-background/85 px-4 py-3 backdrop-blur-lg sm:mx-0 sm:rounded-xl sm:border sm:px-4">
         <SubmitButton className="w-full sm:w-auto" pendingLabel={isNew ? "Adding website…" : "Saving…"}>{isNew ? "Add website and test connection" : "Save settings"}</SubmitButton>

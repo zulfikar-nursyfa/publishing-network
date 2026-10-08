@@ -19,6 +19,7 @@ import {
   Monitor,
   Moon,
   Newspaper,
+  Layers,
   Rss,
   Sun,
   Users,
@@ -42,6 +43,7 @@ const NAV = [
   {
     label: "Administration",
     items: [
+      { href: "/niches", label: "Niches", icon: Layers, adminOnly: true },
       { href: "/users", label: "Users", icon: Users, adminOnly: true },
       { href: "/network", label: "Network settings", icon: Settings, adminOnly: true },
       { href: "/activity", label: "Activity", icon: Activity },

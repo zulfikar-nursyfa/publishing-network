@@ -16,6 +16,7 @@ function websiteColumns(input, branding = {}) {
   return {
     name: input.name,
     slug: input.slug || slugify(input.name),
+    niche_id: input.niche_id,
     domain: input.domain,
     language: input.language,
     topic: input.topic,
@@ -98,13 +99,7 @@ export async function createWebsite(_prev, formData) {
     await supabase.from("website_members").insert(editorIds.map((userId) => ({ website_id: website.id, user_id: userId })));
   }
 
-  const sourceLines = String(formData.get("initial_sources") ?? "");
-  const sources = sourceLines
-    .split(/\r?\n/)
-    .map((line) => line.split("|").map((part) => part.trim()))
-    .filter(([name, url]) => name && url && /^https?:\/\//.test(url))
-    .map(([name, url]) => ({ website_id: website.id, name, url, feed_url: url, kind: "news" }));
-  if (sources.length > 0) await supabase.from("content_sources").insert(sources);
+  await supabase.rpc("sync_niche_sources", { target_website: website.id });
 
   await recordAudit({
     action: "website.created",
@@ -196,6 +191,10 @@ export async function updateWebsite(websiteId, _prev, formData) {
     },
   });
 
+  if (website.niche_id !== previous.niche_id) {
+    const { error: syncError } = await supabase.rpc("sync_niche_sources", { target_website: websiteId });
+    if (syncError) return { error: `Settings saved, but the niche sources could not be updated: ${syncError.message}` };
+  }
   if (credentialsChanged) await testConnection(website);
   revalidatePath(`/websites/${websiteId}`, "layout");
   return { ok: true, branding: website.branding, message: logoCleanupSucceeded ? "Settings saved." : "Settings saved. The previous logo file could not be removed from storage." };
@@ -292,7 +291,8 @@ export async function setContentSourceActive(websiteId, sourceId, active) {
 export async function deleteContentSource(websiteId, sourceId) {
   const user = await requireAdmin();
   const supabase = await createClient();
-  await supabase.from("content_sources").delete().eq("id", sourceId).eq("website_id", websiteId);
+  // Niche sources are removed from the niche; a site can only disable its copy.
+  await supabase.from("content_sources").delete().eq("id", sourceId).eq("website_id", websiteId).is("niche_source_id", null);
   await recordAudit({ action: "source.removed", entityType: "content_source", entityId: sourceId, websiteId, actorId: user.id });
   revalidatePath(`/websites/${websiteId}/settings`);
 }

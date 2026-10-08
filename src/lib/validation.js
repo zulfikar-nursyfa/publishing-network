@@ -87,6 +87,7 @@ export const websiteSettingsSchema = z.object({
     .transform((value) => value.replace(/^https?:\/\//, "").replace(/\/.*$/, ""))
     .pipe(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "Enter a domain such as example.com")),
   language: z.enum(["en", "ar"]),
+  niche_id: optionalText(36).refine((value) => value === null || /^[0-9a-f-]{36}$/i.test(value), "Choose from the list"),
   topic: optionalText(200),
   audience: optionalText(500),
   timezone: z.string().refine((zone) => TIMEZONES.includes(zone), "Choose a valid timezone"),
@@ -189,6 +190,10 @@ export const contentSourceSchema = z.object({
   feed_url: optionalText(500).refine((value) => value === null || /^https?:\/\/\S+$/.test(value), "Enter a full feed URL"),
   images_reusable: checkbox,
   attribution_note: optionalText(500),
+});
+
+export const nicheSchema = z.object({
+  name: z.string().trim().min(2, "Name is required").max(120),
 });
 
 export const networkSettingsSchema = z.object({

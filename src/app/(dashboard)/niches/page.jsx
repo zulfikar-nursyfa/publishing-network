@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ChevronDown, ExternalLink } from "lucide-react";
-import { addNicheSource, removeNicheSource } from "@/app/actions/niches";
+import { addNicheSource, removeNicheSource, updateNicheSource } from "@/app/actions/niches";
 import { SubmitButton } from "@/components/form-controls";
 import { Alert, Badge, Card, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { SOURCE_KINDS } from "@/lib/validation";
-import { AddSourceForm } from "../websites/[websiteId]/settings/settings-forms";
+import { SourceForm } from "../websites/[websiteId]/settings/settings-forms";
 import { AddNicheForm } from "./add-niche-form";
 
 export const metadata = { title: "Niches" };
@@ -67,6 +67,10 @@ export default async function NichesPage() {
                               </a>
                               <div className="mt-1 truncate text-xs text-muted-foreground">{source.feed_url ? `Feed: ${source.feed_url}` : "No feed: not used for story discovery"}</div>
                               {source.attribution_note ? <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div> : null}
+                              <details className="mt-2">
+                                <summary className="cursor-pointer text-xs font-medium text-primary">Edit</summary>
+                                <div className="mt-2"><SourceForm saveSource={updateNicheSource.bind(null, niche.id, source.id)} source={source} /></div>
+                              </details>
                             </div>
                             <form action={removeNicheSource.bind(null, niche.id, source.id)} className="shrink-0">
                               <SubmitButton variant="danger-outline" size="sm" confirmLabel="Remove"
@@ -80,7 +84,7 @@ export default async function NichesPage() {
                     ) : (
                       <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No sources yet.</p>
                     )}
-                    <AddSourceForm addSource={addNicheSource.bind(null, niche.id)} />
+                    <SourceForm saveSource={addNicheSource.bind(null, niche.id)} />
                   </div>
                 </details>
               );

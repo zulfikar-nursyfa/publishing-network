@@ -6,6 +6,7 @@ import {
   setAutomationPaused,
   setContentSourceActive,
   setWebsiteArchived,
+  updateContentSource,
   updateWebsite,
 } from "@/app/actions/websites";
 import { SubmitButton } from "@/components/form-controls";
@@ -15,7 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatPublishTimes } from "@/lib/schedule";
 import { SOURCE_KINDS, TIMEZONES } from "@/lib/validation";
 import { WebsiteForm } from "../../website-form";
-import { AddCategoryForm, AddSourceForm, SyncCategoriesButton, TestConnectionButton } from "./settings-forms";
+import { AddCategoryForm, SourceForm, SyncCategoriesButton, TestConnectionButton } from "./settings-forms";
 
 export default async function WebsiteSettingsPage({ params, searchParams }) {
   const { websiteId } = await params;
@@ -118,6 +119,12 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
                     <ExternalLink className="size-3 shrink-0" />
                   </a>
                   {source.attribution_note ? <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div> : null}
+                  {user.isAdmin && !source.niche_source_id ? (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer text-xs font-medium text-primary">Edit</summary>
+                      <div className="mt-2"><SourceForm saveSource={updateContentSource.bind(null, websiteId, source.id)} source={source} /></div>
+                    </details>
+                  ) : null}
                   <div className={`mt-1 text-xs ${source.last_error ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>
                     {!source.feed_url
                       ? "No feed: not used for story discovery"
@@ -146,7 +153,7 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
         ) : (
           <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No sources yet.</p>
         )}
-        {user.isAdmin ? <AddSourceForm addSource={addContentSource.bind(null, websiteId)} /> : null}
+        {user.isAdmin ? <SourceForm saveSource={addContentSource.bind(null, websiteId)} /> : null}
       </Card>
 
       <Card icon={Tags} className="mb-6" title="Categories" description="Editors and the AI choose from active categories. Each one is linked to a WordPress category of the same slug.">

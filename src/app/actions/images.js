@@ -55,6 +55,23 @@ export async function saveFeaturedImage(articleId, _prev, formData) {
   return { ok: true, message: "Featured image saved." };
 }
 
+/** Makes another stored image (e.g. the AI illustration instead of the source photo) the featured one. */
+export async function chooseFeaturedImage(articleId, imageId) {
+  const { error: loadError, user, supabase, article, current } = await loadEditableArticle(articleId);
+  if (loadError) return;
+  // One featured image per article: step the current one down first.
+  if (current) await supabase.from("article_images").update({ role: "option", wp_media_id: null }).eq("id", current.id);
+  const { data: chosen } = await supabase.from("article_images").update({ role: "featured", wp_media_id: null })
+    .eq("id", imageId).eq("article_id", articleId).eq("role", "option").select("id").maybeSingle();
+  if (!chosen) {
+    if (current) await supabase.from("article_images").update({ role: "featured" }).eq("id", current.id);
+    return;
+  }
+  await recordAudit({ action: "article.image_chosen", entityType: "article", entityId: articleId, websiteId: article.website_id,
+    actorId: user.id, details: { image_id: imageId } });
+  revalidatePath(`/articles/${articleId}`);
+}
+
 export async function removeFeaturedImage(articleId) {
   const { error: loadError, user, supabase, article, current } = await loadEditableArticle(articleId);
   if (loadError || !current) return;

@@ -1,28 +1,29 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { createGeminiClient, GeminiError, groundingResults, responseJson, responseUsage } from "./gemini";
+import { createGeminiClient, GeminiError, groundingResults, responseImage, responseJson, responseUsage, withoutImageData } from "./gemini";
 import { serverEnv } from "@/lib/env";
 import { responseSchema } from "@/lib/automation/draft-checks";
 
 const MAX_SEARCHES = 5;
 
 /**
- * One budgeted Gemini call for a job. With `search`, returns the raw grounded response;
- * otherwise the parsed JSON for `schema`. Completed responses are reused if a worker died
- * before persisting the next job step.
+ * One budgeted Gemini call for a job. With `search`, returns the raw grounded response; with
+ * `image`, the image bytes; otherwise the parsed JSON for `schema`. Completed text responses are
+ * reused if a worker died before persisting the next job step (image bytes are not kept).
  */
-export async function generateForJob(db, job, worker, { model, operation, prompt, schema, search = false, assertControls }) {
+export async function generateForJob(db, job, worker, { model, operation, prompt, schema, search = false, image = false, assertControls }) {
   const contents = [{ role: "user", parts: [{ text: prompt }] }];
   const jsonSchema = schema ? responseSchema(schema) : null;
-  const outputTokens = search ? 2048 : 8192;
-  const parse = (response) => search ? response : schema.parse(responseJson(response));
+  // An image is billed as output tokens (about 1,300 at 1K resolution).
+  const outputTokens = search ? 2048 : image ? 4096 : 8192;
+  const parse = (response) => search ? response : image ? responseImage(response) : schema.parse(responseJson(response));
   const inputHash = createHash("sha256").update(JSON.stringify({ model, operation, contents, generation: job.state?.generation ?? null, schema: jsonSchema })).digest("hex");
   await assertControls();
   const { data: cached, error: cacheError } = await db.from("ai_usage").select("result")
     .eq("job_id", job.id).eq("operation", operation).eq("input_hash", inputHash).eq("status", "completed")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (cacheError) throw new Error(`Could not read usage records: ${cacheError.message}`);
-  if (cached?.result) return parse(cached.result);
+  if (cached?.result && !image) return parse(cached.result);
   const client = createGeminiClient({ apiKey: serverEnv().GEMINI_API_KEY });
   const count = await client.countTokens(model, contents, jsonSchema);
   if (count > 32_000) throw new GeminiError("Evidence exceeds the drafting input limit");
@@ -49,7 +50,8 @@ export async function generateForJob(db, job, worker, { model, operation, prompt
   // A lost response remains conservatively reserved; never assume a timeout was free.
   let response;
   try {
-    response = search ? await client.search(model, contents, outputTokens) : await client.generate(model, contents, jsonSchema);
+    response = search ? await client.search(model, contents, outputTokens)
+      : image ? await client.image(model, contents) : await client.generate(model, contents, jsonSchema);
   } catch (error) {
     await settle(error.uncertain ? "uncertain" : "failed", { explanation: error.message });
     throw error;
@@ -58,7 +60,7 @@ export async function generateForJob(db, job, worker, { model, operation, prompt
   // Billed per search query on newer models and per grounded prompt on 2.5, so this is an upper estimate.
   const searches = search ? Math.min(MAX_SEARCHES, groundingResults(response).queries) : 0;
   await settle(tokens ? "completed" : "uncertain", {
-    prompt_tokens: tokens?.input ?? 0, generated_tokens: tokens?.output ?? 0, response_data: response, searches,
+    prompt_tokens: tokens?.input ?? 0, generated_tokens: tokens?.output ?? 0, response_data: image ? withoutImageData(response) : response, searches,
     explanation: tokens ? null : "Provider usage missing; reservation retained",
   });
   if (!tokens) throw new GeminiError("Provider usage was missing; review the reserved estimate before retrying");

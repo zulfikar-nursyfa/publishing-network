@@ -20,7 +20,7 @@ export default async function StoriesPage({ searchParams }) {
   const status = STATUSES.find((item) => item.key === params.status)?.key ?? "new";
   const supabase = await createClient();
 
-  const { data: websites } = await supabase.from("websites").select("id, name, timezone").is("archived_at", null).order("name");
+  const { data: websites } = await supabase.from("websites").select("id, name, timezone, language").is("archived_at", null).order("name");
   const website = websites?.find((site) => site.id === params.website) ?? null;
   const siteById = new Map((websites ?? []).map((site) => [site.id, site]));
 
@@ -73,11 +73,11 @@ export default async function StoriesPage({ searchParams }) {
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <Badge tone="purple">{site ? `${site.name} · ${site.language.toUpperCase()}` : "Archived website"}</Badge>
                     <span className="font-medium text-foreground">{story.content_sources?.name ?? "Removed source"}</span>
                     {primary ? <Badge tone="blue">primary</Badge> : null}
                     <span>·</span>
                     <span>{formatDateTime(story.source_published_at ?? story.created_at, site?.timezone)}</span>
-                    {!website && websites && websites.length > 1 ? <><span>·</span><span>{site?.name}</span></> : null}
                   </div>
                   <a href={story.url} target="_blank" rel="noreferrer" className="group inline-flex items-start gap-1.5 font-medium underline-offset-4 hover:text-primary hover:underline">
                     <span dir="auto">{story.title}</span>

@@ -2,12 +2,15 @@
 
 import { useActionState } from "react";
 import { ImageIcon, Trash2 } from "lucide-react";
-import { removeFeaturedImage, saveFeaturedImage } from "@/app/actions/images";
+import { chooseFeaturedImage, removeFeaturedImage, saveFeaturedImage } from "@/app/actions/images";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Badge, Card, Field, inputClass } from "@/components/ui";
 import { IMAGE_SOURCE_KINDS } from "@/lib/validation";
 
-export function FeaturedImage({ articleId, image, previewUrl, readOnly }) {
+const describe = (image) => `${IMAGE_SOURCE_KINDS[image.source_kind]}${image.credit ? ` · ${image.credit}` : ""}`;
+
+export function FeaturedImage({ articleId, image, options = [], readOnly }) {
+  const previewUrl = image?.previewUrl;
   const [state, action] = useActionState(saveFeaturedImage.bind(null, articleId), {});
   const errors = state.fieldErrors ?? {};
 
@@ -19,14 +22,32 @@ export function FeaturedImage({ articleId, image, previewUrl, readOnly }) {
         // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL from private storage
         <img src={previewUrl} alt={image.alt_text ?? ""} className="mb-5 max-h-72 w-full rounded-lg border object-cover" />
       ) : null}
+      {image ? <p className="mb-5 text-sm text-muted-foreground">{describe(image)}</p> : null}
+      {options.length ? (
+        <div className="mb-5 space-y-2">
+          <div className="text-sm font-medium">Other image{options.length === 1 ? "" : "s"}</div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {options.map((option) => (
+              <div key={option.id} className="rounded-lg border p-2">
+                {option.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- short-lived signed URL from private storage
+                  <img src={option.previewUrl} alt={option.alt_text ?? ""} className="mb-2 aspect-video w-full rounded-md object-cover" />
+                ) : null}
+                <div className="mb-2 text-xs text-muted-foreground">{describe(option)}</div>
+                {readOnly ? null : (
+                  <form action={chooseFeaturedImage.bind(null, articleId, option.id)}>
+                    <SubmitButton variant="secondary" size="sm" pendingLabel="Switching…">Use this image</SubmitButton>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {readOnly ? (
-        image ? (
-          <p className="text-sm text-muted-foreground">
-            {IMAGE_SOURCE_KINDS[image.source_kind]}{image.credit ? ` · ${image.credit}` : ""}
-          </p>
-        ) : <p className="text-sm text-muted-foreground">No featured image.</p>
+        image ? null : <p className="text-sm text-muted-foreground">No featured image.</p>
       ) : (
-        <form key={image?.updated_at ?? "new"} action={action} className="space-y-4">
+        <form key={image ? `${image.id}-${image.updated_at}` : "new"} action={action} className="space-y-4">
           <FormAlert state={state} />
           <Field label={image ? "Replace image" : "Image"} htmlFor="image-file" error={errors.file} hint="PNG, JPEG or WebP, at most 3 MB.">
             <input id="image-file" name="file" type="file" accept="image/png,image/jpeg,image/webp" className={inputClass} />

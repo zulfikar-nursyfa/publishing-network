@@ -56,6 +56,11 @@ export function createGeminiClient({ apiKey, fetch: fetchImpl = globalThis.fetch
     async generate(model, contents, schema, maxOutputTokens = 8192) {
       return call(model, "generateContent", generationRequest(model, contents, schema, maxOutputTokens), 50_000);
     },
+    async image(model, contents) {
+      return call(model, "generateContent", {
+        contents, generationConfig: { candidateCount: 1, responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } },
+      }, 50_000);
+    },
     // Grounded search: the useful output is groundingMetadata (pages Google found), not the text.
     async search(model, contents, maxOutputTokens = 2048) {
       return call(model, "generateContent", {
@@ -77,6 +82,20 @@ export function responseUsage(response) {
   const usage = response.usageMetadata;
   if (!usage || !Number.isSafeInteger(usage.promptTokenCount) || !Number.isSafeInteger(usage.candidatesTokenCount)) return null;
   return { input: usage.promptTokenCount, output: usage.candidatesTokenCount + (usage.thoughtsTokenCount ?? 0) };
+}
+
+/** The generated image from an image-model response. */
+export function responseImage(response) {
+  const part = response.candidates?.[0]?.content?.parts?.find((item) => item.inlineData?.data);
+  if (!part) throw new GeminiError("Gemini did not return an image");
+  return Buffer.from(part.inlineData.data, "base64");
+}
+
+/** The response without image bytes, small enough to keep in the usage record. */
+export function withoutImageData(response) {
+  return { ...response, candidates: response.candidates?.map((candidate) => ({ ...candidate, content: {
+    ...candidate.content, parts: candidate.content?.parts?.map((part) => part.inlineData ? { inlineData: { mimeType: part.inlineData.mimeType } } : part),
+  } })) };
 }
 
 export function responseJson(response) {

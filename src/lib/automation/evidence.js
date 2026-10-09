@@ -60,12 +60,15 @@ export function readResearchResponse(response) {
       if (size > MAX_BYTES) rejectOversize();
       else chunks.push(chunk);
     });
-    response.once("end", () => resolve({ status: response.statusCode, headers: response.headers, body: Buffer.concat(chunks).toString("utf8") }));
+    response.once("end", () => {
+      const raw = Buffer.concat(chunks);
+      resolve({ status: response.statusCode, headers: response.headers, raw, body: raw.toString("utf8") });
+    });
   });
 }
 
 // Resolve once, validate every address, and pin the request to that answer to prevent DNS rebinding.
-async function publicRequest(url, timeoutMs) {
+async function publicRequest(url, timeoutMs, accept = "text/html,text/plain") {
   const signal = AbortSignal.timeout(timeoutMs);
   const addresses = await Promise.race([
     lookup(url.hostname, { all: true, family: 4 }),
@@ -76,7 +79,7 @@ async function publicRequest(url, timeoutMs) {
     const req = request(url, {
       signal,
       lookup: (_hostname, options, callback) => options.all ? callback(null, addresses) : callback(null, addresses[0].address, 4),
-      headers: { accept: "text/html,text/plain", "accept-encoding": "identity", "user-agent": USER_AGENT },
+      headers: { accept, "accept-encoding": "identity", "user-agent": USER_AGENT },
     }, (response) => {
       readResearchResponse(response).then(resolve, reject);
     });
@@ -188,6 +191,14 @@ export function paywallBlockReason(html, articleHtml, pageUrl) {
     return "Paywalled: reading the article requires a subscription or login.";
   }
   return null;
+}
+
+/** Downloads a public HTTPS image with the same address checks as evidence pages. Redirects are not followed. */
+export async function fetchPublicImage(value) {
+  if (!isFetchableUrl(value)) throw new EvidenceError("Image URL is not a public HTTPS address");
+  const response = await publicRequest(new URL(value), 15_000, "image/png,image/jpeg,image/webp");
+  if (response.status !== 200) throw new EvidenceError(`Image returned HTTP ${response.status}`);
+  return response.raw;
 }
 
 /** Reads one public page: HTTPS only, robots.txt respected, bounded body/time, redirects checked individually. */

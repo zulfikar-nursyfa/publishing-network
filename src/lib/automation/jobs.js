@@ -4,15 +4,18 @@ import { recordAudit } from "@/lib/audit";
 import { serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateForJob } from "@/lib/ai/usage";
+import { uploadArticleImage } from "@/lib/storage/article-images";
+import { sniffImage } from "@/lib/storage/image-file";
+import { MAX_ARTICLE_IMAGE_BYTES } from "@/lib/validation";
 import { GeminiError, groundingResults } from "@/lib/ai/gemini";
 import { automationBlockReason } from "./policy";
-import { collectEvidence, EvidenceError, isFetchableUrl } from "./evidence";
+import { collectEvidence, EvidenceError, fetchPublicImage, isFetchableUrl } from "./evidence";
 import { checkDraft, checkResearch, checkVerification, DraftCheckError, draftSchema, researchSchema, verificationSchema } from "./draft-checks";
 
 class DeferredJob extends Error {}
 class PermanentJob extends Error {}
 class LostLease extends Error {}
-const NEXT = { research: "draft", draft: "verify", verify: "create_article" };
+const NEXT = { research: "draft", draft: "verify", verify: "illustrate", illustrate: "create_article" };
 const MAX_CANDIDATES = 8;
 const MAX_PAGES = 5;
 // Pages published well before the story are background or a different event.
@@ -85,6 +88,50 @@ async function collectStep(job, context) {
   return { state, step: "research" };
 }
 
+const IMAGE_RULES = "Photorealistic editorial news photograph illustrating the subject of this article: a generic, realistic scene such as a city skyline, port, office, trading floor, factory or product category. No identifiable real people, no company logos or brand names, no readable text or watermarks, and do not depict a specific real event. Natural light.";
+
+/**
+ * Stores the draft's images before the article exists, under the article id fixed in state:
+ * the story's own image when its source allows reuse, and an AI illustration when the website
+ * generates them. The first becomes the featured image, the other an option for the editor.
+ * Image problems only add a warning; the editor can still upload an image.
+ */
+async function illustrateStep(db, job, worker, context, state, assertControls) {
+  state.article_id ??= randomUUID();
+  const article = { id: state.article_id, website_id: job.website_id };
+  const images = [];
+  const warnings = [];
+  const fatal = (error) => error instanceof LostLease || /Automation is paused or off|Draft lease lost/.test(error.message)
+    || (error instanceof DeferredJob && !/budget/i.test(error.message));
+  const source = context.sources.find((row) => row.id === context.story.source_id);
+  if (source?.images_reusable && context.story.image_url) {
+    try {
+      const file = sniffImage(await fetchPublicImage(context.story.image_url));
+      if (!file || file.bytes.length > MAX_ARTICLE_IMAGE_BYTES) throw new Error("not a PNG, JPEG or WebP under 3 MB");
+      images.push({ storage_path: await uploadArticleImage(db, article, file), source_kind: "press", credit: source.name,
+        source_url: context.story.url, license: source.attribution_note ?? "Reuse allowed in the source settings",
+        alt_text: context.story.title.slice(0, 300) });
+    } catch (error) {
+      warnings.push(`Source image not added: ${error.message}`);
+    }
+  }
+  if (context.website.generate_illustrations) {
+    const model = serverEnv().GEMINI_IMAGE_MODEL;
+    const prompt = `${IMAGE_RULES}\nHEADLINE: ${state.draft.title}\nSUMMARY: ${state.draft.excerpt ?? ""}`;
+    try {
+      const file = sniffImage(await generateForJob(db, job, worker, { model, operation: "illustrate", image: true, prompt, assertControls }));
+      if (!file) throw new Error("unsupported image format");
+      images.push({ storage_path: await uploadArticleImage(db, article, file), source_kind: "ai_generated",
+        ai_model: model, ai_prompt: prompt, alt_text: `Illustration: ${state.draft.title}`.slice(0, 300) });
+    } catch (error) {
+      if (fatal(error)) throw error;
+      warnings.push(`AI image not generated: ${error.message}`);
+    }
+  }
+  state.images = images.map((image, index) => ({ ...image, role: index === 0 ? "featured" : "option" }));
+  return warnings;
+}
+
 async function runStep(db, job, worker) {
   const context = await contextFor(db, job, worker);
   const state = structuredClone(job.state);
@@ -148,6 +195,8 @@ async function runStep(db, job, worker) {
     state.draft.sensitive ||= state.verification.sensitive || warnings.length > 0;
     state.sources = evidence.filter((page) => state.draft.source_urls.includes(page.url))
       .map(({ url, title, publisher }) => ({ url, title, publisher }));
+  } else if (job.step === "illustrate") {
+    warn(await illustrateStep(db, job, worker, context, state, assertControls));
   } else throw new PermanentJob("Unknown drafting step");
   await contextFor(db, { ...job, state }, worker);
   return advance(db, job, worker, { state, step: NEXT[job.step], ...queued });

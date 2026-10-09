@@ -17,6 +17,8 @@ const serverEnvSchema = z.object({
   CRON_SECRET: z.union([z.literal(""), z.string().min(16, "must be at least 16 characters")]).optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().regex(/^gemini-[A-Za-z0-9._-]+$/).default("gemini-3.8-flash"),
+  // Image model for draft illustrations; it needs a price entry on the Network settings page.
+  GEMINI_IMAGE_MODEL: z.string().regex(/^gemini-[A-Za-z0-9._-]+$/).default("gemini-3.1-flash-image"),
   // Allows http:// WordPress URLs. Only for the local Docker WordPress; never in staging/production.
   ALLOW_INSECURE_WORDPRESS: z
     .enum(["true", "false"])

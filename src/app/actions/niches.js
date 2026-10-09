@@ -54,6 +54,26 @@ export async function addNicheSource(nicheId, _prev, formData) {
     : { ok: true, message: "Source added to the niche and its websites." };
 }
 
+export async function updateNicheSource(nicheId, sourceId, _prev, formData) {
+  const user = await requireAdmin();
+  const parsed = contentSourceSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("niche_sources").update(parsed.data)
+    .eq("id", sourceId).eq("niche_id", nicheId).select("id").maybeSingle();
+  if (error) return { error: error.code === "23505" ? "Another source in this niche uses that URL" : error.message };
+  if (!data) return { error: "Source not found" };
+
+  const syncError = await syncNicheWebsites(supabase, nicheId);
+  await recordAudit({ action: "niche_source.edited", entityType: "niche_source", entityId: sourceId, actorId: user.id,
+    details: { niche_id: nicheId, name: parsed.data.name, url: parsed.data.url, sync_error: syncError } });
+  revalidatePath("/niches");
+  return syncError
+    ? { error: `Source saved, but not every website in the niche was updated: ${syncError}` }
+    : { ok: true, message: "Source saved for the niche and its websites." };
+}
+
 /** Also removes the source from every website in the niche (their copies cascade). */
 export async function removeNicheSource(nicheId, sourceId) {
   const user = await requireAdmin();

@@ -274,6 +274,24 @@ export async function addContentSource(websiteId, _prev, formData) {
   return { ok: true, message: "Source added." };
 }
 
+/** Edits a website's own source; niche sources are edited on the Niches page. */
+export async function updateContentSource(websiteId, sourceId, _prev, formData) {
+  const user = await requireAdmin();
+  const parsed = contentSourceSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("content_sources").update(parsed.data)
+    .eq("id", sourceId).eq("website_id", websiteId).is("niche_source_id", null).select("id").maybeSingle();
+  if (error) return { error: error.code === "23505" ? "Another source already uses that URL" : error.message };
+  if (!data) return { error: "Source not found. Niche sources are edited on the Niches page." };
+
+  await recordAudit({ action: "source.edited", entityType: "content_source", entityId: sourceId, websiteId, actorId: user.id,
+    details: { name: parsed.data.name, url: parsed.data.url } });
+  revalidatePath(`/websites/${websiteId}/settings`);
+  return { ok: true, message: "Source saved." };
+}
+
 export async function setContentSourceActive(websiteId, sourceId, active) {
   const user = await requireAdmin();
   const supabase = await createClient();

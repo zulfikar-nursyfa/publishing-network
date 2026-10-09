@@ -18,20 +18,29 @@ export function NetworkSettingsForm({ settings }) {
   </form>;
 }
 
+const PRICE_FIELDS = [
+  { name: "input_per_million_usd", label: "Input price (USD per 1 million tokens)",
+    hint: "What Google charges for the text we send: prompt, story and evidence. A token is about 4 characters, so 1 million tokens is roughly 750,000 words." },
+  { name: "output_per_million_usd", label: "Output price (USD per 1 million tokens)",
+    hint: "What Google charges for what the model produces: the article text, its hidden reasoning (thinking), and for image models the image itself." },
+];
+
 export function ModelPriceForm({ price }) {
   const [state, action] = useActionState(saveModelPrice, {});
+  const id = price?.model ?? "new";
   return <form action={action} className="space-y-3 rounded-lg border p-4">
     <FormAlert state={state} />
-    <Field label="Model ID" htmlFor={`model-${price?.model ?? "new"}`} error={state.fieldErrors?.model}>
-      <input id={`model-${price?.model ?? "new"}`} name="model" required readOnly={Boolean(price)} defaultValue={price?.model ?? ""} className={inputClass} />
+    <Field label="Model ID" htmlFor={`model-${id}`} error={state.fieldErrors?.model} hint={price ? undefined : "Exactly as Google names it, e.g. gemini-3.8-flash or gemini-3.1-flash-image."}>
+      <input id={`model-${id}`} name="model" required readOnly={Boolean(price)} defaultValue={price?.model ?? ""} className={inputClass} />
     </Field>
     <div className="grid gap-3 sm:grid-cols-2">
-      {["input", "output"].map((kind) => <Field key={kind} label={`${kind === "input" ? "Input" : "Output (including thinking)"} USD / million tokens`} htmlFor={`${kind}-${price?.model ?? "new"}`}>
-        <input id={`${kind}-${price?.model ?? "new"}`} name={`${kind}_per_million_usd`} required type="number" min="0" max="10000" step="0.000001" defaultValue={price?.[`${kind}_per_million_usd`] ?? ""} className={inputClass} />
+      {PRICE_FIELDS.map((field) => <Field key={field.name} label={field.label} htmlFor={`${field.name}-${id}`} hint={field.hint}>
+        <input id={`${field.name}-${id}`} name={field.name} required type="number" min="0" max="10000" step="0.000001" defaultValue={price?.[field.name] ?? ""} className={inputClass} />
       </Field>)}
     </div>
-    <Field label="Web search USD / thousand searches" htmlFor={`search-${price?.model ?? "new"}`} hint="Google Search grounding used to find coverage for each story.">
-      <input id={`search-${price?.model ?? "new"}`} name="search_per_thousand_usd" required type="number" min="0" max="10000" step="0.000001" defaultValue={price?.search_per_thousand_usd ?? 35} className={inputClass} />
+    <Field label="Web search price (USD per 1,000 searches)" htmlFor={`search-${id}`}
+      hint="What Google charges when the model searches the web. Research uses this to find coverage of each story (up to 5 searches per story). Enter 0 for image models.">
+      <input id={`search-${id}`} name="search_per_thousand_usd" required type="number" min="0" max="10000" step="0.000001" defaultValue={price?.search_per_thousand_usd ?? 35} className={inputClass} />
     </Field>
     <SubmitButton variant="secondary">{price ? "Update estimate" : "Add model pricing"}</SubmitButton>
   </form>;

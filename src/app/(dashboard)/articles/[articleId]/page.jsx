@@ -51,7 +51,7 @@ export default async function ArticlePage({ params, searchParams }) {
   const { data: article } = await supabase.from("articles").select("*").eq("id", articleId).maybeSingle();
   if (!article) notFound();
 
-  const [{ data: website }, { data: sources }, { data: publication }, { data: history }, { data: draftJob }, { data: categories }, { data: image }] = await Promise.all([
+  const [{ data: website }, { data: sources }, { data: publication }, { data: history }, { data: draftJob }, { data: categories }, { data: images }] = await Promise.all([
     supabase.from("websites").select("id, name, timezone, publish_times, text_direction, archived_at").eq("id", article.website_id).single(),
     supabase.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
     supabase.from("publications").select("*").eq("article_id", articleId).maybeSingle(),
@@ -66,12 +66,16 @@ export default async function ArticlePage({ params, searchParams }) {
       ? supabase.from("jobs").select("id").eq("article_id", articleId).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("categories").select("id, name, archived_at").eq("website_id", article.website_id).order("sort_order").order("name"),
-    supabase.from("article_images").select("*").eq("article_id", articleId).eq("role", "featured").maybeSingle(),
+    supabase.from("article_images").select("*").eq("article_id", articleId).in("role", ["featured", "option"]).order("created_at"),
   ]);
   if (!website) notFound();
-  const { data: preview } = image?.storage_path
-    ? await supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrl(image.storage_path, 3600)
-    : { data: null };
+  const paths = (images ?? []).map((row) => row.storage_path).filter(Boolean);
+  const { data: signed } = paths.length
+    ? await supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600)
+    : { data: [] };
+  const withPreview = (images ?? []).map((row) => ({
+    ...row, previewUrl: signed?.find((entry) => entry.path === row.storage_path)?.signedUrl ?? row.url,
+  }));
 
   const actorIds = [...new Set([article.created_by, article.approved_by, ...(history ?? []).map((entry) => entry.actor_id)].filter((id) => Boolean(id)))];
   const { data: actors } = actorIds.length
@@ -135,7 +139,8 @@ export default async function ArticlePage({ params, searchParams }) {
             readOnly={!editable}
             submitLabel="Save changes"
           />
-          <FeaturedImage articleId={articleId} image={image} previewUrl={preview?.signedUrl ?? image?.url ?? null} readOnly={!editable} />
+          <FeaturedImage articleId={articleId} image={withPreview.find((row) => row.role === "featured") ?? null}
+            options={withPreview.filter((row) => row.role === "option")} readOnly={!editable} />
         </div>
 
         <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">

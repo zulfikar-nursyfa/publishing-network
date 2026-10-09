@@ -22,8 +22,13 @@ export default async function NichesPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader title="Niches" description="Each niche has one source group, shared by its English and Arabic websites. Changes apply to every website in the niche." />
-      {error ? <Alert tone="error">Niches are unavailable. Apply migration 29 before using this page.</Alert> : (
+      <PageHeader
+        title="Niches"
+        description="Each niche has one source group, shared by its English and Arabic websites. Changes apply to every website in the niche."
+      />
+      {error ? (
+        <Alert tone="error">Niches are unavailable. Apply migration 29 before using this page.</Alert>
+      ) : (
         <>
           <div className="space-y-3">
             {niches.map((niche) => {
@@ -35,7 +40,8 @@ export default async function NichesPage() {
                     <div className="min-w-0">
                       <div className="font-semibold">{niche.name}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
-                        {group.length} source{group.length === 1 ? "" : "s"} · {sites.length
+                        {group.length} source{group.length === 1 ? "" : "s"} ·{" "}
+                        {sites.length
                           ? sites.map((site) => `${site.name} (${site.language.toUpperCase()})`).join(", ")
                           : "no websites yet"}
                       </div>
@@ -46,35 +52,64 @@ export default async function NichesPage() {
                     {sites.length ? (
                       <div className="flex flex-wrap gap-2 text-sm">
                         {sites.map((site) => (
-                          <Link key={site.id} href={`/websites/${site.id}/settings`} className="text-primary hover:underline">{site.name}</Link>
+                          <Link
+                            key={site.id}
+                            href={`/websites/${site.id}/settings`}
+                            className="text-primary hover:underline"
+                          >
+                            {site.name}
+                          </Link>
                         ))}
                       </div>
                     ) : null}
                     {group.length ? (
                       <ul className="divide-y rounded-lg border">
                         {group.map((source) => (
-                          <li key={source.id} className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                          <li
+                            key={source.id}
+                            className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-4"
+                          >
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-1.5 font-medium">
                                 {source.name}
                                 <Badge>{SOURCE_KINDS[source.kind] ?? source.kind}</Badge>
-                                {source.kind === "newsroom" || source.kind === "government" ? <Badge tone="blue">primary</Badge> : null}
+                                {source.kind === "newsroom" || source.kind === "government" ? (
+                                  <Badge tone="blue">primary</Badge>
+                                ) : null}
                                 {source.images_reusable ? <Badge tone="green">images reusable</Badge> : null}
                               </div>
-                              <a href={source.url} target="_blank" rel="noreferrer" className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary">
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                              >
                                 <span className="truncate">{source.url}</span>
                                 <ExternalLink className="size-3 shrink-0" />
                               </a>
-                              <div className="mt-1 truncate text-xs text-muted-foreground">{source.feed_url ? `Feed: ${source.feed_url}` : "No feed: not used for story discovery"}</div>
-                              {source.attribution_note ? <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div> : null}
+                              <div className="mt-1 truncate text-xs text-muted-foreground">
+                                {source.feed_url ? `Feed: ${source.feed_url}` : "No feed: not used for story discovery"}
+                              </div>
+                              {source.attribution_note ? (
+                                <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div>
+                              ) : null}
                               <details className="mt-2">
                                 <summary className="cursor-pointer text-xs font-medium text-primary">Edit</summary>
-                                <div className="mt-2"><SourceForm saveSource={updateNicheSource.bind(null, niche.id, source.id)} source={source} /></div>
+                                <div className="mt-2">
+                                  <SourceForm
+                                    saveSource={updateNicheSource.bind(null, niche.id, source.id)}
+                                    source={source}
+                                  />
+                                </div>
                               </details>
                             </div>
                             <form action={removeNicheSource.bind(null, niche.id, source.id)} className="shrink-0">
-                              <SubmitButton variant="danger-outline" size="sm" confirmLabel="Remove"
-                                confirm={`Remove ${source.name} from ${niche.name}? It is also removed from every website in this niche.`}>
+                              <SubmitButton
+                                variant="danger-outline"
+                                size="sm"
+                                confirmLabel="Remove"
+                                confirm={`Remove ${source.name} from ${niche.name}? It is also removed from every website in this niche.`}
+                              >
                                 Remove
                               </SubmitButton>
                             </form>
@@ -82,7 +117,9 @@ export default async function NichesPage() {
                         ))}
                       </ul>
                     ) : (
-                      <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No sources yet.</p>
+                      <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                        No sources yet.
+                      </p>
                     )}
                     <SourceForm saveSource={addNicheSource.bind(null, niche.id)} />
                   </div>
@@ -90,7 +127,9 @@ export default async function NichesPage() {
               );
             })}
           </div>
-          <Card title="Add a niche"><AddNicheForm /></Card>
+          <Card title="Add a niche">
+            <AddNicheForm />
+          </Card>
         </>
       )}
     </div>

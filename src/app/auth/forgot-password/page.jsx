@@ -15,7 +15,10 @@ export default function ForgotPasswordPage() {
       title="Reset your password"
       description="Enter your email and we will send you a link to choose a new password."
       footer={
-        <Link href="/login" className="inline-flex items-center gap-1.5 font-medium text-foreground underline-offset-4 hover:underline">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1.5 font-medium text-foreground underline-offset-4 hover:underline"
+        >
           <ArrowLeft className="size-3.5" />
           Back to sign in
         </Link>
@@ -24,9 +27,19 @@ export default function ForgotPasswordPage() {
       <form action={action} className="space-y-5">
         <FormAlert state={state} />
         <Field label="Email" htmlFor="email">
-          <input id="email" name="email" type="email" autoComplete="email" required className={`${inputClass} h-10`} placeholder="you@company.com" />
+          <input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            className={`${inputClass} h-10`}
+            placeholder="you@company.com"
+          />
         </Field>
-        <SubmitButton className="w-full" size="lg" pendingLabel="Sending…">Send reset link</SubmitButton>
+        <SubmitButton className="w-full" size="lg" pendingLabel="Sending…">
+          Send reset link
+        </SubmitButton>
       </form>
     </AuthShell>
   );

@@ -15,7 +15,8 @@ const BLOCK_TAG = /<(p|h[1-6]|ul|ol|li|blockquote|figure|img|table|div|section|p
  */
 export function imageCredit(image, language) {
   const ar = language === "ar";
-  if (image.sourceKind === "ai_generated") return ar ? "رسم توضيحي مُنشأ بالذكاء الاصطناعي" : "AI-generated illustration";
+  if (image.sourceKind === "ai_generated")
+    return ar ? "رسم توضيحي مُنشأ بالذكاء الاصطناعي" : "AI-generated illustration";
   return image.credit ? `${ar ? "الصورة" : "Image"}: ${image.credit}` : null;
 }
 
@@ -29,16 +30,12 @@ export function imageCredit(image, language) {
  * @param {{sourceKind: string, credit?: string|null}|null} [image]
  * @returns {string}
  */
-export function toWordPressContent(
-  body,
-  sources,
-  language,
-  image = null,
-) {
+export function toWordPressContent(body, sources, language, image = null) {
   const trimmed = body.trim();
   const credit = image ? imageCredit(image, language) : null;
-  const main = (BLOCK_TAG.test(trimmed) ? trimmed : paragraphs(trimmed))
-    + (credit ? `\n<p class="pn-image-credit">${escapeHtml(credit)}</p>` : "");
+  const main =
+    (BLOCK_TAG.test(trimmed) ? trimmed : paragraphs(trimmed)) +
+    (credit ? `\n<p class="pn-image-credit">${escapeHtml(credit)}</p>` : "");
   if (sources.length === 0) return main;
 
   const heading = language === "ar" ? "المصادر" : "Sources";
@@ -63,11 +60,7 @@ function paragraphs(text) {
 }
 
 export function escapeHtml(value) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 function escapeAttribute(value) {

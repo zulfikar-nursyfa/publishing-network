@@ -4,7 +4,8 @@ import { XMLParser } from "fast-xml-parser";
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@", textNodeName: "#text" });
 
 const list = (value) => (value === undefined ? [] : Array.isArray(value) ? value : [value]);
-const text = (value) => (typeof value === "object" && value !== null ? value["#text"] : value)?.toString().trim() || null;
+const text = (value) =>
+  (typeof value === "object" && value !== null ? value["#text"] : value)?.toString().trim() || null;
 
 function plain(html, max) {
   const value = html
@@ -23,7 +24,11 @@ function plain(html, max) {
 }
 
 function imageOf(item) {
-  const media = [...list(item["media:content"]), ...list(item["media:thumbnail"]), ...list(item["media:group"]?.["media:content"])];
+  const media = [
+    ...list(item["media:content"]),
+    ...list(item["media:thumbnail"]),
+    ...list(item["media:group"]?.["media:content"]),
+  ];
   const enclosure = list(item.enclosure).find((entry) => String(entry["@type"] ?? "").startsWith("image/"));
   return media.find((entry) => entry["@url"])?.["@url"] ?? enclosure?.["@url"] ?? null;
 }
@@ -62,6 +67,7 @@ export function storyFingerprint(url) {
     if (/^(utm_|fbclid|gclid|ref$|cmpid)/i.test(key)) parsed.searchParams.delete(key);
   }
   parsed.searchParams.sort();
-  const normalised = `${parsed.hostname.replace(/^www\./, "")}${parsed.pathname.replace(/\/+$/, "")}${parsed.search}`.toLowerCase();
+  const normalised =
+    `${parsed.hostname.replace(/^www\./, "")}${parsed.pathname.replace(/\/+$/, "")}${parsed.search}`.toLowerCase();
   return createHash("sha256").update(normalised).digest("hex");
 }

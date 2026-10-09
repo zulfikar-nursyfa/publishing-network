@@ -18,10 +18,7 @@ export const REQUIRED_PLUGIN_VERSION = "1.0.0";
 
 export class WordPressError extends Error {
   /** @param {string} message @param {{status?: number, code?: string, retryable: boolean}} options */
-  constructor(
-    message,
-    options,
-  ) {
+  constructor(message, options) {
     super(message);
     this.options = options;
     this.name = "WordPressError";
@@ -36,10 +33,7 @@ export class WordPressError extends Error {
  * @param {WordPressConnection} connection
  * @param {{fetch?: typeof globalThis.fetch, timeoutMs?: number}} [options]
  */
-export function createWordPressClient(
-  connection,
-  options = {},
-) {
+export function createWordPressClient(connection, options = {}) {
   const fetchImpl = options.fetch ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 20_000;
   const root = normaliseBaseUrl(connection.baseUrl);
@@ -58,7 +52,9 @@ export function createWordPressClient(
           Accept: "application/json",
           ...(file
             ? { "Content-Type": file.contentType, "Content-Disposition": `attachment; filename="${file.filename}"` }
-            : body === undefined ? {} : { "Content-Type": "application/json" }),
+            : body === undefined
+              ? {}
+              : { "Content-Type": "application/json" }),
         },
         body: file ? file.bytes : body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(timeoutMs),
@@ -88,7 +84,7 @@ export function createWordPressClient(
     }
 
     if (!response.ok) {
-      const error = (json ?? {});
+      const error = json ?? {};
       throw new WordPressError(describeError(response.status, error), {
         status: response.status,
         code: error.code,
@@ -151,7 +147,10 @@ export function createWordPressClient(
      */
     async uploadMedia(media) {
       const created = await request("POST", "/wp/v2/media?_fields=id", undefined, media);
-      await request("POST", `/wp/v2/media/${created.id}?_fields=id`, { alt_text: media.altText ?? "", caption: media.caption ?? "" });
+      await request("POST", `/wp/v2/media/${created.id}?_fields=id`, {
+        alt_text: media.altText ?? "",
+        caption: media.caption ?? "",
+      });
       return created.id;
     },
 
@@ -162,16 +161,16 @@ export function createWordPressClient(
     },
 
     async getPost(id) {
-      return request(
-        "GET",
-        `/wp/v2/posts/${id}?context=edit&_fields=id,status,link,slug`,
-      );
+      return request("GET", `/wp/v2/posts/${id}?context=edit&_fields=id,status,link,slug`);
     },
   };
 }
 
 export function normaliseBaseUrl(url) {
-  return url.trim().replace(/\/+$/, "").replace(/\/wp-json$/, "");
+  return url
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/wp-json$/, "");
 }
 
 function describeError(status, error) {

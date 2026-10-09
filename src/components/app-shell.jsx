@@ -59,7 +59,10 @@ function isActive(pathname, item) {
 function Brand({ appEnv }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <Link href="/" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40">
+      <Link
+        href="/"
+        className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+      >
         <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-violet-500 text-white shadow-sm shadow-primary/30">
           <Newspaper className="size-4" />
         </span>
@@ -68,7 +71,11 @@ function Brand({ appEnv }) {
           <span className="block text-[0.7rem] text-muted-foreground">Editorial control centre</span>
         </span>
       </Link>
-      {appEnv !== "production" ? <Badge tone="amber" className="px-1.5 text-[0.65rem] uppercase">{appEnv}</Badge> : null}
+      {appEnv !== "production" ? (
+        <Badge tone="amber" className="px-1.5 text-[0.65rem] uppercase">
+          {appEnv}
+        </Badge>
+      ) : null}
     </div>
   );
 }
@@ -82,7 +89,9 @@ function Nav({ isAdmin, onNavigate }) {
         if (items.length === 0) return null;
         return (
           <div key={section.label}>
-            <div className="mb-1.5 px-3 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground/80">{section.label}</div>
+            <div className="mb-1.5 px-3 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground/80">
+              {section.label}
+            </div>
             <ul className="space-y-0.5">
               {items.map((item) => {
                 const active = isActive(pathname, item);
@@ -95,10 +104,17 @@ function Nav({ isAdmin, onNavigate }) {
                       aria-current={active ? "page" : undefined}
                       className={cn(
                         "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
-                        active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        active
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >
-                      <Icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                      <Icon
+                        className={cn(
+                          "size-4 shrink-0",
+                          active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+                        )}
+                      />
                       {item.label}
                     </Link>
                   </li>
@@ -136,7 +152,9 @@ function UserMenu({ user, side = "top", align = "start", compact = false }) {
             <>
               <span className="min-w-0 flex-1 leading-tight">
                 <span className="block truncate text-sm font-medium">{name}</span>
-                <span className="block truncate text-xs text-muted-foreground">{user.isAdmin ? "Administrator" : "Editor"}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {user.isAdmin ? "Administrator" : "Editor"}
+                </span>
               </span>
               <ChevronsUpDown className="size-4 text-muted-foreground" />
             </>
@@ -164,8 +182,14 @@ function UserMenu({ user, side = "top", align = "start", compact = false }) {
               </Link>
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="-mx-1 my-1 h-px bg-border" />
-            <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">Theme</DropdownMenu.Label>
-            <DropdownMenu.RadioGroup value={theme} onValueChange={setTheme} className="grid grid-cols-3 gap-1 px-1 pb-1">
+            <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
+              Theme
+            </DropdownMenu.Label>
+            <DropdownMenu.RadioGroup
+              value={theme}
+              onValueChange={setTheme}
+              className="grid grid-cols-3 gap-1 px-1 pb-1"
+            >
               {[
                 { value: "light", label: "Light", icon: Sun },
                 { value: "dark", label: "Dark", icon: Moon },
@@ -223,7 +247,10 @@ export function AppShell({ user, appEnv, children }) {
       {/* Mobile top bar + drawer */}
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-lg supports-backdrop-filter:bg-background/70 lg:hidden">
-          <Dialog.Trigger className="-ml-1.5 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40" aria-label="Open navigation">
+          <Dialog.Trigger
+            className="-ml-1.5 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            aria-label="Open navigation"
+          >
             <Menu className="size-5" />
           </Dialog.Trigger>
           <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
@@ -241,7 +268,10 @@ export function AppShell({ user, appEnv, children }) {
           <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-sidebar-border bg-sidebar shadow-2xl outline-none data-[state=open]:animate-slide-in-left lg:hidden">
             <Dialog.Title className="sr-only">Navigation</Dialog.Title>
             <Dialog.Description className="sr-only">Main dashboard navigation</Dialog.Description>
-            <Dialog.Close className="absolute top-5 right-3 flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close navigation">
+            <Dialog.Close
+              className="absolute top-5 right-3 flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Close navigation"
+            >
               <X className="size-4" />
             </Dialog.Close>
             <SidebarBody user={user} appEnv={appEnv} onNavigate={() => setOpen(false)} />

@@ -1,5 +1,15 @@
 import Link from "next/link";
-import { CircleCheck, ClipboardCheck, ExternalLink, FileText, Plus, Send, Settings, TriangleAlert, Upload } from "lucide-react";
+import {
+  CircleCheck,
+  ClipboardCheck,
+  ExternalLink,
+  FileText,
+  Plus,
+  Send,
+  Settings,
+  TriangleAlert,
+  Upload,
+} from "lucide-react";
 import {
   ArticleStatusBadge,
   Badge,
@@ -58,7 +68,12 @@ export default async function WebsitePage({ params, searchParams }) {
         title={website.name}
         description={
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-            <a href={`https://${website.domain}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:text-primary hover:underline">
+            <a
+              href={`https://${website.domain}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:text-primary hover:underline"
+            >
               {website.domain}
               <ExternalLink className="size-3" />
             </a>
@@ -68,7 +83,13 @@ export default async function WebsitePage({ params, searchParams }) {
             <span>{website.timezone}</span>
             <span className="flex w-full flex-wrap gap-1.5 pt-1 sm:w-auto sm:pt-0">
               <ConnectionBadge status={website.wp_connection_status} />
-              {website.automation_paused ? <Badge dot>automation paused</Badge> : <Badge tone="green" dot>automation {website.daily_quota}/day</Badge>}
+              {website.automation_paused ? (
+                <Badge dot>automation paused</Badge>
+              ) : (
+                <Badge tone="green" dot>
+                  automation {website.daily_quota}/day
+                </Badge>
+              )}
               {website.archived_at ? <Badge tone="red">archived</Badge> : null}
             </span>
           </span>
@@ -94,7 +115,13 @@ export default async function WebsitePage({ params, searchParams }) {
         <Stat label="Approved" value={stats?.approved ?? 0} icon={CircleCheck} tone="blue" />
         <Stat label="Published today" value={stats?.published_today ?? 0} icon={Send} tone="green" />
         <Stat label="Published total" value={stats?.published_total ?? 0} icon={Upload} tone="purple" />
-        <Stat label="Failed publishing" value={stats?.failed_publications ?? 0} icon={TriangleAlert} tone="red" alert={Number(stats?.failed_publications ?? 0) > 0} />
+        <Stat
+          label="Failed publishing"
+          value={stats?.failed_publications ?? 0}
+          icon={TriangleAlert}
+          tone="red"
+          alert={Number(stats?.failed_publications ?? 0) > 0}
+        />
       </div>
 
       {!website.archived_at ? <TodaySchedule website={website} /> : null}
@@ -123,19 +150,38 @@ export default async function WebsitePage({ params, searchParams }) {
             {articles.map((article) => (
               <tr key={article.id}>
                 <Td className="max-w-md">
-                  <Link href={`/articles/${article.id}`} dir={rtl ? "rtl" : "ltr"} className={`${linkClass} line-clamp-2`}>{article.title}</Link>
-                  <div className="mt-0.5 text-xs text-muted-foreground md:hidden">Updated {formatDateTime(article.updated_at, website.timezone)}</div>
+                  <Link
+                    href={`/articles/${article.id}`}
+                    dir={rtl ? "rtl" : "ltr"}
+                    className={`${linkClass} line-clamp-2`}
+                  >
+                    {article.title}
+                  </Link>
+                  <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
+                    Updated {formatDateTime(article.updated_at, website.timezone)}
+                  </div>
                 </Td>
-                <Td><ArticleStatusBadge status={article.status} /></Td>
+                <Td>
+                  <ArticleStatusBadge status={article.status} />
+                </Td>
                 <Td className="hidden capitalize text-muted-foreground lg:table-cell">{article.origin}</Td>
-                <Td className="hidden whitespace-nowrap text-muted-foreground md:table-cell">{formatDateTime(article.updated_at, website.timezone)}</Td>
+                <Td className="hidden whitespace-nowrap text-muted-foreground md:table-cell">
+                  {formatDateTime(article.updated_at, website.timezone)}
+                </Td>
                 <Td className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">
                   {article.wp_post_url ? (
-                    <a href={article.wp_post_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline-offset-4 hover:text-primary hover:underline">
+                    <a
+                      href={article.wp_post_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 underline-offset-4 hover:text-primary hover:underline"
+                    >
                       {formatDateTime(article.published_at, website.timezone)}
                       <ExternalLink className="size-3" />
                     </a>
-                  ) : "—"}
+                  ) : (
+                    "—"
+                  )}
                 </Td>
               </tr>
             ))}
@@ -145,9 +191,18 @@ export default async function WebsitePage({ params, searchParams }) {
         <EmptyState
           icon={FileText}
           title={`No articles${filter !== "all" ? " with this status" : " yet"}`}
-          action={!website.archived_at ? <ButtonLink href={`/websites/${websiteId}/articles/new`} variant="secondary"><Plus />Write an article</ButtonLink> : null}
+          action={
+            !website.archived_at ? (
+              <ButtonLink href={`/websites/${websiteId}/articles/new`} variant="secondary">
+                <Plus />
+                Write an article
+              </ButtonLink>
+            ) : null
+          }
         >
-          {filter !== "all" ? "Try another filter, or write a new article." : "Articles you write or automation drafts will appear here."}
+          {filter !== "all"
+            ? "Try another filter, or write a new article."
+            : "Articles you write or automation drafts will appear here."}
         </EmptyState>
       )}
     </>

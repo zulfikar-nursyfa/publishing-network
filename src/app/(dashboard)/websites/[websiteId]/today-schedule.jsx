@@ -15,7 +15,11 @@ export async function TodaySchedule({ website }) {
   const [{ data: network }, { data: handled }, { data: scheduled }] = await Promise.all([
     supabase.from("network_settings").select("automation_paused").maybeSingle(),
     slots.length
-      ? supabase.from("publish_slots").select("slot_at, status, note, article_id").eq("website_id", website.id).gte("slot_at", slots[0].toISOString())
+      ? supabase
+          .from("publish_slots")
+          .select("slot_at, status, note, article_id")
+          .eq("website_id", website.id)
+          .gte("slot_at", slots[0].toISOString())
       : Promise.resolve({ data: [] }),
     supabase
       .from("articles")
@@ -38,7 +42,13 @@ export async function TodaySchedule({ website }) {
           <>
             {automationOff ? (
               <p className="mb-3 text-sm text-amber-700 dark:text-amber-300">
-                Automation is {network?.automation_paused ? "paused for the whole network" : website.automation_mode === "off" ? "off" : "paused"}, so slots do not run. Scheduled articles still publish.
+                Automation is{" "}
+                {network?.automation_paused
+                  ? "paused for the whole network"
+                  : website.automation_mode === "off"
+                    ? "off"
+                    : "paused"}
+                , so slots do not run. Scheduled articles still publish.
               </p>
             ) : null}
             <ul className="divide-y text-sm">
@@ -46,16 +56,22 @@ export async function TodaySchedule({ website }) {
                 const row = handledAt.get(slot.toISOString());
                 return (
                   <li key={slot.toISOString()} className="flex items-center gap-3 py-2 first:pt-0 last:pb-0">
-                    <span className="w-12 font-mono text-xs tabular-nums">{website.publish_times[index].slice(0, 5)}</span>
+                    <span className="w-12 font-mono text-xs tabular-nums">
+                      {website.publish_times[index].slice(0, 5)}
+                    </span>
                     <div className="min-w-0 flex-1 truncate text-muted-foreground">
                       {row?.article_id ? (
-                        <Link href={`/articles/${row.article_id}`} className={linkClass}>View article</Link>
+                        <Link href={`/articles/${row.article_id}`} className={linkClass}>
+                          View article
+                        </Link>
                       ) : (
                         row?.note
                       )}
                     </div>
                     {row ? (
-                      <Badge tone={SLOT_TONE[row.status]} dot>{row.status}</Badge>
+                      <Badge tone={SLOT_TONE[row.status]} dot>
+                        {row.status}
+                      </Badge>
                     ) : (
                       <Badge dot>{slot > now ? "upcoming" : "not run"}</Badge>
                     )}
@@ -67,18 +83,32 @@ export async function TodaySchedule({ website }) {
         )}
       </Card>
 
-      <Card icon={CalendarClock} title="Scheduled articles" description="Approved articles set to publish at a chosen time.">
+      <Card
+        icon={CalendarClock}
+        title="Scheduled articles"
+        description="Approved articles set to publish at a chosen time."
+      >
         {scheduled && scheduled.length > 0 ? (
           <ul className="divide-y text-sm">
             {scheduled.map((article) => (
               <li key={article.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-                <Link href={`/articles/${article.id}`} dir={website.text_direction} className={`${linkClass} min-w-0 truncate`}>{article.title}</Link>
-                <span className="shrink-0 text-xs text-muted-foreground">{formatDateTime(article.scheduled_for, website.timezone)}</span>
+                <Link
+                  href={`/articles/${article.id}`}
+                  dir={website.text_direction}
+                  className={`${linkClass} min-w-0 truncate`}
+                >
+                  {article.title}
+                </Link>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatDateTime(article.scheduled_for, website.timezone)}
+                </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">Nothing scheduled. Approved articles without a schedule wait for the next slot.</p>
+          <p className="text-sm text-muted-foreground">
+            Nothing scheduled. Approved articles without a schedule wait for the next slot.
+          </p>
         )}
       </Card>
     </div>

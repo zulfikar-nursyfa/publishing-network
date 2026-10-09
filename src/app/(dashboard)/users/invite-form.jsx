@@ -14,7 +14,14 @@ export function InviteForm({ websites }) {
       <FormAlert state={state} />
       <div className="grid gap-5 md:grid-cols-3">
         <Field label="Email" htmlFor="invite-email" error={errors.email}>
-          <input id="invite-email" name="email" type="email" required className={inputClass} placeholder="name@company.com" />
+          <input
+            id="invite-email"
+            name="email"
+            type="email"
+            required
+            className={inputClass}
+            placeholder="name@company.com"
+          />
         </Field>
         <Field label="Full name" htmlFor="invite-name" error={errors.full_name}>
           <input id="invite-name" name="full_name" className={inputClass} />
@@ -28,7 +35,9 @@ export function InviteForm({ websites }) {
       </div>
       {websites.length > 0 ? (
         <fieldset>
-          <legend className="mb-2 text-sm font-medium">Websites <span className="font-normal text-muted-foreground">(editors only)</span></legend>
+          <legend className="mb-2 text-sm font-medium">
+            Websites <span className="font-normal text-muted-foreground">(editors only)</span>
+          </legend>
           <div className="flex flex-wrap gap-2">
             {websites.map((site) => (
               <label

@@ -25,13 +25,15 @@ function buildSchema() {
   const files = fs.readdirSync(migrationsDir).filter((file) => /\.sql$/i.test(file));
   if (files.length === 0) throw new Error("No SQL migrations found in supabase/migrations.");
 
-  const migrations = files.map((file) => {
-    const match = /^(\d+)_[a-z0-9_]+\.sql$/.exec(file);
-    if (!match) throw new Error(`Invalid migration filename: ${file}. Use NN_name.sql.`);
-    const number = Number(match[1]);
-    if (!Number.isSafeInteger(number)) throw new Error(`Invalid migration number: ${file}.`);
-    return { file, number };
-  }).sort((a, b) => a.number - b.number);
+  const migrations = files
+    .map((file) => {
+      const match = /^(\d+)_[a-z0-9_]+\.sql$/.exec(file);
+      if (!match) throw new Error(`Invalid migration filename: ${file}. Use NN_name.sql.`);
+      const number = Number(match[1]);
+      if (!Number.isSafeInteger(number)) throw new Error(`Invalid migration number: ${file}.`);
+      return { file, number };
+    })
+    .sort((a, b) => a.number - b.number);
 
   // Reject duplicate numbers and gaps rather than silently omitting a migration.
   migrations.forEach(({ file, number }, index) => {
@@ -43,12 +45,17 @@ function buildSchema() {
   const selected = from === null ? migrations : migrations.filter(({ number }) => number >= from);
   if (selected.length === 0) throw new Error(`No migrations numbered ${from} or higher.`);
 
-  const body = selected.map(({ file }, index) => {
-    const sql = fs.readFileSync(path.join(migrationsDir, file), "utf8").replace(/^\uFEFF/, "").trim();
-    if (!sql) throw new Error(`Migration is empty: ${file}.`);
-    const rule = "-".repeat(74);
-    return `-- ${rule}\n-- [${index + 1}/${selected.length}] ${file}\n-- ${rule}\n\n${sql}\n`;
-  }).join("\n");
+  const body = selected
+    .map(({ file }, index) => {
+      const sql = fs
+        .readFileSync(path.join(migrationsDir, file), "utf8")
+        .replace(/^\uFEFF/, "")
+        .trim();
+      if (!sql) throw new Error(`Migration is empty: ${file}.`);
+      const rule = "-".repeat(74);
+      return `-- ${rule}\n-- [${index + 1}/${selected.length}] ${file}\n-- ${rule}\n\n${sql}\n`;
+    })
+    .join("\n");
 
   const first = selected[0].file;
   const last = selected[selected.length - 1].file;

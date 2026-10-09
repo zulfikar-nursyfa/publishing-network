@@ -26,11 +26,19 @@ export function SubmitButton({
       <LoaderCircle className="animate-spin" />
       {pendingLabel ?? children}
     </>
-  ) : children;
+  ) : (
+    children
+  );
 
   if (!confirm) {
     return (
-      <button type="submit" name={name} value={value} disabled={pending} className={buttonClass(variant, className, size)}>
+      <button
+        type="submit"
+        name={name}
+        value={value}
+        disabled={pending}
+        className={buttonClass(variant, className, size)}
+      >
         {label}
       </button>
     );
@@ -49,11 +57,19 @@ export function SubmitButton({
         <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px] data-[state=open]:animate-fade-in" />
         <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-popover p-6 text-popover-foreground shadow-2xl data-[state=open]:animate-zoom-in">
           <AlertDialog.Title className="text-base font-semibold">Are you sure?</AlertDialog.Title>
-          <AlertDialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">{confirm}</AlertDialog.Description>
+          <AlertDialog.Description className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {confirm}
+          </AlertDialog.Description>
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <AlertDialog.Cancel className={buttonClass("secondary")}>Cancel</AlertDialog.Cancel>
             <AlertDialog.Action
-              className={buttonClass(variant === "danger" || variant === "danger-outline" ? "danger" : variant === "success" ? "success" : "primary")}
+              className={buttonClass(
+                variant === "danger" || variant === "danger-outline"
+                  ? "danger"
+                  : variant === "success"
+                    ? "success"
+                    : "primary",
+              )}
               onClick={() => {
                 const submitter = submitterRef.current;
                 submitter?.form?.requestSubmit(submitter);

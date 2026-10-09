@@ -15,12 +15,30 @@ export default function PasswordPage() {
         <form action={action} className="space-y-5">
           <FormAlert state={state} />
           <Field label="New password" htmlFor="password">
-            <input id="password" name="password" type="password" autoComplete="new-password" minLength={10} required className={inputClass} />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              minLength={10}
+              required
+              className={inputClass}
+            />
           </Field>
           <Field label="Confirm password" htmlFor="confirm">
-            <input id="confirm" name="confirm" type="password" autoComplete="new-password" minLength={10} required className={inputClass} />
+            <input
+              id="confirm"
+              name="confirm"
+              type="password"
+              autoComplete="new-password"
+              minLength={10}
+              required
+              className={inputClass}
+            />
           </Field>
-          <SubmitButton className="w-full sm:w-auto" pendingLabel="Saving…">Save password</SubmitButton>
+          <SubmitButton className="w-full sm:w-auto" pendingLabel="Saving…">
+            Save password
+          </SubmitButton>
         </form>
       </Card>
     </div>

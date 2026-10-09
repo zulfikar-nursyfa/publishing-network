@@ -61,8 +61,18 @@ export function slugify(value) {
 const publishTimes = z
   .string()
   .default("")
-  .transform((value) => [...new Set(value.split(/[\s,;]+/).filter(Boolean).map((time) => time.padStart(5, "0")))])
-  .refine((times) => times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)), "Use 24-hour times such as 08:00, 14:00, 20:00")
+  .transform((value) => [
+    ...new Set(
+      value
+        .split(/[\s,;]+/)
+        .filter(Boolean)
+        .map((time) => time.padStart(5, "0")),
+    ),
+  ])
+  .refine(
+    (times) => times.every((time) => /^([01]\d|2[0-3]):[0-5]\d$/.test(time)),
+    "Use 24-hour times such as 08:00, 14:00, 20:00",
+  )
   .refine((times) => times.length <= MAX_DAILY_ARTICLES, `At most ${MAX_DAILY_ARTICLES} publishing times per day`)
   .transform((times) => times.sort());
 
@@ -87,7 +97,10 @@ export const websiteSettingsSchema = z.object({
     .transform((value) => value.replace(/^https?:\/\//, "").replace(/\/.*$/, ""))
     .pipe(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/, "Enter a domain such as example.com")),
   language: z.enum(["en", "ar"]),
-  niche_id: optionalText(36).refine((value) => value === null || /^[0-9a-f-]{36}$/i.test(value), "Choose from the list"),
+  niche_id: optionalText(36).refine(
+    (value) => value === null || /^[0-9a-f-]{36}$/i.test(value),
+    "Choose from the list",
+  ),
   topic: optionalText(200),
   audience: optionalText(500),
   timezone: z.string().refine((zone) => TIMEZONES.includes(zone), "Choose a valid timezone"),
@@ -119,12 +132,20 @@ export const articleSchema = z.object({
   excerpt: optionalText(1000),
   body: z.string().max(200_000).default(""),
   sources: z.string().max(20_000).default(""),
-  category_id: optionalText(36).refine((value) => value === null || /^[0-9a-f-]{36}$/i.test(value), "Choose a category"),
+  category_id: optionalText(36).refine(
+    (value) => value === null || /^[0-9a-f-]{36}$/i.test(value),
+    "Choose a category",
+  ),
 });
 
 export const categorySchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(80),
-  slug: z.string().trim().max(60).regex(/^([a-z0-9]+(-[a-z0-9]+)*)?$/, "Lowercase letters, numbers and single hyphens only").default(""),
+  slug: z
+    .string()
+    .trim()
+    .max(60)
+    .regex(/^([a-z0-9]+(-[a-z0-9]+)*)?$/, "Lowercase letters, numbers and single hyphens only")
+    .default(""),
   description: optionalText(300),
 });
 
@@ -138,18 +159,29 @@ export const IMAGE_SOURCE_KINDS = {
 
 export const MAX_ARTICLE_IMAGE_BYTES = 3 * 1024 * 1024;
 
-export const articleImageSchema = z.object({
-  source_kind: z.enum(Object.keys(IMAGE_SOURCE_KINDS)),
-  alt_text: z.string().trim().min(1, "Describe the image for screen readers and search").max(300),
-  caption: optionalText(500),
-  credit: optionalText(200),
-  source_url: optionalText(500).refine((value) => value === null || /^https?:\/\/\S+$/.test(value), "Enter a full URL"),
-  license: optionalText(200),
-}).superRefine((image, context) => {
-  if (!["licensed", "press"].includes(image.source_kind)) return;
-  if (!image.credit) context.addIssue({ code: "custom", path: ["credit"], message: "Credit is required for licensed and press images" });
-  if (!image.source_url && !image.license) context.addIssue({ code: "custom", path: ["license"], message: "Record the licence or the page granting use" });
-});
+export const articleImageSchema = z
+  .object({
+    source_kind: z.enum(Object.keys(IMAGE_SOURCE_KINDS)),
+    alt_text: z.string().trim().min(1, "Describe the image for screen readers and search").max(300),
+    caption: optionalText(500),
+    credit: optionalText(200),
+    source_url: optionalText(500).refine(
+      (value) => value === null || /^https?:\/\/\S+$/.test(value),
+      "Enter a full URL",
+    ),
+    license: optionalText(200),
+  })
+  .superRefine((image, context) => {
+    if (!["licensed", "press"].includes(image.source_kind)) return;
+    if (!image.credit)
+      context.addIssue({
+        code: "custom",
+        path: ["credit"],
+        message: "Credit is required for licensed and press images",
+      });
+    if (!image.source_url && !image.license)
+      context.addIssue({ code: "custom", path: ["license"], message: "Record the licence or the page granting use" });
+  });
 
 /** Parses "url | title | publisher" lines. Returns the sources or a line-specific error. */
 export function parseSourceLines(text) {
@@ -187,7 +219,10 @@ export const contentSourceSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   url: z.string().trim().url("Enter a full URL"),
   kind: z.enum(Object.keys(SOURCE_KINDS)),
-  feed_url: optionalText(500).refine((value) => value === null || /^https?:\/\/\S+$/.test(value), "Enter a full feed URL"),
+  feed_url: optionalText(500).refine(
+    (value) => value === null || /^https?:\/\/\S+$/.test(value),
+    "Enter a full feed URL",
+  ),
   images_reusable: checkbox,
   attribution_note: optionalText(500),
 });
@@ -197,12 +232,22 @@ export const nicheSchema = z.object({
 });
 
 export const networkSettingsSchema = z.object({
-  default_ai_model: optionalText(100).refine((model) => model === null || /^gemini-[A-Za-z0-9._-]+$/.test(model), "Enter a Gemini model ID"),
-  monthly_ai_budget_usd: z.preprocess((value) => value === "" ? null : value, z.coerce.number().min(0).max(100000).nullable()),
+  default_ai_model: optionalText(100).refine(
+    (model) => model === null || /^gemini-[A-Za-z0-9._-]+$/.test(model),
+    "Enter a Gemini model ID",
+  ),
+  monthly_ai_budget_usd: z.preprocess(
+    (value) => (value === "" ? null : value),
+    z.coerce.number().min(0).max(100000).nullable(),
+  ),
 });
 
 export const modelPriceSchema = z.object({
-  model: z.string().trim().regex(/^gemini-[A-Za-z0-9._-]+$/, "Enter a Gemini model ID").max(100),
+  model: z
+    .string()
+    .trim()
+    .regex(/^gemini-[A-Za-z0-9._-]+$/, "Enter a Gemini model ID")
+    .max(100),
   input_per_million_usd: z.coerce.number().min(0).max(10000),
   output_per_million_usd: z.coerce.number().min(0).max(10000),
   search_per_thousand_usd: z.coerce.number().min(0).max(10000),

@@ -26,20 +26,34 @@ export default async function UsersPage() {
 
   return (
     <>
-      <PageHeader title="Users" description="Administrators manage every website. Editors only see the websites assigned to them." />
+      <PageHeader
+        title="Users"
+        description="Administrators manage every website. Editors only see the websites assigned to them."
+      />
 
-      <Card icon={UserPlus} className="mb-10" title="Invite a user" description="They receive an email with a link to choose their password.">
+      <Card
+        icon={UserPlus}
+        className="mb-10"
+        title="Invite a user"
+        description="They receive an email with a link to choose their password."
+      >
         <InviteForm websites={websites ?? []} />
       </Card>
 
-      <SectionHeading title="Team" description={`${profiles?.length ?? 0} member${profiles?.length === 1 ? "" : "s"}`} />
+      <SectionHeading
+        title="Team"
+        description={`${profiles?.length ?? 0} member${profiles?.length === 1 ? "" : "s"}`}
+      />
       <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
         {(profiles ?? []).map((profile) => {
           const assigned = websitesByUser.get(profile.id) ?? new Set();
           const isSelf = profile.id === currentUser.id;
           const name = profile.full_name || profile.email;
           return (
-            <li key={profile.id} className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-8">
+            <li
+              key={profile.id}
+              className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:gap-8"
+            >
               <div className="flex items-start gap-3">
                 <Avatar name={name} className="size-10 text-sm" />
                 <div className="min-w-0 flex-1">
@@ -47,7 +61,9 @@ export default async function UsersPage() {
                     <span className="truncate font-medium">{name}</span>
                     {isSelf ? <Badge>you</Badge> : null}
                   </div>
-                  {profile.full_name ? <div className="truncate text-sm text-muted-foreground">{profile.email}</div> : null}
+                  {profile.full_name ? (
+                    <div className="truncate text-sm text-muted-foreground">{profile.email}</div>
+                  ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge tone={profile.role === "admin" ? "purple" : "gray"}>
                       {profile.role === "admin" ? <ShieldCheck className="size-3" /> : null}
@@ -56,11 +72,18 @@ export default async function UsersPage() {
                     <span className="text-xs text-muted-foreground">Joined {formatDateTime(profile.created_at)}</span>
                   </div>
                   {!isSelf ? (
-                    <form action={setUserRole.bind(null, profile.id, profile.role === "admin" ? "editor" : "admin")} className="mt-3">
+                    <form
+                      action={setUserRole.bind(null, profile.id, profile.role === "admin" ? "editor" : "admin")}
+                      className="mt-3"
+                    >
                       <SubmitButton
                         variant="secondary"
                         size="sm"
-                        confirm={profile.role === "admin" ? "Remove administrator access?" : "Make this user an administrator with access to every website?"}
+                        confirm={
+                          profile.role === "admin"
+                            ? "Remove administrator access?"
+                            : "Make this user an administrator with access to every website?"
+                        }
                         confirmLabel={profile.role === "admin" ? "Make editor" : "Make admin"}
                       >
                         {profile.role === "admin" ? "Make editor" : "Make admin"}
@@ -84,12 +107,20 @@ export default async function UsersPage() {
                           key={site.id}
                           className="flex cursor-pointer items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm transition-colors hover:bg-muted has-checked:border-primary/40 has-checked:bg-accent has-checked:text-accent-foreground"
                         >
-                          <input type="checkbox" name="website_ids" value={site.id} defaultChecked={assigned.has(site.id)} className={checkboxClass} />
+                          <input
+                            type="checkbox"
+                            name="website_ids"
+                            value={site.id}
+                            defaultChecked={assigned.has(site.id)}
+                            className={checkboxClass}
+                          />
                           {site.name}
                         </label>
                       ))}
                     </div>
-                    <SubmitButton variant="secondary" size="sm" pendingLabel="Saving…">Save websites</SubmitButton>
+                    <SubmitButton variant="secondary" size="sm" pendingLabel="Saving…">
+                      Save websites
+                    </SubmitButton>
                   </form>
                 )}
               </div>

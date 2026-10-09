@@ -2,7 +2,12 @@
 
 import { useActionState } from "react";
 import { CalendarClock, Check, CircleCheck, RotateCcw, Send, Undo2, Workflow, X } from "lucide-react";
-import { publishArticleAction, resetPublicationAttempts, scheduleArticle, transitionArticle } from "@/app/actions/articles";
+import {
+  publishArticleAction,
+  resetPublicationAttempts,
+  scheduleArticle,
+  transitionArticle,
+} from "@/app/actions/articles";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, cn, inputClass } from "@/components/ui";
 
@@ -23,8 +28,16 @@ function Stepper({ status }) {
         const active = !offTrack && index === current;
         return (
           <li key={step.key} className="space-y-1.5">
-            <div className={cn("h-1.5 rounded-full", done || active ? "bg-primary" : "bg-muted", active && step.key === "published" && "bg-emerald-500")} />
-            <div className={cn("text-[0.7rem] font-medium", active ? "text-foreground" : "text-muted-foreground")}>{step.label}</div>
+            <div
+              className={cn(
+                "h-1.5 rounded-full",
+                done || active ? "bg-primary" : "bg-muted",
+                active && step.key === "published" && "bg-emerald-500",
+              )}
+            />
+            <div className={cn("text-[0.7rem] font-medium", active ? "text-foreground" : "text-muted-foreground")}>
+              {step.label}
+            </div>
           </li>
         );
       })}
@@ -41,9 +54,13 @@ function ScheduleForm({ articleId, schedule }) {
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm">
             <CalendarClock className="size-4 shrink-0 text-primary" />
-            <span>Scheduled for <span className="font-medium">{schedule.label}</span></span>
+            <span>
+              Scheduled for <span className="font-medium">{schedule.label}</span>
+            </span>
           </div>
-          <SubmitButton name="intent" value="unschedule" variant="ghost" size="sm">Unschedule</SubmitButton>
+          <SubmitButton name="intent" value="unschedule" variant="ghost" size="sm">
+            Unschedule
+          </SubmitButton>
         </div>
       ) : (
         <>
@@ -51,27 +68,32 @@ function ScheduleForm({ articleId, schedule }) {
             Schedule <span className="font-normal text-muted-foreground">({schedule.timezone})</span>
           </label>
           <div className="flex gap-2">
-            <input id="scheduled_for" name="scheduled_for" type="datetime-local" required defaultValue={schedule.defaultValue} className={inputClass} />
-            <SubmitButton variant="secondary" pendingLabel="Saving…">Schedule</SubmitButton>
+            <input
+              id="scheduled_for"
+              name="scheduled_for"
+              type="datetime-local"
+              required
+              defaultValue={schedule.defaultValue}
+              className={inputClass}
+            />
+            <SubmitButton variant="secondary" pendingLabel="Saving…">
+              Schedule
+            </SubmitButton>
           </div>
-          <p className="text-xs text-muted-foreground">Defaults to the next free publishing slot. Otherwise the next slot publishes the oldest approved article.</p>
+          <p className="text-xs text-muted-foreground">
+            Defaults to the next free publishing slot. Otherwise the next slot publishes the oldest approved article.
+          </p>
         </>
       )}
     </form>
   );
 }
 
-export function WorkflowPanel({
-  articleId,
-  status,
-  isAdmin,
-  websiteArchived,
-  publication,
-  schedule,
-}) {
+export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, publication, schedule }) {
   const [transitionState, transitionAction] = useActionState(transitionArticle.bind(null, articleId), {});
   const [publishState, publishAction] = useActionState(publishArticleAction.bind(null, articleId), {});
-  const exhausted = publication !== null && publication.status !== "succeeded" && publication.attemptCount >= publication.maxAttempts;
+  const exhausted =
+    publication !== null && publication.status !== "succeeded" && publication.attemptCount >= publication.maxAttempts;
 
   return (
     <Card icon={Workflow} title="Review and publish">
@@ -80,7 +102,9 @@ export function WorkflowPanel({
         <FormAlert state={transitionState} />
         <FormAlert state={publishState} />
 
-        {status === "rejected" ? <Alert tone="error">This article was rejected. Submit it for review again once it has been revised.</Alert> : null}
+        {status === "rejected" ? (
+          <Alert tone="error">This article was rejected. Submit it for review again once it has been revised.</Alert>
+        ) : null}
         {status === "unpublished" ? <Alert tone="info">This article was removed from WordPress.</Alert> : null}
 
         {status === "published" ? (
@@ -105,13 +129,16 @@ export function WorkflowPanel({
             </SubmitButton>
             {publication?.status === "failed" ? (
               <p className="text-xs text-muted-foreground">
-                Attempt {publication.attemptCount} of {publication.maxAttempts} failed. Retrying checks WordPress first, so it will not create a duplicate post.
+                Attempt {publication.attemptCount} of {publication.maxAttempts} failed. Retrying checks WordPress first,
+                so it will not create a duplicate post.
               </p>
             ) : null}
           </form>
         ) : null}
 
-        {status === "approved" && !websiteArchived && schedule ? <ScheduleForm articleId={articleId} schedule={schedule} /> : null}
+        {status === "approved" && !websiteArchived && schedule ? (
+          <ScheduleForm articleId={articleId} schedule={schedule} />
+        ) : null}
 
         {publication?.lastError && status !== "published" ? (
           <Alert tone="error" title="Last publishing error">
@@ -146,13 +173,23 @@ export function WorkflowPanel({
                 </SubmitButton>
               ) : null}
               {status === "draft" || status === "in_review" ? (
-                <SubmitButton name="transition" value="approve" variant="primary" className={status === "draft" ? "col-span-2" : undefined}>
+                <SubmitButton
+                  name="transition"
+                  value="approve"
+                  variant="primary"
+                  className={status === "draft" ? "col-span-2" : undefined}
+                >
                   <Check />
                   Approve
                 </SubmitButton>
               ) : null}
               {status === "in_review" || status === "approved" ? (
-                <SubmitButton name="transition" value="reject" variant="danger-outline" className={status === "approved" ? "col-span-2" : undefined}>
+                <SubmitButton
+                  name="transition"
+                  value="reject"
+                  variant="danger-outline"
+                  className={status === "approved" ? "col-span-2" : undefined}
+                >
                   <X />
                   Reject
                 </SubmitButton>

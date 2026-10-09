@@ -22,4 +22,5 @@ Internal Next.js 16 + Supabase dashboard that publishes to WordPress sites (Engl
 - Schema changes: add a new migration in `supabase/migrations/` named with the next sequential number (`11_jobs.sql`, `12_...`). Do not use `supabase migration new` (it creates timestamp names that sort after every numbered file). Never edit a migration that has been applied. Each table file enables RLS and sets its own grants. Keep queries and Zod validation in sync with the migrations.
 - Next.js 16: `proxy.js` replaces middleware; `params`, `searchParams`, `cookies()` are async; `forbidden()` is experimental, use `notFound()`.
 - No separate server, no n8n, no Python service: backend code lives in this Next.js app and runs on Vercel.
-- Check with `npm run lint` and `npm run build`.
+- Keep files small and focused; split a module when it does several unrelated jobs (see `src/lib/automation/drafting/`).
+- Format with `npm run format` (Prettier), then check with `npm run lint`, `npm test` and `npm run build`.

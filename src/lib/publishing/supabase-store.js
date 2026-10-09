@@ -63,15 +63,17 @@ export function createSupabasePublishStore() {
         website: { id: website.id, language: website.language, archived: website.archived_at !== null },
         sources: sources ?? [],
         category: category ? { name: category.name, wpTermId: category.wp_term_id } : null,
-        image: image ? {
-          id: image.id,
-          storagePath: image.storage_path,
-          wpMediaId: image.wp_media_id,
-          altText: image.alt_text,
-          caption: image.caption,
-          credit: image.credit,
-          sourceKind: image.source_kind,
-        } : null,
+        image: image
+          ? {
+              id: image.id,
+              storagePath: image.storage_path,
+              wpMediaId: image.wp_media_id,
+              altText: image.alt_text,
+              caption: image.caption,
+              credit: image.credit,
+              sourceKind: image.source_kind,
+            }
+          : null,
         connection: await loadConnection(website),
       };
     },
@@ -111,7 +113,8 @@ export function createSupabasePublishStore() {
 
     async markImageUploaded(imageId, wpMediaId) {
       const { error } = await db.from("article_images").update({ wp_media_id: wpMediaId }).eq("id", imageId);
-      if (error) throw new Error(`Image uploaded to WordPress (media ${wpMediaId}) but recording it failed: ${error.message}`);
+      if (error)
+        throw new Error(`Image uploaded to WordPress (media ${wpMediaId}) but recording it failed: ${error.message}`);
     },
 
     async audit({ websiteId, actorId, action, articleId, details }) {

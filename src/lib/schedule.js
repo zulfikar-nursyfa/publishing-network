@@ -26,7 +26,11 @@ function zonedParts(date, timeZone) {
     second: "2-digit",
   }).formatToParts(date);
   const value = (type) => parts.find((part) => part.type === type).value;
-  return { date: `${value("year")}-${value("month")}-${value("day")}`, time: `${value("hour")}:${value("minute")}`, second: value("second") };
+  return {
+    date: `${value("year")}-${value("month")}-${value("day")}`,
+    time: `${value("hour")}:${value("minute")}`,
+    second: value("second"),
+  };
 }
 
 /** The calendar date ("2026-10-02") of an instant in a timezone. */

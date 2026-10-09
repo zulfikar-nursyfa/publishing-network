@@ -14,6 +14,8 @@ registerHooks({
     return next(specifier, context);
   },
   load(url, context, next) {
-    return url.startsWith(src) ? { ...next(url, { ...context, format: "module" }), format: "module" } : next(url, context);
+    return url.startsWith(src)
+      ? { ...next(url, { ...context, format: "module" }), format: "module" }
+      : next(url, context);
   },
 });

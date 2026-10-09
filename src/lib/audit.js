@@ -14,7 +14,7 @@ export async function recordAudit(entry) {
       entity_id: entry.entityId ?? null,
       website_id: entry.websiteId ?? null,
       actor_id: entry.actorId ?? null,
-      details: (entry.details ?? {}),
+      details: entry.details ?? {},
     });
   if (error) console.error("audit log write failed", entry.action, error.message);
 }

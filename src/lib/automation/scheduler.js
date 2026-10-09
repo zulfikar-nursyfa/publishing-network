@@ -18,7 +18,8 @@ function failOn(error) {
 
 export function dueSlots(site, now) {
   const days = [localDate(new Date(now.getTime() - 86_400_000), site.timezone), localDate(now, site.timezone)];
-  return days.flatMap((day) => slotsOn(day, site.publish_times, site.timezone))
+  return days
+    .flatMap((day) => slotsOn(day, site.publish_times, site.timezone))
     .filter((slot) => slot <= now && now - slot <= SLOT_WINDOW_MS);
 }
 
@@ -27,17 +28,24 @@ export function dueSlots(site, now) {
  * The AI budget is not checked: publishing an approved article costs no AI.
  */
 async function slotWriteBlock(db, slot, worker) {
-  const [{ data: website, error: siteError }, { data: network, error: networkError }, { data: lease, error: leaseError },
-    { data: article, error: articleError }] = await Promise.all([
+  const [
+    { data: website, error: siteError },
+    { data: network, error: networkError },
+    { data: lease, error: leaseError },
+    { data: article, error: articleError },
+  ] = await Promise.all([
     db.from("websites").select("*").eq("id", slot.website_id).single(),
     db.from("network_settings").select("*").single(),
     db.from("publish_slots").select("status, locked_by, locked_until").eq("id", slot.id).single(),
     db.from("articles").select("status, origin, website_id").eq("id", slot.article_id).single(),
   ]);
   [siteError, networkError, leaseError, articleError].forEach(failOn);
-  if (lease.status !== "running" || lease.locked_by !== worker || new Date(lease.locked_until) <= new Date()) return "Slot lease lost";
-  if (Date.now() - Date.parse(slot.slot_at) > SLOT_WINDOW_MS) return "Slot expired; only existing posts may be reconciled";
-  if (article.website_id !== slot.website_id || article.origin !== "automated" || article.status !== "approved") return "Article is no longer eligible for automatic publishing";
+  if (lease.status !== "running" || lease.locked_by !== worker || new Date(lease.locked_until) <= new Date())
+    return "Slot lease lost";
+  if (Date.now() - Date.parse(slot.slot_at) > SLOT_WINDOW_MS)
+    return "Slot expired; only existing posts may be reconciled";
+  if (article.website_id !== slot.website_id || article.origin !== "automated" || article.status !== "approved")
+    return "Article is no longer eligible for automatic publishing";
   const reason = automationBlockReason(website, network);
   if (reason) return reason;
   if (website.wp_connection_status !== "ok") return "WordPress connection needs attention";
@@ -46,7 +54,11 @@ async function slotWriteBlock(db, slot, worker) {
 
 async function runSlot(db, websiteId, slotAt) {
   const worker = randomUUID();
-  const { data, error } = await db.rpc("claim_publish_slot", { target_website: websiteId, target_slot: slotAt, worker });
+  const { data, error } = await db.rpc("claim_publish_slot", {
+    target_website: websiteId,
+    target_slot: slotAt,
+    worker,
+  });
   failOn(error);
   const slot = data?.[0];
   if (!slot) return null;
@@ -58,26 +70,41 @@ async function runSlot(db, websiteId, slotAt) {
     });
     if (result.outcome === "in_progress") return { slotId: slot.id, status: "running" };
     status = ["published", "already_published"].includes(result.outcome) ? "published" : "failed";
-    note = status === "published" ? null : result.error ?? result.reason ?? result.outcome;
+    note = status === "published" ? null : (result.error ?? result.reason ?? result.outcome);
   }
   const { data: finished, error: finishError } = await db.rpc("finish_publish_slot", {
-    target_slot: slot.id, worker, outcome: status, explanation: note,
+    target_slot: slot.id,
+    worker,
+    outcome: status,
+    explanation: note,
   });
   failOn(finishError);
-  if (finished && status !== "published") await recordAudit({
-    action: `automation.slot_${status}`, entityType: "website", entityId: websiteId, websiteId,
-    details: { slot_at: slotAt, article_id: slot.article_id, note },
-  });
+  if (finished && status !== "published")
+    await recordAudit({
+      action: `automation.slot_${status}`,
+      entityType: "website",
+      entityId: websiteId,
+      websiteId,
+      details: { slot_at: slotAt, article_id: slot.article_id, note },
+    });
   return { slotId: slot.id, websiteId, slotAt, articleId: slot.article_id, status: finished ? status : "lease_lost" };
 }
 
 /** Explicit schedules were chosen by a person and retain the manual-publishing pause exception. */
 async function publishScheduled(db, deadline) {
-  const { data: due, error } = await db.from("articles").select("id, websites!inner(archived_at)")
-    .eq("status", "approved").lte("scheduled_for", new Date().toISOString()).is("websites.archived_at", null)
-    .order("scheduled_for").limit(MAX_PER_RUN);
+  const { data: due, error } = await db
+    .from("articles")
+    .select("id, websites!inner(archived_at)")
+    .eq("status", "approved")
+    .lte("scheduled_for", new Date().toISOString())
+    .is("websites.archived_at", null)
+    .order("scheduled_for")
+    .limit(MAX_PER_RUN);
   failOn(error);
-  const { data: failed, error: failedError } = await db.from("publications").select("article_id").eq("status", "failed");
+  const { data: failed, error: failedError } = await db
+    .from("publications")
+    .select("article_id")
+    .eq("status", "failed");
   failOn(failedError);
   const failedIds = new Set(failed.map((row) => row.article_id));
   const results = [];
@@ -93,11 +120,20 @@ async function publishScheduled(db, deadline) {
 export async function runScheduler(now = new Date()) {
   const deadline = Date.now() + RUN_BUDGET_MS;
   const db = createAdminClient();
-  const [{ data: network, error: networkError }, { data: websites, error: siteError }, { data: stale, error: staleError }] = await Promise.all([
+  const [
+    { data: network, error: networkError },
+    { data: websites, error: siteError },
+    { data: stale, error: staleError },
+  ] = await Promise.all([
     db.from("network_settings").select("*").single(),
     db.from("websites").select("*").is("archived_at", null),
-    db.from("publish_slots").select("website_id, slot_at").eq("status", "running")
-      .or(`locked_until.is.null,locked_until.lte.${now.toISOString()}`).order("slot_at").limit(MAX_PER_RUN),
+    db
+      .from("publish_slots")
+      .select("website_id, slot_at")
+      .eq("status", "running")
+      .or(`locked_until.is.null,locked_until.lte.${now.toISOString()}`)
+      .order("slot_at")
+      .limit(MAX_PER_RUN),
   ]);
   [networkError, siteError, staleError].forEach(failOn);
   // Recovery can confirm an already live post while paused; beforeWrite prevents new writes.

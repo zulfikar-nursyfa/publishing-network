@@ -36,8 +36,19 @@ export default async function OverviewPage() {
   const user = await requireUser();
   const supabase = await createClient();
 
-  const [{ data: websites }, { data: stats }, { data: recent }, { data: failures }, { data: network }, { data: spend, error: spendError }] = await Promise.all([
-    supabase.from("websites").select("id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at").is("archived_at", null).order("name"),
+  const [
+    { data: websites },
+    { data: stats },
+    { data: recent },
+    { data: failures },
+    { data: network },
+    { data: spend, error: spendError },
+  ] = await Promise.all([
+    supabase
+      .from("websites")
+      .select("id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at")
+      .is("archived_at", null)
+      .order("name"),
     supabase.from("website_article_stats").select("*"),
     supabase
       .from("articles")
@@ -74,7 +85,9 @@ export default async function OverviewPage() {
     <>
       <PageHeader
         title={firstName ? `Welcome back, ${firstName}` : "Overview"}
-        description={user.isAdmin ? "Here is what is happening across the network." : "Here is what is happening on your websites."}
+        description={
+          user.isAdmin ? "Here is what is happening across the network." : "Here is what is happening on your websites."
+        }
         actions={
           user.isAdmin ? (
             <>
@@ -104,7 +117,9 @@ export default async function OverviewPage() {
           Publishing slots do not run on any website. Manual and scheduled publishing continue.
           {user.isAdmin ? (
             <form action={setNetworkPaused.bind(null, false)} className="mt-3">
-              <SubmitButton size="sm" variant="secondary">Resume automation</SubmitButton>
+              <SubmitButton size="sm" variant="secondary">
+                Resume automation
+              </SubmitButton>
             </form>
           ) : null}
         </Alert>
@@ -115,15 +130,33 @@ export default async function OverviewPage() {
         <Stat label="Ready to publish" value={totals.approved} icon={CircleCheck} tone="blue" />
         <Stat label="Published today" value={totals.today} hint="In each site's timezone" icon={Send} tone="green" />
         <Stat label="Published 7 days" value={totals.week} icon={TrendingUp} tone="purple" />
-        <Stat label="Failed publishing" value={totals.failed} icon={TriangleAlert} tone="red" alert={totals.failed > 0} />
-        <Stat label="AI spend (est.)" value={spendError ? "—" : `$${estimatedSpend.toFixed(2)}`} hint={spendError ? "Apply automation migrations" : `UTC month · $${reservedSpend.toFixed(2)} reserved`} href="/jobs" icon={CircleDollarSign} />
+        <Stat
+          label="Failed publishing"
+          value={totals.failed}
+          icon={TriangleAlert}
+          tone="red"
+          alert={totals.failed > 0}
+        />
+        <Stat
+          label="AI spend (est.)"
+          value={spendError ? "—" : `$${estimatedSpend.toFixed(2)}`}
+          hint={spendError ? "Apply automation migrations" : `UTC month · $${reservedSpend.toFixed(2)} reserved`}
+          href="/jobs"
+          icon={CircleDollarSign}
+        />
       </div>
 
       <section className="mb-10">
         <SectionHeading
           title="Websites"
           description={`${websites?.length ?? 0} active`}
-          actions={websites && websites.length > 0 ? <Link href="/websites" className="text-sm font-medium text-primary underline-offset-4 hover:underline">View all</Link> : null}
+          actions={
+            websites && websites.length > 0 ? (
+              <Link href="/websites" className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+                View all
+              </Link>
+            ) : null
+          }
         />
         {websites && websites.length > 0 ? (
           <Table>
@@ -149,21 +182,39 @@ export default async function OverviewPage() {
                           {site.language}
                         </span>
                         <div className="min-w-0">
-                          <Link href={`/websites/${site.id}`} className={linkClass}>{site.name}</Link>
-                          <div className="truncate text-xs text-muted-foreground">{site.domain} · {site.language === "ar" ? "Arabic" : "English"}</div>
+                          <Link href={`/websites/${site.id}`} className={linkClass}>
+                            {site.name}
+                          </Link>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {site.domain} · {site.language === "ar" ? "Arabic" : "English"}
+                          </div>
                           <div className="mt-1.5 flex flex-wrap gap-1 md:hidden">
                             <ConnectionBadge status={site.wp_connection_status} />
                           </div>
                         </div>
                       </div>
                     </Td>
-                    <Td className="hidden md:table-cell"><ConnectionBadge status={site.wp_connection_status} /></Td>
-                    <Td className="hidden md:table-cell">{site.automation_paused ? <Badge dot>paused</Badge> : <Badge tone="green" dot>{site.daily_quota}/day</Badge>}</Td>
+                    <Td className="hidden md:table-cell">
+                      <ConnectionBadge status={site.wp_connection_status} />
+                    </Td>
+                    <Td className="hidden md:table-cell">
+                      {site.automation_paused ? (
+                        <Badge dot>paused</Badge>
+                      ) : (
+                        <Badge tone="green" dot>
+                          {site.daily_quota}/day
+                        </Badge>
+                      )}
+                    </Td>
                     <Td className="text-right tabular-nums">{row?.in_review ?? 0}</Td>
                     <Td className="hidden text-right tabular-nums sm:table-cell">{row?.approved ?? 0}</Td>
                     <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_today ?? 0}</Td>
                     <Td className="text-right tabular-nums">
-                      {Number(row?.failed_publications ?? 0) > 0 ? <span className="font-semibold text-red-600 dark:text-red-400">{row?.failed_publications}</span> : <span className="text-muted-foreground">0</span>}
+                      {Number(row?.failed_publications ?? 0) > 0 ? (
+                        <span className="font-semibold text-red-600 dark:text-red-400">{row?.failed_publications}</span>
+                      ) : (
+                        <span className="text-muted-foreground">0</span>
+                      )}
                     </Td>
                   </tr>
                 );
@@ -174,9 +225,18 @@ export default async function OverviewPage() {
           <EmptyState
             icon={Globe}
             title="No websites yet"
-            action={user.isAdmin ? <ButtonLink href="/websites/new"><Plus />Add the first website</ButtonLink> : null}
+            action={
+              user.isAdmin ? (
+                <ButtonLink href="/websites/new">
+                  <Plus />
+                  Add the first website
+                </ButtonLink>
+              ) : null
+            }
           >
-            {user.isAdmin ? "Connect a WordPress site to start publishing." : "You are not assigned to any websites yet. Ask an administrator to add you."}
+            {user.isAdmin
+              ? "Connect a WordPress site to start publishing."
+              : "You are not assigned to any websites yet. Ask an administrator to add you."}
           </EmptyState>
         )}
       </section>
@@ -188,13 +248,18 @@ export default async function OverviewPage() {
             <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
               {recent.map((article) => (
                 <li key={article.id}>
-                  <Link href={`/articles/${article.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
+                  <Link
+                    href={`/articles/${article.id}`}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                  >
                     <span className="hidden size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground sm:flex">
                       <FileText className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{article.title}</div>
-                      <div className="truncate text-xs text-muted-foreground">{siteName.get(article.website_id) ?? "Archived website"} · {formatDateTime(article.updated_at)}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {siteName.get(article.website_id) ?? "Archived website"} · {formatDateTime(article.updated_at)}
+                      </div>
                     </div>
                     <ArticleStatusBadge status={article.status} />
                   </Link>
@@ -211,14 +276,20 @@ export default async function OverviewPage() {
             <ul className="divide-y overflow-hidden rounded-xl border border-red-500/20 bg-card shadow-xs">
               {failures.map((failure) => (
                 <li key={failure.article_id}>
-                  <Link href={`/articles/${failure.article_id}`} className="flex gap-3 px-4 py-3 transition-colors hover:bg-red-500/5">
+                  <Link
+                    href={`/articles/${failure.article_id}`}
+                    className="flex gap-3 px-4 py-3 transition-colors hover:bg-red-500/5"
+                  >
                     <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
                       <TriangleAlert className="size-4" />
                     </span>
                     <div className="min-w-0">
                       <div className="text-sm font-medium">
                         {siteName.get(failure.website_id) ?? "Website"}
-                        <span className="font-normal text-muted-foreground"> · attempt {failure.attempt_count} of {failure.max_attempts}</span>
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          · attempt {failure.attempt_count} of {failure.max_attempts}
+                        </span>
                       </div>
                       <p className="mt-0.5 line-clamp-2 text-xs text-red-700 dark:text-red-300">{failure.last_error}</p>
                     </div>

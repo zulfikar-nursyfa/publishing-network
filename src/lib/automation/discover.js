@@ -8,7 +8,10 @@ const BATCH_SIZE = 5;
 
 async function fetchFeed(url) {
   const response = await fetch(url, {
-    headers: { "user-agent": "Mozilla/5.0 (compatible; PublishingNetworkBot/1.0)", accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*" },
+    headers: {
+      "user-agent": "Mozilla/5.0 (compatible; PublishingNetworkBot/1.0)",
+      accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+    },
     signal: AbortSignal.timeout(15_000),
     cache: "no-store",
   });
@@ -42,14 +45,23 @@ async function checkSource(db, source) {
       .map((item) => toRow(source, item))
       .filter(Boolean);
     const { data, error } = rows.length
-      ? await db.from("story_candidates").upsert(rows, { onConflict: "website_id,fingerprint", ignoreDuplicates: true }).select("id")
+      ? await db
+          .from("story_candidates")
+          .upsert(rows, { onConflict: "website_id,fingerprint", ignoreDuplicates: true })
+          .select("id")
       : { data: [], error: null };
     if (error) throw new Error(error.message);
-    await db.from("content_sources").update({ last_checked_at: new Date().toISOString(), last_error: null }).eq("id", source.id);
+    await db
+      .from("content_sources")
+      .update({ last_checked_at: new Date().toISOString(), last_error: null })
+      .eq("id", source.id);
     return data.length;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await db.from("content_sources").update({ last_checked_at: new Date().toISOString(), last_error: message.slice(0, 500) }).eq("id", source.id);
+    await db
+      .from("content_sources")
+      .update({ last_checked_at: new Date().toISOString(), last_error: message.slice(0, 500) })
+      .eq("id", source.id);
     return null;
   }
 }

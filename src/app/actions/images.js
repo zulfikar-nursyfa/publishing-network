@@ -15,11 +15,20 @@ async function loadEditableArticle(articleId) {
   const user = await requireUser();
   const supabase = await createClient();
   // RLS returns nothing for articles on websites the user is not assigned to.
-  const { data: article } = await supabase.from("articles").select("id, website_id, status").eq("id", articleId).maybeSingle();
+  const { data: article } = await supabase
+    .from("articles")
+    .select("id, website_id, status")
+    .eq("id", articleId)
+    .maybeSingle();
   if (!article) return { error: "Article not found" };
-  if (!EDITABLE.includes(article.status)) return { error: "Approved or published articles cannot be changed. Return it to draft first." };
-  const { data: current } = await supabase.from("article_images").select("id, storage_path")
-    .eq("article_id", articleId).eq("role", "featured").maybeSingle();
+  if (!EDITABLE.includes(article.status))
+    return { error: "Approved or published articles cannot be changed. Return it to draft first." };
+  const { data: current } = await supabase
+    .from("article_images")
+    .select("id, storage_path")
+    .eq("article_id", articleId)
+    .eq("role", "featured")
+    .maybeSingle();
   return { user, supabase, article, current };
 }
 
@@ -42,15 +51,27 @@ export async function saveFeaturedImage(articleId, _prev, formData) {
   const columns = { ...parsed.data, ...(path ? { storage_path: path, url: null } : {}), wp_media_id: null };
   const { error } = current
     ? await supabase.from("article_images").update(columns).eq("id", current.id)
-    : await supabase.from("article_images").insert({ ...columns, article_id: articleId, website_id: article.website_id, role: "featured", created_by: user.id });
+    : await supabase.from("article_images").insert({
+        ...columns,
+        article_id: articleId,
+        website_id: article.website_id,
+        role: "featured",
+        created_by: user.id,
+      });
   if (error) {
     await removeArticleImage(supabase, path);
     return { error: error.message };
   }
   if (path && current) await removeArticleImage(supabase, current.storage_path);
 
-  await recordAudit({ action: path ? "article.image_uploaded" : "article.image_edited", entityType: "article", entityId: articleId,
-    websiteId: article.website_id, actorId: user.id, details: { source_kind: parsed.data.source_kind, credit: parsed.data.credit } });
+  await recordAudit({
+    action: path ? "article.image_uploaded" : "article.image_edited",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+    details: { source_kind: parsed.data.source_kind, credit: parsed.data.credit },
+  });
   revalidatePath(`/articles/${articleId}`);
   return { ok: true, message: "Featured image saved." };
 }
@@ -61,14 +82,26 @@ export async function chooseFeaturedImage(articleId, imageId) {
   if (loadError) return;
   // One featured image per article: step the current one down first.
   if (current) await supabase.from("article_images").update({ role: "option", wp_media_id: null }).eq("id", current.id);
-  const { data: chosen } = await supabase.from("article_images").update({ role: "featured", wp_media_id: null })
-    .eq("id", imageId).eq("article_id", articleId).eq("role", "option").select("id").maybeSingle();
+  const { data: chosen } = await supabase
+    .from("article_images")
+    .update({ role: "featured", wp_media_id: null })
+    .eq("id", imageId)
+    .eq("article_id", articleId)
+    .eq("role", "option")
+    .select("id")
+    .maybeSingle();
   if (!chosen) {
     if (current) await supabase.from("article_images").update({ role: "featured" }).eq("id", current.id);
     return;
   }
-  await recordAudit({ action: "article.image_chosen", entityType: "article", entityId: articleId, websiteId: article.website_id,
-    actorId: user.id, details: { image_id: imageId } });
+  await recordAudit({
+    action: "article.image_chosen",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+    details: { image_id: imageId },
+  });
   revalidatePath(`/articles/${articleId}`);
 }
 
@@ -78,6 +111,12 @@ export async function removeFeaturedImage(articleId) {
   const { error } = await supabase.from("article_images").delete().eq("id", current.id);
   if (error) return;
   await removeArticleImage(supabase, current.storage_path);
-  await recordAudit({ action: "article.image_removed", entityType: "article", entityId: articleId, websiteId: article.website_id, actorId: user.id });
+  await recordAudit({
+    action: "article.image_removed",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+  });
   revalidatePath(`/articles/${articleId}`);
 }

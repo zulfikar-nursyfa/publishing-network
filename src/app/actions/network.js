@@ -24,9 +24,17 @@ export async function updateNetworkSettings(_prev, formData) {
   const parsed = networkSettingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
   const db = await createClient();
-  const { error } = await db.from("network_settings").update({ ...parsed.data, updated_by: user.id }).eq("id", true);
+  const { error } = await db
+    .from("network_settings")
+    .update({ ...parsed.data, updated_by: user.id })
+    .eq("id", true);
   if (error) return { error: error.message };
-  await recordAudit({ action: "network.settings_updated", entityType: "network", actorId: user.id, details: parsed.data });
+  await recordAudit({
+    action: "network.settings_updated",
+    entityType: "network",
+    actorId: user.id,
+    details: parsed.data,
+  });
   revalidatePath("/", "layout");
   return { ok: true, message: "Network settings saved." };
 }
@@ -38,7 +46,12 @@ export async function saveModelPrice(_prev, formData) {
   const db = await createClient();
   const { error } = await db.from("ai_model_prices").upsert({ ...parsed.data, updated_at: new Date().toISOString() });
   if (error) return { error: error.message };
-  await recordAudit({ action: "network.model_price_updated", entityType: "network", actorId: user.id, details: parsed.data });
+  await recordAudit({
+    action: "network.model_price_updated",
+    entityType: "network",
+    actorId: user.id,
+    details: parsed.data,
+  });
   revalidatePath("/network");
   return { ok: true, message: "Estimated model prices saved." };
 }

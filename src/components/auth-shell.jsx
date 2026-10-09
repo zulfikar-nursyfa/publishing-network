@@ -1,9 +1,21 @@
 import { CalendarClock, Globe, Newspaper, ShieldCheck } from "lucide-react";
 
 const HIGHLIGHTS = [
-  { icon: Globe, title: "One dashboard, every site", text: "English and Arabic WordPress sites, each with its own schedule and editors." },
-  { icon: ShieldCheck, title: "Reviewed before it ships", text: "Every article moves through draft, review and approval before publishing." },
-  { icon: CalendarClock, title: "Publishing on schedule", text: "Daily slots in each site's own timezone, with safe, idempotent retries." },
+  {
+    icon: Globe,
+    title: "One dashboard, every site",
+    text: "English and Arabic WordPress sites, each with its own schedule and editors.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Reviewed before it ships",
+    text: "Every article moves through draft, review and approval before publishing.",
+  },
+  {
+    icon: CalendarClock,
+    title: "Publishing on schedule",
+    text: "Daily slots in each site's own timezone, with safe, idempotent retries.",
+  },
 ];
 
 export function AuthShell({ title, description, children, footer }) {
@@ -22,7 +34,9 @@ export function AuthShell({ title, description, children, footer }) {
           <span className="font-semibold tracking-tight">Publishing Network</span>
         </div>
         <div className="relative max-w-md">
-          <h2 className="text-3xl font-semibold tracking-tight text-balance">The editorial control centre for the network.</h2>
+          <h2 className="text-3xl font-semibold tracking-tight text-balance">
+            The editorial control centre for the network.
+          </h2>
           <ul className="mt-10 space-y-6">
             {HIGHLIGHTS.map(({ icon: Icon, title: itemTitle, text }) => (
               <li key={itemTitle} className="flex gap-4">

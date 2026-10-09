@@ -91,13 +91,27 @@ export function Stat({ label, value, hint, href, icon: Icon, tone = "default", a
           </div>
         ) : null}
       </div>
-      <div className={cn("mt-2 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl", alert && "text-red-600 dark:text-red-400")}>
+      <div
+        className={cn(
+          "mt-2 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl",
+          alert && "text-red-600 dark:text-red-400",
+        )}
+      >
         {value}
       </div>
       {hint ? <div className="mt-1 text-xs text-muted-foreground">{hint}</div> : null}
     </div>
   );
-  return href ? <Link href={href} className="block h-full rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none">{body}</Link> : body;
+  return href ? (
+    <Link
+      href={href}
+      className="block h-full rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+    >
+      {body}
+    </Link>
+  ) : (
+    body
+  );
 }
 
 const buttonVariants = cva(
@@ -108,7 +122,8 @@ const buttonVariants = cva(
         primary: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 active:bg-primary/85",
         secondary: "border bg-card text-foreground shadow-xs hover:bg-muted active:bg-muted/80",
         ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
-        danger: "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/30",
+        danger:
+          "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/30",
         "danger-outline": "border border-destructive/30 bg-card text-destructive shadow-xs hover:bg-destructive/10",
         success: "bg-success text-success-foreground shadow-xs hover:bg-success/90 focus-visible:ring-success/30",
       },
@@ -170,7 +185,10 @@ export function CheckboxLabel({ children, className, ...props }) {
 }
 
 const alertTones = {
-  success: { className: "border-emerald-500/25 bg-emerald-500/8 text-emerald-800 dark:text-emerald-300", icon: CircleCheck },
+  success: {
+    className: "border-emerald-500/25 bg-emerald-500/8 text-emerald-800 dark:text-emerald-300",
+    icon: CircleCheck,
+  },
   warning: { className: "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200", icon: TriangleAlert },
   error: { className: "border-red-500/25 bg-red-500/8 text-red-800 dark:text-red-300", icon: CircleAlert },
   info: { className: "border-border bg-muted/60 text-foreground", icon: Info },
@@ -179,7 +197,10 @@ const alertTones = {
 export function Alert({ tone = "info", title, children, className, role }) {
   const { className: toneClass, icon: Icon } = alertTones[tone];
   return (
-    <div role={role ?? (tone === "error" ? "alert" : "status")} className={cn("flex gap-3 rounded-lg border px-4 py-3 text-sm", toneClass, className)}>
+    <div
+      role={role ?? (tone === "error" ? "alert" : "status")}
+      className={cn("flex gap-3 rounded-lg border px-4 py-3 text-sm", toneClass, className)}
+    >
       <Icon className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 space-y-0.5">
         {title ? <div className="font-medium">{title}</div> : null}
@@ -232,7 +253,11 @@ const articleTone = {
 };
 
 export function ArticleStatusBadge({ status }) {
-  return <Badge tone={articleTone[status]} dot>{status.replace("_", " ")}</Badge>;
+  return (
+    <Badge tone={articleTone[status]} dot>
+      {status.replace("_", " ")}
+    </Badge>
+  );
 }
 
 const publicationTone = {
@@ -243,26 +268,41 @@ const publicationTone = {
 };
 
 export function PublicationStatusBadge({ status }) {
-  return <Badge tone={publicationTone[status]} dot>publish {status.replace("_", " ")}</Badge>;
+  return (
+    <Badge tone={publicationTone[status]} dot>
+      publish {status.replace("_", " ")}
+    </Badge>
+  );
 }
 
 const connectionTone = { untested: "gray", ok: "green", failed: "red" };
 
 export function ConnectionBadge({ status }) {
   const label = status === "ok" ? "connected" : status === "failed" ? "connection failed" : "not tested";
-  return <Badge tone={connectionTone[status]} dot>{label}</Badge>;
+  return (
+    <Badge tone={connectionTone[status]} dot>
+      {label}
+    </Badge>
+  );
 }
 
 export function EmptyState({ icon: Icon, title, children, action, className }) {
   return (
-    <div className={cn("flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/50 px-6 py-12 text-center", className)}>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/50 px-6 py-12 text-center",
+        className,
+      )}
+    >
       {Icon ? (
         <div className="mb-4 flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <Icon className="size-5" />
         </div>
       ) : null}
       {title ? <div className="mb-1 font-medium">{title}</div> : null}
-      <div className="max-w-sm text-sm text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline-offset-4 [&_a:hover]:underline">{children}</div>
+      <div className="max-w-sm text-sm text-muted-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline-offset-4 [&_a:hover]:underline">
+        {children}
+      </div>
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );
@@ -271,14 +311,21 @@ export function EmptyState({ icon: Icon, title, children, action, className }) {
 export function Table({ children, className }) {
   return (
     <div className={cn("overflow-x-auto rounded-xl border bg-card shadow-xs", className)}>
-      <table className="min-w-full text-sm [&_tbody_tr]:border-t [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-muted/40">{children}</table>
+      <table className="min-w-full text-sm [&_tbody_tr]:border-t [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-muted/40">
+        {children}
+      </table>
     </div>
   );
 }
 
 export function Th({ children, className }) {
   return (
-    <th className={cn("h-10 whitespace-nowrap bg-muted/40 px-4 text-left align-middle text-xs font-medium text-muted-foreground", className)}>
+    <th
+      className={cn(
+        "h-10 whitespace-nowrap bg-muted/40 px-4 text-left align-middle text-xs font-medium text-muted-foreground",
+        className,
+      )}
+    >
       {children}
     </th>
   );
@@ -302,12 +349,19 @@ export function FilterTabs({ items, active }) {
             aria-current={active === item.key ? "page" : undefined}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
-              active === item.key ? "bg-card text-foreground shadow-xs ring-1 ring-border" : "text-muted-foreground hover:text-foreground",
+              active === item.key
+                ? "bg-card text-foreground shadow-xs ring-1 ring-border"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {item.label}
             {item.count !== undefined ? (
-              <span className={cn("rounded-full px-1.5 text-xs tabular-nums", active === item.key ? "bg-accent text-accent-foreground" : "bg-muted")}>
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-xs tabular-nums",
+                  active === item.key ? "bg-accent text-accent-foreground" : "bg-muted",
+                )}
+              >
                 {item.count}
               </span>
             ) : null}
@@ -322,7 +376,10 @@ export function DescriptionList({ items, className }) {
   return (
     <dl className={cn("divide-y text-sm", className)}>
       {items.map((item) => (
-        <div key={item.label} className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:justify-between sm:gap-4">
+        <div
+          key={item.label}
+          className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:justify-between sm:gap-4"
+        >
           <dt className="shrink-0 text-muted-foreground">{item.label}</dt>
           <dd className="min-w-0 break-words sm:text-right">{item.value}</dd>
         </div>
@@ -332,7 +389,10 @@ export function DescriptionList({ items, className }) {
 }
 
 export function initials(name) {
-  const parts = String(name ?? "").replace(/@.*/, "").split(/[\s._-]+/).filter(Boolean);
+  const parts = String(name ?? "")
+    .replace(/@.*/, "")
+    .split(/[\s._-]+/)
+    .filter(Boolean);
   return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 

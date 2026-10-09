@@ -9,14 +9,27 @@ const outletA = pageAt("https://outlet-a.example.test/story");
 const outletB = pageAt("https://outlet-b.example.test/story");
 const research = (urls, extra = {}) => ({
   angle: "What the new route means for regional travellers",
-  claims: [1, 2, 3].map(() => ({ claim: statement, source_urls: urls, evidence: [{ url: urls[0], quote: statement }] })),
-  primary_source_url: null, sensitive: false, needs_corroboration: false, unresolved: [], ...extra,
+  claims: [1, 2, 3].map(() => ({
+    claim: statement,
+    source_urls: urls,
+    evidence: [{ url: urls[0], quote: statement }],
+  })),
+  primary_source_url: null,
+  sensitive: false,
+  needs_corroboration: false,
+  unresolved: [],
+  ...extra,
 });
-const draft = (urls) => draftSchema.parse({
-  title: "An original regional business report", slug: "regional-business-report",
-  excerpt: "An original summary that presents the regional relevance of the verified announcement.",
-  body: Array.from({ length: 260 }, (_, i) => `originalword${i}`).join(" "), category_id: null, sensitive: false, source_urls: urls,
-});
+const draft = (urls) =>
+  draftSchema.parse({
+    title: "An original regional business report",
+    slug: "regional-business-report",
+    excerpt: "An original summary that presents the regional relevance of the verified announcement.",
+    body: Array.from({ length: 260 }, (_, i) => `originalword${i}`).join(" "),
+    category_id: null,
+    sensitive: false,
+    source_urls: urls,
+  });
 
 test("research with the official source has no warnings", () => {
   const checked = checkResearch(research([official.url], { primary_source_url: official.url }), [official]);
@@ -48,15 +61,29 @@ test("research fails only when no fact matches the pages", () => {
 test("weak sourcing, sensitivity and unconfirmed details become warnings", () => {
   const checked = checkResearch(research([outletA.url], { sensitive: true, unresolved: ["Launch date"] }), [outletA]);
   assert.equal(checked.warnings.length, 3);
-  assert.equal(checkResearch(research([official.url], { primary_source_url: "https://elsewhere.example.test/" }), [official]).research.primary_source_url, null);
+  assert.equal(
+    checkResearch(research([official.url], { primary_source_url: "https://elsewhere.example.test/" }), [official])
+      .research.primary_source_url,
+    null,
+  );
 });
 
 test("drafts: uncollected citations removed, missing official source warned", () => {
   const withPrimary = research([official.url, outletA.url], { primary_source_url: official.url });
-  const checked = checkDraft(draft([outletA.url, "https://invented.example.test/"]), withPrimary, [official, outletA], [], "en");
+  const checked = checkDraft(
+    draft([outletA.url, "https://invented.example.test/"]),
+    withPrimary,
+    [official, outletA],
+    [],
+    "en",
+  );
   assert.deepEqual(checked.draft.source_urls, [outletA.url]);
   assert.ok(checked.warnings.some((warning) => /official source/.test(warning)));
-  assert.equal(checkDraft({ ...draft([official.url]), category_id: crypto.randomUUID() }, withPrimary, [official], [], "en").draft.category_id, null);
+  assert.equal(
+    checkDraft({ ...draft([official.url]), category_id: crypto.randomUUID() }, withPrimary, [official], [], "en").draft
+      .category_id,
+    null,
+  );
 });
 
 test("drafts still reject copied passages, HTML and the wrong language", () => {
@@ -64,12 +91,31 @@ test("drafts still reject copied passages, HTML and the wrong language", () => {
   const copied = draft([official.url]);
   copied.body = `${copied.body} ${official.text}`;
   assert.throws(() => checkDraft(copied, r, [official], [], "en"), /copied passage/);
-  assert.throws(() => checkDraft({ ...draft([official.url]), body: `<p>${draft([official.url]).body}</p>` }, r, [official], [], "en"), /plain text/);
+  assert.throws(
+    () =>
+      checkDraft({ ...draft([official.url]), body: `<p>${draft([official.url]).body}</p>` }, r, [official], [], "en"),
+    /plain text/,
+  );
   assert.throws(() => checkDraft(draft([official.url]), r, [official], [], "ar"), /language/);
 });
 
 test("verification problems become warnings", () => {
-  assert.deepEqual(checkVerification({ passed: true, issues: [], checked_claims: [{ claim: statement, supported: true, source_urls: [official.url] }] }), []);
-  const warnings = checkVerification({ passed: false, issues: ["Wrong date"], checked_claims: [{ claim: "Route starts in May", supported: false, source_urls: [official.url] }] });
-  assert.deepEqual(warnings, ["AI verification did not pass", "Verification: Wrong date", "Unsupported claim: Route starts in May"]);
+  assert.deepEqual(
+    checkVerification({
+      passed: true,
+      issues: [],
+      checked_claims: [{ claim: statement, supported: true, source_urls: [official.url] }],
+    }),
+    [],
+  );
+  const warnings = checkVerification({
+    passed: false,
+    issues: ["Wrong date"],
+    checked_claims: [{ claim: "Route starts in May", supported: false, source_urls: [official.url] }],
+  });
+  assert.deepEqual(warnings, [
+    "AI verification did not pass",
+    "Verification: Wrong date",
+    "Unsupported claim: Route starts in May",
+  ]);
 });

@@ -31,11 +31,7 @@ async function loadArticle(articleId) {
   return { user, supabase, article };
 }
 
-async function replaceSources(
-  supabase,
-  article,
-  sources,
-) {
+async function replaceSources(supabase, article, sources) {
   const { error: deleteError } = await supabase.from("article_sources").delete().eq("article_id", article.id);
   if (deleteError) return deleteError.message;
   if (sources.length === 0) return null;
@@ -117,12 +113,19 @@ export async function saveArticle(articleId, _prev, formData) {
     .select("id")
     .maybeSingle();
   if (error) return { error: error.message };
-  if (!updated) return { error: "This article was changed by someone else since you opened it. Reload to see the latest version." };
+  if (!updated)
+    return { error: "This article was changed by someone else since you opened it. Reload to see the latest version." };
 
   const sourceError = await replaceSources(supabase, article, sources.sources);
   if (sourceError) return { error: `Article saved, but sources could not be saved: ${sourceError}` };
 
-  await recordAudit({ action: "article.edited", entityType: "article", entityId: articleId, websiteId: article.website_id, actorId: user.id });
+  await recordAudit({
+    action: "article.edited",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+  });
   refresh(article);
   return { ok: true, message: "Saved." };
 }
@@ -238,7 +241,9 @@ export async function publishArticleAction(articleId, _prev) {
     case "in_progress":
       return { error: "A publishing attempt is already running for this article. Wait a moment and reload." };
     case "attempts_exhausted":
-      return { error: `Publishing failed ${result.attempts} times. An administrator must review the error and reset the attempts.` };
+      return {
+        error: `Publishing failed ${result.attempts} times. An administrator must review the error and reset the attempts.`,
+      };
     case "blocked":
       return { error: result.reason };
     case "failed":

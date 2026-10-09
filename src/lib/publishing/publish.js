@@ -45,13 +45,7 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @returns {Promise<PublishResult>}
  */
 
-export async function publishArticle(
-  articleId,
-  actorId,
-  store,
-  wordpressFor,
-  options = {},
-) {
+export async function publishArticle(articleId, actorId, store, wordpressFor, options = {}) {
   const claim = await store.claim(articleId, actorId);
   if (!claim) {
     const existing = await store.getPublication(articleId);
@@ -90,7 +84,8 @@ export async function publishArticle(
     const reconciled = post !== null;
 
     if (!post) {
-      if (context.article.status === "published") return fail("Published article has no matching WordPress post; review it manually", false);
+      if (context.article.status === "published")
+        return fail("Published article has no matching WordPress post; review it manually", false);
       const reason = await options.beforeWrite?.();
       if (reason) return fail(reason, false);
       const featuredMediaId = context.image ? await uploadFeaturedImage(context, store, wordpress) : null;
@@ -157,6 +152,7 @@ function checkControls(context) {
   if (context.category && !context.category.wpTermId) {
     return `Category "${context.category.name}" is not linked to WordPress. Use "Sync with WordPress" in the website settings, then retry.`;
   }
-  if (context.image && !context.image.wpMediaId && !context.image.storagePath) return "Featured image has no stored file";
+  if (context.image && !context.image.wpMediaId && !context.image.storagePath)
+    return "Featured image has no stored file";
   return null;
 }

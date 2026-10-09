@@ -6,23 +6,43 @@ const ok = (body) => ({ ok: true, status: 200, json: async () => body });
 
 test("search requests use Google Search grounding", async () => {
   let sent;
-  const client = createGeminiClient({ apiKey: "key", fetch: async (url, options) => { sent = { url, body: JSON.parse(options.body) }; return ok({}); } });
+  const client = createGeminiClient({
+    apiKey: "key",
+    fetch: async (url, options) => {
+      sent = { url, body: JSON.parse(options.body) };
+      return ok({});
+    },
+  });
   await client.search("gemini-2.5-flash", [{ role: "user", parts: [{ text: "Find coverage" }] }]);
   assert.match(sent.url, /gemini-2\.5-flash:generateContent$/);
   assert.deepEqual(sent.body.tools, [{ google_search: {} }]);
 });
 
 test("grounded pages and search counts are read from the response", () => {
-  const response = { candidates: [{ groundingMetadata: {
-    webSearchQueries: ["british airways a380", "ba business class"],
-    groundingChunks: [{ web: { uri: "https://a.test/1" } }, { web: { uri: "https://a.test/1" } }, { web: { uri: "https://b.test/2" } }, {}],
-  } }] };
+  const response = {
+    candidates: [
+      {
+        groundingMetadata: {
+          webSearchQueries: ["british airways a380", "ba business class"],
+          groundingChunks: [
+            { web: { uri: "https://a.test/1" } },
+            { web: { uri: "https://a.test/1" } },
+            { web: { uri: "https://b.test/2" } },
+            {},
+          ],
+        },
+      },
+    ],
+  };
   assert.deepEqual(groundingResults(response), { urls: ["https://a.test/1", "https://b.test/2"], queries: 2 });
   assert.deepEqual(groundingResults({}), { urls: [], queries: 0 });
 });
 
 test("token usage includes thinking tokens", () => {
-  assert.deepEqual(responseUsage({ usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 200, thoughtsTokenCount: 30 } }), { input: 100, output: 230 });
+  assert.deepEqual(
+    responseUsage({ usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 200, thoughtsTokenCount: 30 } }),
+    { input: 100, output: 230 },
+  );
   assert.equal(responseUsage({}), null);
 });
 

@@ -46,23 +46,28 @@ export async function setUserRole(userId, role) {
   const admin = await requireAdmin();
   if (userId === admin.id && role !== "admin") return; // Administrators cannot demote themselves.
   await createAdminClient().from("profiles").update({ role }).eq("id", userId);
-  await recordAudit({ action: "user.role_changed", entityType: "user", entityId: userId, actorId: admin.id, details: { role } });
+  await recordAudit({
+    action: "user.role_changed",
+    entityType: "user",
+    entityId: userId,
+    actorId: admin.id,
+    details: { role },
+  });
   revalidatePath("/users");
 }
 
 export async function setUserWebsites(userId, formData) {
   const admin = await requireAdmin();
   const db = createAdminClient();
-  const wanted = new Set(
-    formData.getAll("website_ids").filter((value) => typeof value === "string" && value !== ""),
-  );
+  const wanted = new Set(formData.getAll("website_ids").filter((value) => typeof value === "string" && value !== ""));
   const { data: existing } = await db.from("website_members").select("website_id").eq("user_id", userId);
   const current = new Set((existing ?? []).map((row) => row.website_id));
   const toRemove = [...current].filter((id) => !wanted.has(id));
   const toAdd = [...wanted].filter((id) => !current.has(id));
 
   if (toRemove.length > 0) await db.from("website_members").delete().eq("user_id", userId).in("website_id", toRemove);
-  if (toAdd.length > 0) await db.from("website_members").insert(toAdd.map((websiteId) => ({ website_id: websiteId, user_id: userId })));
+  if (toAdd.length > 0)
+    await db.from("website_members").insert(toAdd.map((websiteId) => ({ website_id: websiteId, user_id: userId })));
 
   await recordAudit({
     action: "user.websites_changed",

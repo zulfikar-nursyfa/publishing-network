@@ -63,7 +63,13 @@ export default async function WebsitesPage({ searchParams }) {
               </div>
               <div className="mt-5 flex flex-wrap gap-1.5">
                 <ConnectionBadge status={site.wp_connection_status} />
-                {site.automation_paused ? <Badge dot>paused</Badge> : <Badge tone="green" dot>{site.daily_quota}/day</Badge>}
+                {site.automation_paused ? (
+                  <Badge dot>paused</Badge>
+                ) : (
+                  <Badge tone="green" dot>
+                    {site.daily_quota}/day
+                  </Badge>
+                )}
                 {site.archived_at ? <Badge tone="red">archived</Badge> : null}
               </div>
               <div className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
@@ -77,9 +83,18 @@ export default async function WebsitesPage({ searchParams }) {
         <EmptyState
           icon={showArchived ? Archive : Globe}
           title={showArchived ? "No archived websites" : "No websites yet"}
-          action={!showArchived && user.isAdmin ? <ButtonLink href="/websites/new"><Plus />Add website</ButtonLink> : null}
+          action={
+            !showArchived && user.isAdmin ? (
+              <ButtonLink href="/websites/new">
+                <Plus />
+                Add website
+              </ButtonLink>
+            ) : null
+          }
         >
-          {showArchived ? "Archived websites appear here. Nothing is deleted when a site is archived." : "Connect a WordPress site to start publishing."}
+          {showArchived
+            ? "Archived websites appear here. Nothing is deleted when a site is archived."
+            : "Connect a WordPress site to start publishing."}
         </EmptyState>
       )}
     </>

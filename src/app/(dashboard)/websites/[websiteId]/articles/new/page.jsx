@@ -12,8 +12,13 @@ export default async function NewArticlePage({ params }) {
   const { website } = await requireWebsite(websiteId);
   if (website.archived_at) notFound();
   const supabase = await createClient();
-  const { data: categories } = await supabase.from("categories").select("id, name")
-    .eq("website_id", websiteId).is("archived_at", null).order("sort_order").order("name");
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id, name")
+    .eq("website_id", websiteId)
+    .is("archived_at", null)
+    .order("sort_order")
+    .order("name");
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -22,7 +27,12 @@ export default async function NewArticlePage({ params }) {
         title="New article"
         description="Manual articles do not count against the automated daily quota."
       />
-      <ArticleForm action={createArticle.bind(null, websiteId)} rtl={website.text_direction === "rtl"} categories={categories ?? []} submitLabel="Create draft" />
+      <ArticleForm
+        action={createArticle.bind(null, websiteId)}
+        rtl={website.text_direction === "rtl"}
+        categories={categories ?? []}
+        submitLabel="Create draft"
+      />
     </div>
   );
 }

@@ -7,11 +7,30 @@ import { slotsOn } from "@/lib/schedule";
 function setup({ status = "approved", existing = null } = {}) {
   const calls = { created: 0, confirmed: 0 };
   const post = { id: 42, status: "publish", link: "https://example.test/post" };
-  const context = { article: { id: "a", websiteId: "s", status, title: "Title", body: "Body" }, website: { id: "s", language: "en", archived: false }, sources: [], connection: {} };
-  const store = { claim: async () => ({ id: "p", attemptCount: 1, maxAttempts: 5 }), loadContext: async () => context,
-    markFailed: async () => {}, markSucceeded: async () => { calls.confirmed++; }, audit: async () => {} };
-  const wordpress = { findPostByArticleId: async () => existing && post, createPost: async () => { calls.created++; return post; },
-    getPost: async () => post, updatePostStatus: async () => post };
+  const context = {
+    article: { id: "a", websiteId: "s", status, title: "Title", body: "Body" },
+    website: { id: "s", language: "en", archived: false },
+    sources: [],
+    connection: {},
+  };
+  const store = {
+    claim: async () => ({ id: "p", attemptCount: 1, maxAttempts: 5 }),
+    loadContext: async () => context,
+    markFailed: async () => {},
+    markSucceeded: async () => {
+      calls.confirmed++;
+    },
+    audit: async () => {},
+  };
+  const wordpress = {
+    findPostByArticleId: async () => existing && post,
+    createPost: async () => {
+      calls.created++;
+      return post;
+    },
+    getPost: async () => post,
+    updatePostStatus: async () => post,
+  };
   const publish = (options) => publishArticle("a", null, store, () => wordpress, options);
   return { calls, publish };
 }

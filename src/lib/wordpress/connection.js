@@ -48,17 +48,26 @@ export async function testConnection(website) {
       const status = await createWordPressClient(connection, { timeoutMs: 15_000 }).getStatus();
       const warnings = [];
       if (!status.user.can_publish) {
-        result = { ok: false, error: `WordPress user "${status.user.login}" cannot publish posts. Give it the Editor role.` };
+        result = {
+          ok: false,
+          error: `WordPress user "${status.user.login}" cannot publish posts. Give it the Editor role.`,
+        };
       } else {
         if (compareVersions(status.plugin_version, REQUIRED_PLUGIN_VERSION) < 0) {
-          warnings.push(`Connector plugin ${status.plugin_version} is older than ${REQUIRED_PLUGIN_VERSION}; update it.`);
+          warnings.push(
+            `Connector plugin ${status.plugin_version} is older than ${REQUIRED_PLUGIN_VERSION}; update it.`,
+          );
         }
         const wpLanguage = status.language.toLowerCase().slice(0, 2);
         if (wpLanguage !== website.language) {
-          warnings.push(`WordPress site language is ${status.language} but this website is set to ${website.language}.`);
+          warnings.push(
+            `WordPress site language is ${status.language} but this website is set to ${website.language}.`,
+          );
         }
         if (website.language === "ar" && !status.is_rtl) {
-          warnings.push("WordPress is not rendering right-to-left. Set the site language to Arabic in Settings → General.");
+          warnings.push(
+            "WordPress is not rendering right-to-left. Set the site language to Arabic in Settings → General.",
+          );
         }
         if (!status.user.can_upload) warnings.push("WordPress user cannot upload media; illustrations will fail.");
         result = { ok: true, status, warnings };
@@ -76,7 +85,7 @@ export async function testConnection(website) {
     .update({
       wp_connection_status: result.ok ? "ok" : "failed",
       wp_connection_checked_at: new Date().toISOString(),
-      wp_connection_error: result.ok ? (result.warnings.join(" ") || null) : result.error,
+      wp_connection_error: result.ok ? result.warnings.join(" ") || null : result.error,
       wp_plugin_version: result.ok ? result.status.plugin_version : website.wp_plugin_version,
     })
     .eq("id", website.id);

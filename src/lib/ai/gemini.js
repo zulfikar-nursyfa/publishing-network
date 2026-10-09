@@ -20,7 +20,9 @@ export function createGeminiClient({ apiKey, fetch: fetchImpl = globalThis.fetch
   const generationRequest = (model, contents, schema, maxOutputTokens = 8192) => ({
     contents,
     generationConfig: {
-      candidateCount: 1, maxOutputTokens, temperature: 0.2,
+      candidateCount: 1,
+      maxOutputTokens,
+      temperature: 0.2,
       responseFormat: { text: { mimeType: "APPLICATION_JSON", schema } },
       ...thinkingConfig(model),
     },
@@ -31,42 +33,70 @@ export function createGeminiClient({ apiKey, fetch: fetchImpl = globalThis.fetch
     let response;
     try {
       response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${model}:${method}`, {
-        method: "POST", headers: { "x-goog-api-key": apiKey, "content-type": "application/json" },
-        body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs), cache: "no-store",
+        method: "POST",
+        headers: { "x-goog-api-key": apiKey, "content-type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+        cache: "no-store",
       });
     } catch {
-      throw new GeminiError("Gemini request timed out or could not be reached", { retryable: true, uncertain: method === "generateContent" });
+      throw new GeminiError("Gemini request timed out or could not be reached", {
+        retryable: true,
+        uncertain: method === "generateContent",
+      });
     }
-    if (!response.ok) throw new GeminiError(`Gemini returned HTTP ${response.status}`, {
-      retryable: response.status === 429 || response.status >= 500,
-      uncertain: method === "generateContent" && (response.status === 408 || response.status >= 500),
-    });
-    try { return await response.json(); }
-    catch { throw new GeminiError("Gemini returned an unreadable response", { retryable: true, uncertain: method === "generateContent" }); }
+    if (!response.ok)
+      throw new GeminiError(`Gemini returned HTTP ${response.status}`, {
+        retryable: response.status === 429 || response.status >= 500,
+        uncertain: method === "generateContent" && (response.status === 408 || response.status >= 500),
+      });
+    try {
+      return await response.json();
+    } catch {
+      throw new GeminiError("Gemini returned an unreadable response", {
+        retryable: true,
+        uncertain: method === "generateContent",
+      });
+    }
   }
 
   return {
     async countTokens(model, contents, schema) {
       // Include the same schema and steering information as generation in the input estimate.
-      const body = schema ? { generateContentRequest: { model: `models/${model}`, ...generationRequest(model, contents, schema) } } : { contents };
+      const body = schema
+        ? { generateContentRequest: { model: `models/${model}`, ...generationRequest(model, contents, schema) } }
+        : { contents };
       const result = await call(model, "countTokens", body, 5_000);
-      if (!Number.isSafeInteger(result.totalTokens) || result.totalTokens < 1) throw new GeminiError("Gemini did not return a valid input token count");
+      if (!Number.isSafeInteger(result.totalTokens) || result.totalTokens < 1)
+        throw new GeminiError("Gemini did not return a valid input token count");
       return result.totalTokens;
     },
     async generate(model, contents, schema, maxOutputTokens = 8192) {
       return call(model, "generateContent", generationRequest(model, contents, schema, maxOutputTokens), 50_000);
     },
     async image(model, contents) {
-      return call(model, "generateContent", {
-        contents, generationConfig: { candidateCount: 1, responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } },
-      }, 50_000);
+      return call(
+        model,
+        "generateContent",
+        {
+          contents,
+          generationConfig: { candidateCount: 1, responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "16:9" } },
+        },
+        50_000,
+      );
     },
     // Grounded search: the useful output is groundingMetadata (pages Google found), not the text.
     async search(model, contents, maxOutputTokens = 2048) {
-      return call(model, "generateContent", {
-        contents, tools: [{ google_search: {} }],
-        generationConfig: { candidateCount: 1, maxOutputTokens, temperature: 0, ...thinkingConfig(model) },
-      }, 40_000);
+      return call(
+        model,
+        "generateContent",
+        {
+          contents,
+          tools: [{ google_search: {} }],
+          generationConfig: { candidateCount: 1, maxOutputTokens, temperature: 0, ...thinkingConfig(model) },
+        },
+        40_000,
+      );
     },
   };
 }
@@ -80,7 +110,8 @@ export function groundingResults(response) {
 
 export function responseUsage(response) {
   const usage = response.usageMetadata;
-  if (!usage || !Number.isSafeInteger(usage.promptTokenCount) || !Number.isSafeInteger(usage.candidatesTokenCount)) return null;
+  if (!usage || !Number.isSafeInteger(usage.promptTokenCount) || !Number.isSafeInteger(usage.candidatesTokenCount))
+    return null;
   return { input: usage.promptTokenCount, output: usage.candidatesTokenCount + (usage.thoughtsTokenCount ?? 0) };
 }
 
@@ -93,15 +124,31 @@ export function responseImage(response) {
 
 /** The response without image bytes, small enough to keep in the usage record. */
 export function withoutImageData(response) {
-  return { ...response, candidates: response.candidates?.map((candidate) => ({ ...candidate, content: {
-    ...candidate.content, parts: candidate.content?.parts?.map((part) => part.inlineData ? { inlineData: { mimeType: part.inlineData.mimeType } } : part),
-  } })) };
+  return {
+    ...response,
+    candidates: response.candidates?.map((candidate) => ({
+      ...candidate,
+      content: {
+        ...candidate.content,
+        parts: candidate.content?.parts?.map((part) =>
+          part.inlineData ? { inlineData: { mimeType: part.inlineData.mimeType } } : part,
+        ),
+      },
+    })),
+  };
 }
 
 export function responseJson(response) {
   const candidate = response.candidates?.[0];
-  if (candidate?.finishReason !== "STOP") throw new GeminiError("Gemini output was blocked or incomplete; review the job before retrying");
-  const text = candidate.content?.parts?.filter((part) => !part.thought).map((part) => part.text ?? "").join("");
-  try { return JSON.parse(text); }
-  catch { throw new GeminiError("Gemini did not return valid JSON"); }
+  if (candidate?.finishReason !== "STOP")
+    throw new GeminiError("Gemini output was blocked or incomplete; review the job before retrying");
+  const text = candidate.content?.parts
+    ?.filter((part) => !part.thought)
+    .map((part) => part.text ?? "")
+    .join("");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new GeminiError("Gemini did not return valid JSON");
+  }
 }

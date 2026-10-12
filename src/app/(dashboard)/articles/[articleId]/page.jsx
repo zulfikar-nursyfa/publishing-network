@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, History, Info, Lock } from "lucide-react";
+import { ExternalLink, Eye, History, Info, Lock } from "lucide-react";
 import { saveArticle } from "@/app/actions/articles";
 import {
   Alert,
@@ -10,6 +10,7 @@ import {
   DescriptionList,
   PageHeader,
   PublicationStatusBadge,
+  buttonClass,
   formatDateTime,
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -148,6 +149,18 @@ export default async function ArticlePage({ params, searchParams }) {
             ) : null}
           </span>
         }
+        actions={
+          <a
+            href={`/articles/${articleId}/preview`}
+            target="_blank"
+            rel="noreferrer"
+            title="Shows the last saved version"
+            className={buttonClass("secondary")}
+          >
+            <Eye />
+            Preview
+          </a>
+        }
       />
 
       {warning === "sources" ? (
@@ -167,10 +180,12 @@ export default async function ArticlePage({ params, searchParams }) {
             </Alert>
           ) : null}
           {!editable ? (
-            <Alert tone="info" title={article.status === "published" ? "Published" : "Locked for publishing"}>
+            <Alert tone="info" title={article.status === "approved" ? "Locked for publishing" : "Locked"}>
               {article.status === "published"
-                ? "Published articles are managed in WordPress. Edit them there directly."
-                : "Approved content is locked so what was approved is what gets published. Return it to draft to edit."}
+                ? "Live articles are locked. To correct one, unpublish it, return it to draft and publish it again after review."
+                : article.status === "unpublished"
+                  ? "Return the article to draft to edit it."
+                  : "Approved content is locked so what was approved is what gets published. Return it to draft to edit."}
             </Alert>
           ) : null}
           <ArticleForm
@@ -261,6 +276,9 @@ export default async function ArticlePage({ params, searchParams }) {
                     "—"
                   ),
                 },
+                ...(article.unpublished_at
+                  ? [{ label: "Unpublished", value: formatDateTime(article.unpublished_at, website.timezone) }]
+                  : []),
               ]}
             />
             {article.review_note ? (

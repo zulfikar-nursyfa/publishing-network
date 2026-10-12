@@ -114,16 +114,12 @@ export function createWordPressClient(connection, options = {}) {
     },
 
     async createPost(post) {
-      return request("POST", "/wp/v2/posts?_fields=id,status,link,slug", {
-        title: post.title,
-        content: post.content,
-        excerpt: post.excerpt ?? undefined,
-        slug: post.slug || undefined,
-        status: post.status,
-        categories: post.categoryIds?.length ? post.categoryIds : undefined,
-        featured_media: post.featuredMediaId ?? undefined,
-        meta: { pn_article_id: post.articleId },
-      });
+      return request("POST", "/wp/v2/posts?_fields=id,status,link,slug", postBody(post));
+    },
+
+    /** Replaces an existing post's content, e.g. republishing a corrected article into its draft. */
+    async updatePost(id, post) {
+      return request("POST", `/wp/v2/posts/${id}?_fields=id,status,link,slug`, postBody(post));
     },
 
     /** @returns {Promise<WordPressCategory[]>} The first 100 categories, enough for one site's sections. */
@@ -163,6 +159,20 @@ export function createWordPressClient(connection, options = {}) {
     async getPost(id) {
       return request("GET", `/wp/v2/posts/${id}?context=edit&_fields=id,status,link,slug`);
     },
+  };
+}
+
+/** @param {NewPost} post */
+function postBody(post) {
+  return {
+    title: post.title,
+    content: post.content,
+    excerpt: post.excerpt ?? "",
+    slug: post.slug || undefined,
+    status: post.status,
+    categories: post.categoryIds?.length ? post.categoryIds : undefined,
+    featured_media: post.featuredMediaId ?? 0,
+    meta: { pn_article_id: post.articleId },
   };
 }
 

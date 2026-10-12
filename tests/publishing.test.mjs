@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { publishArticle } from "@/lib/publishing/publish";
+import { unpublishArticle } from "@/lib/publishing/unpublish";
 import { automationBlockReason } from "@/lib/automation/policy";
 import { slotsOn } from "@/lib/schedule";
 
-function setup({ status = "approved", existing = null } = {}) {
-  const calls = { created: 0, confirmed: 0 };
-  const post = { id: 42, status: "publish", link: "https://example.test/post" };
+function setup({ status = "approved", existing = null, postStatus = "publish" } = {}) {
+  const calls = { created: 0, updated: 0, confirmed: 0, unpublished: 0 };
+  const post = { id: 42, status: postStatus, link: "https://example.test/post" };
   const context = {
     article: { id: "a", websiteId: "s", status, title: "Title", body: "Body" },
     website: { id: "s", language: "en", archived: false },
@@ -20,6 +21,10 @@ function setup({ status = "approved", existing = null } = {}) {
     markSucceeded: async () => {
       calls.confirmed++;
     },
+    markUnpublished: async () => {
+      calls.unpublished++;
+      return true;
+    },
     audit: async () => {},
   };
   const wordpress = {
@@ -28,11 +33,16 @@ function setup({ status = "approved", existing = null } = {}) {
       calls.created++;
       return post;
     },
-    getPost: async () => post,
-    updatePostStatus: async () => post,
+    updatePost: async () => {
+      calls.updated++;
+      return { ...post, status: "publish" };
+    },
+    getPost: async () => ({ ...post, status: "publish" }),
+    updatePostStatus: async (_id, next) => ({ ...post, status: next }),
   };
   const publish = (options) => publishArticle("a", null, store, () => wordpress, options);
-  return { calls, publish };
+  const unpublish = () => unpublishArticle("a", null, null, store, () => wordpress);
+  return { calls, publish, unpublish };
 }
 
 test("automatic publishing stops when beforeWrite blocks it", async () => {
@@ -51,6 +61,19 @@ test("an existing WordPress post is reconciled, never duplicated", async () => {
   const { calls, publish } = setup({ existing: true });
   assert.equal((await publish({ beforeWrite: () => "Slot expired" })).outcome, "published");
   assert.equal(calls.created, 0);
+});
+
+test("republishing after unpublish sends the approved content into the draft", async () => {
+  const { calls, publish } = setup({ existing: true, postStatus: "draft" });
+  assert.equal((await publish()).outcome, "published");
+  assert.deepEqual([calls.created, calls.updated], [0, 1]);
+});
+
+test("unpublishing turns the post into a draft and records it", async () => {
+  const { calls, unpublish } = setup({ status: "published", existing: true });
+  assert.equal((await unpublish()).outcome, "unpublished");
+  assert.equal(calls.unpublished, 1);
+  assert.equal((await setup({ status: "approved" }).unpublish()).outcome, "failed");
 });
 
 test("a published article without its WordPress post needs a person", async () => {

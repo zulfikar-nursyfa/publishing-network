@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState } from "react";
-import { CalendarClock, Check, CircleCheck, RotateCcw, Send, Undo2, Workflow, X } from "lucide-react";
+import { CalendarClock, Check, CircleCheck, EyeOff, RotateCcw, Send, Undo2, Workflow, X } from "lucide-react";
 import {
   publishArticleAction,
   resetPublicationAttempts,
   scheduleArticle,
   transitionArticle,
+  unpublishArticleAction,
 } from "@/app/actions/articles";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, cn, inputClass } from "@/components/ui";
@@ -42,6 +43,26 @@ function Stepper({ status }) {
         );
       })}
     </ol>
+  );
+}
+
+function UnpublishForm({ articleId }) {
+  const [state, action] = useActionState(unpublishArticleAction.bind(null, articleId), {});
+  return (
+    <form action={action} className="space-y-2 border-t pt-4">
+      <FormAlert state={state} />
+      <textarea name="reason" rows={2} className={inputClass} placeholder="Reason for taking it down (optional)" />
+      <SubmitButton
+        variant="danger-outline"
+        className="w-full"
+        pendingLabel="Unpublishing…"
+        confirm="Take this article off the live site? The WordPress post is kept as a draft, so it can be corrected and published again."
+        confirmLabel="Unpublish"
+      >
+        <EyeOff />
+        Unpublish
+      </SubmitButton>
+    </form>
   );
 }
 
@@ -105,7 +126,12 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
         {status === "rejected" ? (
           <Alert tone="error">This article was rejected. Submit it for review again once it has been revised.</Alert>
         ) : null}
-        {status === "unpublished" ? <Alert tone="info">This article was removed from WordPress.</Alert> : null}
+        {status === "unpublished" ? (
+          <Alert tone="info">
+            This article is off the live site; its WordPress post is a draft. Return it to draft to correct it, then
+            review and publish it again.
+          </Alert>
+        ) : null}
 
         {status === "published" ? (
           <div className="flex items-center gap-2.5 rounded-lg bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -113,6 +139,7 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
             This article is live on WordPress.
           </div>
         ) : null}
+        {status === "published" ? <UnpublishForm articleId={articleId} /> : null}
 
         {status === "approved" && !websiteArchived ? (
           <form action={publishAction} className="space-y-2">
@@ -194,7 +221,7 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
                   Reject
                 </SubmitButton>
               ) : null}
-              {status === "in_review" || status === "approved" || status === "rejected" ? (
+              {["in_review", "approved", "rejected", "unpublished"].includes(status) ? (
                 <SubmitButton name="transition" value="return_to_draft" variant="ghost" className="col-span-2">
                   <Undo2 />
                   Return to draft

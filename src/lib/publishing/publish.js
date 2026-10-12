@@ -83,13 +83,19 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
     let post = await wordpress.findPostByArticleId(articleId);
     const reconciled = post !== null;
 
-    if (!post) {
-      if (context.article.status === "published")
-        return fail("Published article has no matching WordPress post; review it manually", false);
+    if (!post && context.article.status === "published")
+      return fail("Published article has no matching WordPress post; review it manually", false);
+    if (post?.status === "trash") {
+      return fail(
+        `WordPress post ${post.id} for this article is in the trash. Restore or permanently delete it in WordPress, then retry.`,
+        false,
+      );
+    }
+    if (post?.status !== "publish" && post?.status !== "future") {
+      // A new post, or a draft left by unpublishing: either way WordPress gets the approved content.
       const reason = await options.beforeWrite?.();
       if (reason) return fail(reason, false);
-      const featuredMediaId = context.image ? await uploadFeaturedImage(context, store, wordpress) : null;
-      post = await wordpress.createPost({
+      const fields = {
         articleId,
         title: context.article.title,
         content: toWordPressContent(context.article.body, context.sources, context.website.language, context.image),
@@ -97,17 +103,9 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
         slug: context.article.slug,
         status: "publish",
         categoryIds: context.category ? [context.category.wpTermId] : [],
-        featuredMediaId,
-      });
-    } else if (post.status === "trash") {
-      return fail(
-        `WordPress post ${post.id} for this article is in the trash. Restore or permanently delete it in WordPress, then retry.`,
-        false,
-      );
-    } else if (post.status !== "publish" && post.status !== "future") {
-      const reason = await options.beforeWrite?.();
-      if (reason) return fail(reason, false);
-      post = await wordpress.updatePostStatus(post.id, "publish");
+        featuredMediaId: context.image ? await uploadFeaturedImage(context, store, wordpress) : null,
+      };
+      post = post ? await wordpress.updatePost(post.id, fields) : await wordpress.createPost(fields);
     }
 
     const confirmed = await wordpress.getPost(post.id);

@@ -28,6 +28,7 @@ import {
 import { requireWebsite } from "@/lib/auth";
 
 import { createClient } from "@/lib/supabase/server";
+import { AiUsageCard } from "./ai-usage-card";
 import { TodaySchedule } from "./today-schedule";
 
 const FILTERS = [
@@ -55,9 +56,12 @@ export default async function WebsitePage({ params, searchParams }) {
     .limit(100);
   if (filter !== "all") articlesQuery = articlesQuery.eq("status", filter);
 
-  const [{ data: articles }, { data: stats }] = await Promise.all([
+  const [{ data: articles }, { data: stats }, { data: niche }] = await Promise.all([
     articlesQuery,
     supabase.from("website_article_stats").select("*").eq("website_id", websiteId).maybeSingle(),
+    website.niche_id
+      ? supabase.from("niches").select("name").eq("id", website.niche_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const rtl = website.text_direction === "rtl";
 
@@ -80,6 +84,12 @@ export default async function WebsitePage({ params, searchParams }) {
             <span className="text-border">|</span>
             <span>{rtl ? "Arabic (RTL)" : "English"}</span>
             <span className="text-border">|</span>
+            {niche ? (
+              <>
+                <span>{niche.name}</span>
+                <span className="text-border">|</span>
+              </>
+            ) : null}
             <span>{website.timezone}</span>
             <span className="flex w-full flex-wrap gap-1.5 pt-1 sm:w-auto sm:pt-0">
               <ConnectionBadge status={website.wp_connection_status} />
@@ -125,6 +135,8 @@ export default async function WebsitePage({ params, searchParams }) {
       </div>
 
       {!website.archived_at ? <TodaySchedule website={website} /> : null}
+
+      <AiUsageCard supabase={supabase} website={website} />
 
       <FilterTabs
         active={filter}

@@ -13,7 +13,9 @@ export default async function WebsitesPage({ searchParams }) {
 
   let query = supabase
     .from("websites")
-    .select("id, name, domain, language, timezone, daily_quota, automation_paused, wp_connection_status, archived_at")
+    .select(
+      "id, name, domain, language, timezone, daily_quota, automation_paused, wp_connection_status, archived_at, niche:niches(name)",
+    )
     .order("name");
   query = showArchived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
   const { data: websites } = await query;
@@ -73,8 +75,11 @@ export default async function WebsitesPage({ searchParams }) {
                 {site.archived_at ? <Badge tone="red">archived</Badge> : null}
               </div>
               <div className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-muted-foreground">
-                <span>{site.language === "ar" ? "Arabic (RTL)" : "English"}</span>
-                <span className="truncate">{site.timezone}</span>
+                <span className="truncate">
+                  {site.language === "ar" ? "Arabic (RTL)" : "English"}
+                  {site.niche ? ` · ${site.niche.name}` : ""}
+                </span>
+                <span className="shrink-0 truncate">{site.timezone}</span>
               </div>
             </Link>
           ))}

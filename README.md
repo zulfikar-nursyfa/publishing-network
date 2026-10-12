@@ -19,10 +19,10 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 - **AI drafting:** selected stories run through web search, page collection (robots.txt and paywalls respected), research that prefers the official source, Gemini drafting, originality/language/source checks, AI verification and images, into the human review queue. Every AI draft needs approval.
 - **Images:** featured image per article with source and rights; AI illustrations (always labelled) and, where permitted, the source's own image.
 - **Articles and publishing:** manual articles, review workflow, scheduling, automatic publishing slots, and retry-safe publishing to WordPress (lock, existing-post check, read-back confirmation).
-- **Spending controls:** per-site and network AI limits, worst-case reservation before every AI call, estimated cost per call.
+- **Spending controls:** per-site and network AI limits, worst-case reservation before every AI call, estimated cost per call, AI spend per site (by step and per drafted article) and per article.
 - **Unpublish and preview:** live articles can be taken down (the WordPress post becomes a draft and is reused when the corrected article is published again); every article has a preview of exactly what WordPress will receive.
 
-Still pending: cost reports, Google Analytics / Search Console, CSV exports and WordPress themes.
+Still pending: full cost reports and forecast, Google Analytics / Search Console, CSV exports and WordPress themes.
 
 ## Repository layout
 

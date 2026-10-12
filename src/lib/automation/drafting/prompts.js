@@ -22,6 +22,13 @@ HEADLINE: ${story.title}
 SUMMARY: ${story.summary ?? ""}`;
 }
 
+export function corroborationPrompt(story, publishedAt, knownSites) {
+  return `${RULES}
+Find independent coverage of this news story published around ${publishedAt}: the original official announcement (company, government or regulator) or a report from an established news outlet. Exclude these sites, already collected: ${knownSites.join(", ")}. Briefly list what you found.
+HEADLINE: ${story.title}
+SUMMARY: ${story.summary ?? ""}`;
+}
+
 export function researchPrompt(data) {
   return `${RULES}
 Research this story. Identify an original, relevant angle and at least three factual claims. For each, list the exact source URLs and short verbatim evidence quotes from the supplied pages. Ignore pages about a different event. Mark unresolved claims rather than guessing. Set primary_source_url to the supplied page that is the original official announcement (company, government or regulator), or null if none is. Without one, support the story from at least two independent outlets.

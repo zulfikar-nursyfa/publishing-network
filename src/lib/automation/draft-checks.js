@@ -62,6 +62,17 @@ function primaryUrls(research, evidence) {
   );
 }
 
+/**
+ * Plan §8: a story needs an official source or two independent outlets. Sensitive or
+ * consequential stories always need two independent sites, even with an official source.
+ */
+export function corroboration(research, evidence) {
+  const outlets = domainCount(research.claims.flatMap((claim) => claim.source_urls));
+  const official = primaryUrls(research, evidence).size > 0;
+  const required = research.sensitive || research.needs_corroboration;
+  return { required, official, outlets, met: outlets >= 2 || (official && !required) };
+}
+
 // Loose match: same words in order ignoring punctuation, or most of the quote's words on the page.
 function quoteFound(quote, text) {
   const quoteWords = words(quote);
@@ -97,11 +108,13 @@ export function checkResearch(research, evidence) {
     claims,
     primary_source_url: byUrl.has(research.primary_source_url) ? research.primary_source_url : null,
   };
-  const cited = claims.flatMap((claim) => claim.source_urls);
-  if (!primaryUrls(checked, evidence).size && domainCount(cited) < 2)
-    warnings.push("No official source and only one outlet supports the story");
-  if ((research.sensitive || research.needs_corroboration) && domainCount(cited) < 2)
-    warnings.push("Sensitive or consequential story with a single source");
+  checked.corroboration = corroboration(checked, evidence);
+  if (!checked.corroboration.met)
+    warnings.push(
+      checked.corroboration.required
+        ? "Sensitive or consequential story without a second independent source"
+        : "No official source and only one outlet supports the story",
+    );
   if (research.unresolved.length)
     warnings.push(`Not confirmed by the sources (left out): ${research.unresolved.join("; ")}`);
   return { research: checked, warnings };

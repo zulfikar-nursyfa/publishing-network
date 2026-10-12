@@ -82,7 +82,13 @@ export function createSupabasePublishStore() {
       const now = new Date().toISOString();
       const { error: articleError } = await db
         .from("articles")
-        .update({ status: "published", wp_post_id: post.id, wp_post_url: post.link, published_at: now })
+        .update({
+          status: "published",
+          wp_post_id: post.id,
+          wp_post_url: post.link,
+          published_at: now,
+          unpublished_at: null,
+        })
         .eq("id", articleId);
       if (articleError) throw new Error(`Post ${post.id} is live but recording it failed: ${articleError.message}`);
 
@@ -105,6 +111,28 @@ export function createSupabasePublishStore() {
         .from("publications")
         .update({ status: "failed", last_error: error.slice(0, 2000), locked_until: null })
         .eq("id", publicationId);
+    },
+
+    async markUnpublished({ articleId, reason }) {
+      const { data, error } = await db
+        .from("articles")
+        .update({
+          status: "unpublished",
+          unpublished_at: new Date().toISOString(),
+          ...(reason ? { review_note: reason } : {}),
+        })
+        .eq("id", articleId)
+        .eq("status", "published")
+        .select("id")
+        .maybeSingle();
+      if (error) throw new Error(`The post was taken down but recording it failed: ${error.message}`);
+      if (!data) return false;
+      // Reopen the finished publication so a corrected, re-approved article can be published again.
+      await db
+        .from("publications")
+        .update({ status: "pending", attempt_count: 0, completed_at: null, last_error: null, locked_until: null })
+        .eq("article_id", articleId);
+      return true;
     },
 
     async loadImageFile(image) {

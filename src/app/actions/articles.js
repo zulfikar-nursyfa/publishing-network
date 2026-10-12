@@ -7,6 +7,7 @@ import { requireAdmin, requireUser, requireWebsite } from "@/lib/auth";
 
 import { publishArticle } from "@/lib/publishing/publish";
 import { createSupabasePublishStore } from "@/lib/publishing/supabase-store";
+import { unpublishArticle } from "@/lib/publishing/unpublish";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { createWordPressClient } from "@/lib/wordpress/client";
@@ -150,7 +151,7 @@ const TRANSITIONS = {
     extra: (_userId, note) => ({ review_note: note, approved_by: null, approved_at: null }),
   },
   return_to_draft: {
-    from: ["in_review", "approved", "rejected"],
+    from: ["in_review", "approved", "rejected", "unpublished"],
     to: "draft",
     action: "article.returned_to_draft",
     extra: () => ({ approved_by: null, approved_at: null }),
@@ -253,6 +254,26 @@ export async function publishArticleAction(articleId, _prev) {
           : `Publishing failed: ${result.error}`,
       };
   }
+}
+
+/** Takes a live article down (its WordPress post becomes a draft). Any website member may do this. */
+export async function unpublishArticleAction(articleId, _prev, formData) {
+  const { user, article } = await loadArticle(articleId);
+  if (!article) return { error: "Article not found" };
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+
+  const result = await unpublishArticle(article.id, user.id, reason, createSupabasePublishStore(), (connection) =>
+    createWordPressClient(connection),
+  );
+  refresh(article);
+  if (result.outcome === "failed") return { error: `Could not unpublish: ${result.error}` };
+  if (result.outcome === "already_unpublished") return { ok: true, message: "Already unpublished." };
+  return {
+    ok: true,
+    message: result.postFound
+      ? "Unpublished. The WordPress post is now a draft."
+      : "Unpublished. No live WordPress post was found, it had already been removed there.",
+  };
 }
 
 /** Sets or clears the time an approved article is published. The time is in the website's timezone. */

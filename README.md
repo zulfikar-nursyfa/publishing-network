@@ -1,6 +1,6 @@
 # Publishing Network
 
-Internal dashboard for running a network of WordPress news sites (English and Arabic) from one place: website management, editorial review and publishing, with AI-assisted automation to follow.
+Internal dashboard for running a network of WordPress news sites (English and Arabic) from one place: website management, editorial review and publishing, and AI-assisted drafting from approved sources.
 
 | Part | Technology |
 |---|---|
@@ -12,23 +12,17 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 
 ## What exists today
 
-- **Login** with Supabase Auth: administrators and editors, invitation-only, password reset.
-- **Website permissions**: administrators see all websites; editors only see the websites assigned to them. Enforced in server code *and* in database row level security.
-- **Add website**: name, domain, language (Arabic is right-to-left), topic, audience, branding, WordPress connection, timezone, publishing time pickers (up to 12 daily slots), AI spending limit, illustrations toggle, editors and approved sources. Automation starts paused. Branding includes a colour picker with hex input and logo upload/preview/replacement/removal.
-- **Test connection**: checks the credentials, the connector plugin, the user's publish permission and the site language/RTL setting.
-- **Manual articles**: write, edit, submit for review, approve, reject with a note, return to draft.
-- **Publishing to WordPress** that is safe to retry: a database lock stops two attempts running at once, WordPress is checked for an existing post before creating one, and the post is read back to confirm it is live.
-- **Overview, review queue, per-website article lists, activity log.**
+- **Login and permissions:** invitation-only Supabase Auth with administrators and editors; editors only see their assigned websites. Enforced in server code *and* in row level security.
+- **Websites:** WordPress connection and test, branding, publishing times (Cairo by default), automation mode, AI spending limit, niche, editors, categories synced with WordPress.
+- **Niches and sources:** 15 niches, each with a source group shared by its English and Arabic sites; websites can disable niche sources and add their own.
+- **Story inbox:** new stories from source feeds every 30 minutes; editors select the ones worth covering.
+- **AI drafting:** selected stories run through web search, page collection (robots.txt and paywalls respected), research that prefers the official source, Gemini drafting, originality/language/source checks, AI verification and images, into the human review queue. Every AI draft needs approval.
+- **Images:** featured image per article with source and rights; AI illustrations (always labelled) and, where permitted, the source's own image.
+- **Articles and publishing:** manual articles, review workflow, scheduling, automatic publishing slots, and retry-safe publishing to WordPress (lock, existing-post check, read-back confirmation).
+- **Spending controls:** per-site and network AI limits, worst-case reservation before every AI call, estimated cost per call.
+- **Unpublish and preview:** live articles can be taken down (the WordPress post becomes a draft and is reused when the corrected article is published again); every article has a preview of exactly what WordPress will receive.
 
-Feed discovery, a story inbox, Cairo publishing slots and explicit article scheduling are built. Automatic slots use leases, select only automated articles and reload controls before WordPress writes. Expired workers reconcile the same article rather than selecting another one.
-
-Selected stories can now run through a web search for coverage (Gemini with Google Search), page collection that respects robots.txt and paywalls, research that prefers the official source (or two independent outlets), Gemini drafting, originality/language/source checks and AI verification into the human review queue. Jobs persist one step per worker invocation, support bounded retries and administrator retry/cancel, and never overwrite existing articles. All AI drafts require human approval during the initial rollout, including sites configured in automatic mode.
-
-AI usage is estimated using configurable model prices. Calls reserve budget atomically before generation; lost responses retain a reservation until an administrator checks provider billing. Network settings and draft-job inspection are available in the dashboard. Run `npm test` for the unit tests.
-
-These changes are local and require migrations **19–25**, Gemini configuration and staging validation before use. See [docs/automation-pipeline.md](docs/automation-pipeline.md) and [docs/website-branding.md](docs/website-branding.md). Do not enable automation or deploy the new cron configuration before applying the corresponding schema to that environment.
-
-Still pending: Google Analytics / Search Console, CSV exports, WordPress themes, category/WordPress sync, image delivery, article preview and dashboard unpublish.
+Still pending: cost reports, Google Analytics / Search Console, CSV exports and WordPress themes.
 
 ## Repository layout
 
@@ -39,7 +33,11 @@ src/
     actions/              server actions (all writes go through here)
     auth/confirm/         invitation and password-reset link handler
     login/
+    api/cron/             discover, queue, draft and publish cron routes
   lib/
+    automation/           discovery, publishing slots and the AI draft pipeline (drafting/)
+    ai/                   Gemini client and budgeted calls
+    storage/              logo and article image files
     publishing/           publish flow (publish.js) and its Supabase store
     wordpress/            REST client and connection testing
     supabase/             user-scoped client (RLS) and secret-key admin client
@@ -50,7 +48,8 @@ supabase/
   templates/              invitation and recovery email templates
 wordpress/
   mu-plugins/             connector plugin to install on every WordPress site
-docs/                     setup, WordPress/SiteGround checklist, operations
+tests/                    unit tests (npm test)
+docs/                     handoff, setup, automation pipeline, WordPress/SiteGround checklist, operations
 ```
 
 ## Getting started
@@ -62,12 +61,4 @@ docs/                     setup, WordPress/SiteGround checklist, operations
 5. `npm run dev` and open http://localhost:3000.
 6. Prepare a WordPress site with [docs/wordpress-setup.md](docs/wordpress-setup.md), then use **Add website**.
 
-For first-time database setup in Supabase's SQL Editor, run `npm run db:schema` (or `node build_schema.js`) and paste the generated `supabase/_full_schema.sql` in one go. See [docs/setup.md](docs/setup.md) for the transaction and migration-history details.
-
-For an existing database with migrations **00–18 already applied**, generate only the pending update:
-
-```bash
-npm run db:schema -- --from 19
-```
-
-Run the entire generated `supabase/_update_from_19.sql` in that project's SQL Editor once. It contains only migrations 19–23. If any of these have already been applied, choose the actual first unapplied migration instead. An `app_role already exists` error means the full setup is being replayed against an existing schema; use the update bundle rather than deleting existing types or tables. If 00–22 are already applied, use `npm run db:schema -- --from 23` for the logo bucket alone.
+Database setup and updates (applying only the missing migrations) are described in [docs/setup.md](docs/setup.md). Before committing: `npm run format`, `npm run lint`, `npm test`, `npm run build`.

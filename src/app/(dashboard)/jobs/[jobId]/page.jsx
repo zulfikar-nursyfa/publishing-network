@@ -105,6 +105,18 @@ export default async function JobPage({ params }) {
           <p dir="auto" className="mb-3 text-sm">
             {job.state.research.angle}
           </p>
+          {job.state.research.corroboration ? (
+            <p className="mb-3 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+              <Badge tone={job.state.research.corroboration.met ? "green" : "amber"}>
+                {job.state.research.corroboration.met ? "corroborated" : "needs corroboration"}
+              </Badge>
+              {job.state.research.corroboration.official ? "Official source" : "No official source"} ·{" "}
+              {job.state.research.corroboration.outlets} independent site
+              {job.state.research.corroboration.outlets === 1 ? "" : "s"}
+              {job.state.research.corroboration.required ? " · sensitive story, two sites required" : ""}
+              {job.state.corroboration_searched ? " · extra search done" : ""}
+            </p>
+          ) : null}
           <ul className="space-y-3">
             {job.state.research.claims.map((claim, index) => (
               <li key={index} className="rounded-lg bg-muted/40 p-3 text-sm">

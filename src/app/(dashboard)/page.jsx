@@ -30,6 +30,7 @@ import {
   linkClass,
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { formatUsd } from "@/lib/costs";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OverviewPage() {
@@ -46,7 +47,9 @@ export default async function OverviewPage() {
   ] = await Promise.all([
     supabase
       .from("websites")
-      .select("id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at")
+      .select(
+        "id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at, monthly_ai_budget_usd, niche:niches(name)",
+      )
       .is("archived_at", null)
       .order("name"),
     supabase.from("website_article_stats").select("*"),
@@ -66,6 +69,9 @@ export default async function OverviewPage() {
   ]);
 
   const statsBySite = new Map((stats ?? []).map((row) => [row.website_id, row]));
+  const spendBySite = new Map(
+    (spend ?? []).map((row) => [row.website_id, Number(row.estimated_cost_usd) + Number(row.reserved_cost_usd)]),
+  );
   const siteName = new Map((websites ?? []).map((site) => [site.id, site.name]));
   const totals = (stats ?? []).reduce(
     (sum, row) => ({
@@ -139,8 +145,8 @@ export default async function OverviewPage() {
         />
         <Stat
           label="AI spend (est.)"
-          value={spendError ? "—" : `$${estimatedSpend.toFixed(2)}`}
-          hint={spendError ? "Apply automation migrations" : `UTC month · $${reservedSpend.toFixed(2)} reserved`}
+          value={spendError ? "—" : formatUsd(estimatedSpend)}
+          hint={spendError ? "Apply automation migrations" : `UTC month · ${formatUsd(reservedSpend)} reserved`}
           href="/jobs"
           icon={CircleDollarSign}
         />
@@ -169,11 +175,14 @@ export default async function OverviewPage() {
                 <Th className="hidden text-right sm:table-cell">Approved</Th>
                 <Th className="hidden text-right sm:table-cell">Today</Th>
                 <Th className="text-right">Failed</Th>
+                <Th className="hidden text-right lg:table-cell">AI this month</Th>
               </tr>
             </thead>
             <tbody>
               {websites.map((site) => {
                 const row = statsBySite.get(site.id);
+                const aiSpend = spendBySite.get(site.id) ?? 0;
+                const budget = Number(site.monthly_ai_budget_usd);
                 return (
                   <tr key={site.id}>
                     <Td>
@@ -186,7 +195,9 @@ export default async function OverviewPage() {
                             {site.name}
                           </Link>
                           <div className="truncate text-xs text-muted-foreground">
-                            {site.domain} · {site.language === "ar" ? "Arabic" : "English"}
+                            {[site.domain, site.language === "ar" ? "Arabic" : "English", site.niche?.name]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </div>
                           <div className="mt-1.5 flex flex-wrap gap-1 md:hidden">
                             <ConnectionBadge status={site.wp_connection_status} />
@@ -215,6 +226,14 @@ export default async function OverviewPage() {
                       ) : (
                         <span className="text-muted-foreground">0</span>
                       )}
+                    </Td>
+                    <Td className="hidden text-right whitespace-nowrap tabular-nums lg:table-cell">
+                      <span
+                        className={budget > 0 && aiSpend >= budget * 0.9 ? "font-semibold text-red-600" : undefined}
+                      >
+                        {spendError ? "—" : formatUsd(aiSpend)}
+                      </span>
+                      <span className="text-muted-foreground"> / {formatUsd(budget)}</span>
                     </Td>
                   </tr>
                 );

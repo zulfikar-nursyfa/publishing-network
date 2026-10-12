@@ -4,7 +4,7 @@ import { GeminiError } from "@/lib/ai/gemini";
 import { recordAudit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DraftCheckError } from "./draft-checks";
-import { collectStep, searchStep } from "./drafting/collect";
+import { collectStep, needsCorroboration, searchStep, startCorroboration } from "./drafting/collect";
 import { advance, budgetGuard, loadJobContext, textModelFor } from "./drafting/context";
 import { DeferredJob, LostLease, PermanentJob } from "./drafting/errors";
 import { illustrateStep } from "./drafting/illustrate";
@@ -31,6 +31,9 @@ const queuedNow = () => ({ status: "queued", attempt_count: 0, last_error: null,
 async function createArticle(db, job, worker) {
   const { data: articleId, error } = await db.rpc("complete_draft_job", { target_job: job.id, worker });
   if (error) throw new Error(error.message);
+  const official = (job.state.sources ?? []).filter((source) => source.official).map((source) => source.url);
+  if (official.length)
+    await db.from("article_sources").update({ official: true }).eq("article_id", articleId).in("url", official);
   await recordAudit({
     action: "automation.draft_created",
     entityType: "article",
@@ -61,11 +64,14 @@ async function runStep(db, job, worker) {
   const state = structuredClone(job.state);
   const data = promptData(context, state.evidence ?? []);
   const warnings = await writing.run(db, job, worker, { state, data, context, model, assertControls });
-  // Reviewer warnings collected across steps; complete_draft_job adds them to the review note.
-  state.warnings = [...new Set([...(state.warnings ?? []), ...warnings])];
+  // Without an official source or second outlet, research is redone after one more search,
+  // so this pass's warnings are dropped. Otherwise warnings go into the review note.
+  const corroborate = job.step === "research" && needsCorroboration(state);
+  if (corroborate) startCorroboration(state);
+  else state.warnings = [...new Set([...(state.warnings ?? []), ...warnings])];
 
   await loadJobContext(db, job, worker);
-  return advance(db, job, worker, { state, step: writing.next, ...queuedNow() });
+  return advance(db, job, worker, { state, step: corroborate ? "collect" : writing.next, ...queuedNow() });
 }
 
 /** Waits for budget or a paused site without using an attempt. */

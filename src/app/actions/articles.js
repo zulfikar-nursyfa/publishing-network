@@ -33,12 +33,24 @@ async function loadArticle(articleId) {
 }
 
 async function replaceSources(supabase, article, sources) {
+  // Official flags come from the draft pipeline; keep them for URLs the editor did not remove.
+  const { data: previous } = await supabase
+    .from("article_sources")
+    .select("url")
+    .eq("article_id", article.id)
+    .eq("official", true);
+  const official = new Set((previous ?? []).map((source) => source.url));
   const { error: deleteError } = await supabase.from("article_sources").delete().eq("article_id", article.id);
   if (deleteError) return deleteError.message;
   if (sources.length === 0) return null;
-  const { error } = await supabase
-    .from("article_sources")
-    .insert(sources.map((source) => ({ ...source, article_id: article.id, website_id: article.website_id })));
+  const { error } = await supabase.from("article_sources").insert(
+    sources.map((source) => ({
+      ...source,
+      official: official.has(source.url),
+      article_id: article.id,
+      website_id: article.website_id,
+    })),
+  );
   return error?.message ?? null;
 }
 

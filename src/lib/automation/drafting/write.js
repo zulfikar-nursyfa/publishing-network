@@ -95,6 +95,11 @@ export async function verifyStep(db, job, worker, { state, data, model, assertCo
   state.draft.sensitive ||= state.verification.sensitive || warnings.length > 0;
   state.sources = (state.evidence ?? [])
     .filter((page) => state.draft.source_urls.includes(page.url))
-    .map(({ url, title, publisher }) => ({ url, title, publisher }));
+    .map(({ url, title, publisher, primary }) => ({
+      url,
+      title,
+      publisher,
+      official: primary || url === state.research.primary_source_url,
+    }));
   return warnings;
 }

@@ -14,6 +14,7 @@ import {
   formatDateTime,
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { formatUsd, summariseUsage } from "@/lib/costs";
 import { ARTICLE_IMAGE_BUCKET } from "@/lib/storage/article-images";
 import { createClient } from "@/lib/supabase/server";
 import { nextFreeSlot, toLocalInput } from "@/lib/schedule";
@@ -77,7 +78,11 @@ export default async function ArticlePage({ params, searchParams }) {
       .select("id, name, timezone, publish_times, text_direction, archived_at")
       .eq("id", article.website_id)
       .single(),
-    supabase.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
+    supabase
+      .from("article_sources")
+      .select("url, title, publisher, official")
+      .eq("article_id", articleId)
+      .order("accessed_at"),
     supabase.from("publications").select("*").eq("article_id", articleId).maybeSingle(),
     supabase
       .from("audit_log")
@@ -103,6 +108,12 @@ export default async function ArticlePage({ params, searchParams }) {
       .order("created_at"),
   ]);
   if (!website) notFound();
+  const { data: usage } = draftJob
+    ? await supabase
+        .from("ai_usage")
+        .select("operation, status, estimated_cost_usd, reserved_cost_usd, search_queries")
+        .eq("job_id", draftJob.id)
+    : { data: null };
   const paths = (images ?? []).map((row) => row.storage_path).filter(Boolean);
   const { data: signed } = paths.length
     ? await supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600)
@@ -127,6 +138,7 @@ export default async function ArticlePage({ params, searchParams }) {
     return actor ? actor.full_name || actor.email : id ? "Unknown user" : "System";
   };
 
+  const officialSource = sources?.find((source) => source.official);
   const schedule = article.status === "approved" ? await scheduleFor(supabase, article, website) : null;
   const editable = ["draft", "in_review", "rejected"].includes(article.status);
   const rtl = website.text_direction === "rtl";
@@ -276,6 +288,28 @@ export default async function ArticlePage({ params, searchParams }) {
                     "—"
                   ),
                 },
+                {
+                  label: "Official source",
+                  value: officialSource ? (
+                    <a href={officialSource.url} target="_blank" rel="noreferrer" className="hover:underline">
+                      {officialSource.publisher || officialSource.title || officialSource.url}
+                    </a>
+                  ) : (
+                    "None"
+                  ),
+                },
+                ...(usage
+                  ? [
+                      {
+                        label: "AI cost (est.)",
+                        value: (
+                          <Link href={`/jobs/${draftJob.id}`} className="hover:underline">
+                            {formatUsd(summariseUsage(usage).total)}
+                          </Link>
+                        ),
+                      },
+                    ]
+                  : []),
                 ...(article.unpublished_at
                   ? [{ label: "Unpublished", value: formatDateTime(article.unpublished_at, website.timezone) }]
                   : []),

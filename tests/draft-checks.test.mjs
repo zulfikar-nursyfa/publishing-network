@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checkDraft, checkResearch, checkVerification, draftSchema } from "@/lib/automation/draft-checks";
+import {
+  checkDraft,
+  checkResearch,
+  checkVerification,
+  corroboration,
+  draftSchema,
+} from "@/lib/automation/draft-checks";
+import { summariseUsage } from "@/lib/costs";
 
 const statement = "The company announced a new route to Dubai.";
 const pageAt = (url, primary = false) => ({ url, primary, text: `${statement} Further details follow. `.repeat(20) });
@@ -60,12 +67,36 @@ test("research fails only when no fact matches the pages", () => {
 
 test("weak sourcing, sensitivity and unconfirmed details become warnings", () => {
   const checked = checkResearch(research([outletA.url], { sensitive: true, unresolved: ["Launch date"] }), [outletA]);
-  assert.equal(checked.warnings.length, 3);
+  assert.equal(checked.warnings.length, 2);
   assert.equal(
     checkResearch(research([official.url], { primary_source_url: "https://elsewhere.example.test/" }), [official])
       .research.primary_source_url,
     null,
   );
+});
+
+test("sensitive stories need two independent sites, others an official source or two sites", () => {
+  const officialOnly = research([official.url], { primary_source_url: official.url });
+  assert.equal(corroboration(officialOnly, [official]).met, true);
+  assert.equal(corroboration({ ...officialOnly, needs_corroboration: true }, [official]).met, false);
+  assert.equal(corroboration(research([outletA.url, outletB.url], { sensitive: true }), [outletA, outletB]).met, true);
+  assert.equal(corroboration(research([outletA.url]), [outletA]).met, false);
+});
+
+test("usage totals count open calls at their reservation", () => {
+  const usage = summariseUsage([
+    {
+      operation: "draft",
+      status: "completed",
+      estimated_cost_usd: "0.01",
+      reserved_cost_usd: "0.05",
+      search_queries: 0,
+    },
+    { operation: "search", status: "reserved", estimated_cost_usd: "0", reserved_cost_usd: "0.04", search_queries: 2 },
+  ]);
+  assert.equal(usage.total.toFixed(2), "0.05");
+  assert.equal(usage.searches, 2);
+  assert.equal(usage.byOperation.search, 0.04);
 });
 
 test("drafts: uncollected citations removed, missing official source warned", () => {

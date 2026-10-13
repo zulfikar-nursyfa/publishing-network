@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { publishArticle } from "@/lib/publishing/publish";
 import { unpublishArticle } from "@/lib/publishing/unpublish";
+import { checkLivePost } from "@/lib/publishing/live-check";
 import { automationBlockReason } from "@/lib/automation/policy";
 import { slotsOn } from "@/lib/schedule";
 
@@ -29,6 +30,7 @@ function setup({ status = "approved", existing = null, postStatus = "publish" } 
   };
   const wordpress = {
     findPostByArticleId: async () => existing && post,
+    ensureTags: async () => [],
     createPost: async () => {
       calls.created++;
       return post;
@@ -82,6 +84,33 @@ test("a published article without its WordPress post needs a person", async () =
 
 test("unapproved articles cannot publish", async () => {
   assert.equal((await setup({ status: "draft" }).publish()).outcome, "failed");
+});
+
+test("the live check reports noindex, error pages and a foreign canonical", async () => {
+  const page =
+    (html, status = 200) =>
+    async () => ({
+      ok: status < 400,
+      status,
+      url: "https://site.test/post/",
+      headers: new Headers(),
+      text: async () => html,
+    });
+  assert.equal(
+    (await checkLivePost("https://site.test/post/", page('<link rel="canonical" href="https://site.test/post" />'))).ok,
+    true,
+  );
+  const noindex = await checkLivePost(
+    "https://site.test/post/",
+    page("<meta name='robots' content='noindex, nofollow' />"),
+  );
+  assert.match(noindex.problems[0], /noindex/);
+  assert.equal((await checkLivePost("https://site.test/post/", page("", 404))).ok, false);
+  const moved = await checkLivePost(
+    "https://site.test/post/",
+    page('<link rel="canonical" href="https://other.test/x" />'),
+  );
+  assert.match(moved.problems[0], /canonical/);
 });
 
 test("Cairo slots follow daylight saving", () => {

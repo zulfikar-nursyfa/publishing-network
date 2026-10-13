@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Publishing Network Connector
  * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Publishing Network
  *
  * Install by copying this file into wp-content/mu-plugins/ (create the folder if needed).
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const PN_CONNECTOR_VERSION = '1.0.0';
+const PN_CONNECTOR_VERSION = '1.1.0';
 const PN_ARTICLE_META      = 'pn_article_id';
 
 add_action(
@@ -32,6 +32,24 @@ add_action(
 				},
 			)
 		);
+
+		// Yoast SEO keeps its fields in protected post meta; registering them lets the dashboard set
+		// the SEO title, meta description and focus keyphrase when it publishes.
+		foreach ( array( '_yoast_wpseo_title', '_yoast_wpseo_metadesc', '_yoast_wpseo_focuskw' ) as $key ) {
+			register_post_meta(
+				'post',
+				$key,
+				array(
+					'type'              => 'string',
+					'single'            => true,
+					'show_in_rest'      => true,
+					'sanitize_callback' => 'sanitize_text_field',
+					'auth_callback'     => static function () {
+						return current_user_can( 'edit_posts' );
+					},
+				)
+			);
+		}
 	}
 );
 
@@ -86,6 +104,7 @@ add_action(
 						'is_rtl'         => is_rtl(),
 						'timezone'       => wp_timezone_string(),
 						'multisite'      => is_multisite(),
+						'seo_plugin'     => defined( 'WPSEO_VERSION' ) ? 'yoast ' . WPSEO_VERSION : null,
 						'user'           => array(
 							'id'            => $user->ID,
 							'login'         => $user->user_login,

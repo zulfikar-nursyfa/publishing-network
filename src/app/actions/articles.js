@@ -32,6 +32,15 @@ async function loadArticle(articleId) {
   return { user, supabase, article };
 }
 
+function seoFields(data) {
+  return {
+    seo_title: data.seo_title,
+    meta_description: data.meta_description,
+    focus_keyword: data.focus_keyword,
+    tags: data.tags,
+  };
+}
+
 async function replaceSources(supabase, article, sources) {
   // Official flags come from the draft pipeline; keep them for URLs the editor did not remove.
   const { data: previous } = await supabase
@@ -74,6 +83,7 @@ export async function createArticle(websiteId, _prev, formData) {
       excerpt: parsed.data.excerpt,
       body: parsed.data.body,
       category_id: parsed.data.category_id,
+      ...seoFields(parsed.data),
       created_by: user.id,
       updated_by: user.id,
       human_edited_at: now,
@@ -117,6 +127,7 @@ export async function saveArticle(articleId, _prev, formData) {
       excerpt: parsed.data.excerpt,
       body: parsed.data.body,
       category_id: parsed.data.category_id,
+      ...seoFields(parsed.data),
       updated_by: user.id,
       human_edited_at: new Date().toISOString(),
     })

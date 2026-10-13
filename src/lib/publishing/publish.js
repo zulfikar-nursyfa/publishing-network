@@ -5,7 +5,7 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @typedef {{id: string, attemptCount: number, maxAttempts: number}} ClaimedPublication
  * @typedef {{status: "pending"|"in_progress"|"succeeded"|"failed", attemptCount: number, maxAttempts: number, wpPostUrl: string|null}} PublicationSnapshot
  * @typedef {Object} PublishContext
- * @property {{id: string, websiteId: string, status: string, title: string, slug: string|null, excerpt: string|null, body: string}} article
+ * @property {{id: string, websiteId: string, status: string, title: string, slug: string|null, excerpt: string|null, body: string, tags?: string[], seo?: import("../wordpress/client").PostSeo}} article
  * @property {{id: string, language: "en"|"ar", archived: boolean}} website
  * @property {import("./content").ArticleSourceRef[]} sources
  * @property {{name: string, wpTermId: number|null}|null} category
@@ -23,6 +23,7 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @property {(image: FeaturedImage) => Promise<{bytes: Buffer, contentType: string, filename: string}>} loadImageFile
  * @property {(imageId: string, wpMediaId: number) => Promise<void>} markImageUploaded
  * @property {(entry: {websiteId: string, actorId: string|null, action: string, articleId: string, details: Record<string, unknown>}) => Promise<void>} audit
+ * @property {(articleId: string, url: string) => Promise<{ok: boolean, problems: string[]}>} [checkLive] Loads the live post and records the result.
  *
  * @typedef {{outcome: "published", post: import("../wordpress/client").WordPressPost, reconciled: boolean}|{outcome: "already_published", url: string|null}|{outcome: "in_progress"}|{outcome: "attempts_exhausted", attempts: number}|{outcome: "blocked", reason: string}|{outcome: "failed", error: string, retryable: boolean}} PublishResult
  */
@@ -103,7 +104,9 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
         slug: context.article.slug,
         status: "publish",
         categoryIds: context.category ? [context.category.wpTermId] : [],
+        tagIds: await wordpress.ensureTags(context.article.tags ?? []),
         featuredMediaId: context.image ? await uploadFeaturedImage(context, store, wordpress) : null,
+        seo: context.article.seo,
       };
       post = post ? await wordpress.updatePost(post.id, fields) : await wordpress.createPost(fields);
     }
@@ -114,12 +117,20 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
     }
 
     await store.markSucceeded({ publicationId: claim.id, articleId, post: confirmed });
+    // Scheduled ("future") posts are not visible yet, so only live posts are checked.
+    const live = confirmed.status === "publish" ? await store.checkLive?.(articleId, confirmed.link) : null;
     await store.audit({
       websiteId: context.article.websiteId,
       actorId,
       action: "article.published",
       articleId,
-      details: { wp_post_id: confirmed.id, url: confirmed.link, reconciled, attempt: claim.attemptCount },
+      details: {
+        wp_post_id: confirmed.id,
+        url: confirmed.link,
+        reconciled,
+        attempt: claim.attemptCount,
+        live_problems: live?.problems ?? null,
+      },
     });
     return { outcome: "published", post: confirmed, reconciled };
   } catch (error) {

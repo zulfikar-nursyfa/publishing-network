@@ -1,5 +1,6 @@
 import "server-only";
 import { recordAudit } from "@/lib/audit";
+import { checkLivePost } from "@/lib/publishing/live-check";
 import { downloadArticleImage } from "@/lib/storage/article-images";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadConnection } from "@/lib/wordpress/connection";
@@ -59,6 +60,12 @@ export function createSupabasePublishStore() {
           slug: article.slug,
           excerpt: article.excerpt,
           body: article.body,
+          tags: article.tags ?? [],
+          seo: {
+            seoTitle: article.seo_title,
+            metaDescription: article.meta_description,
+            focusKeyword: article.focus_keyword,
+          },
         },
         website: { id: website.id, language: website.language, archived: website.archived_at !== null },
         sources: sources ?? [],
@@ -133,6 +140,12 @@ export function createSupabasePublishStore() {
         .update({ status: "pending", attempt_count: 0, completed_at: null, last_error: null, locked_until: null })
         .eq("article_id", articleId);
       return true;
+    },
+
+    async checkLive(articleId, url) {
+      const result = await checkLivePost(url);
+      await db.from("publications").update({ live_check: result }).eq("article_id", articleId);
+      return result;
     },
 
     async loadImageFile(image) {

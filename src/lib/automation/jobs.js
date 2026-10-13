@@ -31,6 +31,17 @@ const queuedNow = () => ({ status: "queued", attempt_count: 0, last_error: null,
 async function createArticle(db, job, worker) {
   const { data: articleId, error } = await db.rpc("complete_draft_job", { target_job: job.id, worker });
   if (error) throw new Error(error.message);
+  const { seo_title, meta_description, focus_keyword, tags } = job.state.draft;
+  await db
+    .from("articles")
+    .update({
+      seo_title: seo_title || null,
+      meta_description: meta_description || null,
+      focus_keyword: focus_keyword || null,
+      tags: tags ?? [],
+    })
+    .eq("id", articleId)
+    .is("seo_title", null);
   const official = (job.state.sources ?? []).filter((source) => source.official).map((source) => source.url);
   if (official.length)
     await db.from("article_sources").update({ official: true }).eq("article_id", articleId).in("url", official);

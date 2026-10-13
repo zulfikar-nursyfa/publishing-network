@@ -5,13 +5,14 @@
  * Kept free of Next.js and Supabase imports so it can be unit tested with a fake fetch.
  */
 
-export const REQUIRED_PLUGIN_VERSION = "1.0.0";
+export const REQUIRED_PLUGIN_VERSION = "1.1.0";
 
 /**
  * @typedef {{baseUrl: string, username: string, appPassword: string}} WordPressConnection
  * @typedef {"publish"|"future"|"draft"|"pending"|"private"|"trash"} WordPressPostStatus
  * @typedef {{id: number, status: WordPressPostStatus, link: string, slug: string}} WordPressPost
- * @typedef {{articleId: string, title: string, content: string, excerpt?: string|null, slug?: string|null, status: "publish"|"draft", categoryIds?: number[], featuredMediaId?: number|null}} NewPost
+ * @typedef {{seoTitle?: string|null, metaDescription?: string|null, focusKeyword?: string|null}} PostSeo
+ * @typedef {{articleId: string, title: string, content: string, excerpt?: string|null, slug?: string|null, status: "publish"|"draft", categoryIds?: number[], tagIds?: number[], featuredMediaId?: number|null, seo?: PostSeo}} NewPost
  * @typedef {{id: number, name: string, slug: string}} WordPressCategory
  * @typedef {ReturnType<typeof createWordPressClient>} WordPressClient
  */
@@ -122,6 +123,20 @@ export function createWordPressClient(connection, options = {}) {
       return request("POST", `/wp/v2/posts/${id}?_fields=id,status,link,slug`, postBody(post));
     },
 
+    /** Tag ids for these names, creating tags WordPress does not have yet. */
+    async ensureTags(names) {
+      const ids = [];
+      for (const name of names) {
+        const found = await request(
+          "GET",
+          `/wp/v2/tags?${new URLSearchParams({ search: name, per_page: "20", _fields: "id,name" })}`,
+        );
+        const existing = found.find((tag) => decodeEntities(tag.name).toLowerCase() === name.toLowerCase());
+        ids.push(existing ? existing.id : (await request("POST", "/wp/v2/tags?_fields=id", { name })).id);
+      }
+      return ids;
+    },
+
     /** @returns {Promise<WordPressCategory[]>} The first 100 categories, enough for one site's sections. */
     async listCategories() {
       return request("GET", "/wp/v2/categories?per_page=100&_fields=id,name,slug");
@@ -180,9 +195,24 @@ function postBody(post) {
     slug: post.slug || undefined,
     status: post.status,
     categories: post.categoryIds?.length ? post.categoryIds : undefined,
+    tags: post.tagIds ?? [],
     featured_media: post.featuredMediaId ?? 0,
-    meta: { pn_article_id: post.articleId },
+    // Yoast SEO fields; empty values let Yoast fall back to the post title and excerpt.
+    meta: {
+      pn_article_id: post.articleId,
+      _yoast_wpseo_title: post.seo?.seoTitle ?? "",
+      _yoast_wpseo_metadesc: post.seo?.metaDescription ?? "",
+      _yoast_wpseo_focuskw: post.seo?.focusKeyword ?? "",
+    },
   };
+}
+
+// The REST API returns term names HTML-escaped ("Tech &amp; AI").
+function decodeEntities(value) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&#039;/g, "'")
+    .replace(/&quot;/g, '"');
 }
 
 export function normaliseBaseUrl(url) {

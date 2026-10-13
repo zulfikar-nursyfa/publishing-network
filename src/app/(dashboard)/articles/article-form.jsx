@@ -107,6 +107,65 @@ export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel
               />
             </Field>
           </div>
+          <div className="space-y-5 border-t pt-5">
+            <div>
+              <div className="text-sm font-medium">Search engines (Yoast SEO)</div>
+              <p className="text-xs text-muted-foreground">Empty fields fall back to the title and excerpt.</p>
+            </div>
+            <div className="grid gap-5 md:grid-cols-[2fr_1fr]">
+              <Field label="SEO title" htmlFor="seo_title" error={errors.seo_title} hint="Up to about 60 characters.">
+                <input
+                  id="seo_title"
+                  name="seo_title"
+                  dir={dir}
+                  maxLength={70}
+                  defaultValue={values?.seo_title ?? ""}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Focus keyphrase" htmlFor="focus_keyword" error={errors.focus_keyword}>
+                <input
+                  id="focus_keyword"
+                  name="focus_keyword"
+                  dir={dir}
+                  maxLength={80}
+                  defaultValue={values?.focus_keyword ?? ""}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            <Field
+              label="Meta description"
+              htmlFor="meta_description"
+              error={errors.meta_description}
+              hint="120–155 characters shown under the title in search results."
+            >
+              <textarea
+                id="meta_description"
+                name="meta_description"
+                dir={dir}
+                rows={2}
+                maxLength={170}
+                defaultValue={values?.meta_description ?? ""}
+                className={`${inputClass} leading-relaxed`}
+              />
+            </Field>
+            <Field
+              label="Tags"
+              htmlFor="tags"
+              error={errors.tags}
+              hint="Comma-separated, up to 10. Created in WordPress when missing."
+            >
+              <input
+                id="tags"
+                name="tags"
+                dir={dir}
+                defaultValue={values?.tags ?? ""}
+                className={inputClass}
+                placeholder="Emirates, aviation, Dubai"
+              />
+            </Field>
+          </div>
         </fieldset>
       </Card>
       {!readOnly ? (

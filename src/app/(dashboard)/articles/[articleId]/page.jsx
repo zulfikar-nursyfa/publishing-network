@@ -211,6 +211,10 @@ export default async function ArticlePage({ params, searchParams }) {
               sources: formatSourceLines(sources ?? []),
               version: article.version,
               category_id: article.category_id,
+              seo_title: article.seo_title,
+              meta_description: article.meta_description,
+              focus_keyword: article.focus_keyword,
+              tags: (article.tags ?? []).join(", "),
             }}
             categories={(categories ?? []).filter(
               (category) => !category.archived_at || category.id === article.category_id,
@@ -288,6 +292,20 @@ export default async function ArticlePage({ params, searchParams }) {
                     "—"
                   ),
                 },
+                ...(publication?.live_check && article.status === "published"
+                  ? [
+                      {
+                        label: "Live check",
+                        value: publication.live_check.ok ? (
+                          "Loads and can be indexed"
+                        ) : (
+                          <span className="block text-amber-700 dark:text-amber-300">
+                            {publication.live_check.problems.join("; ")}
+                          </span>
+                        ),
+                      },
+                    ]
+                  : []),
                 {
                   label: "Official source",
                   value: officialSource ? (

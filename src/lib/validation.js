@@ -136,6 +136,23 @@ export const articleSchema = z.object({
     (value) => value === null || /^[0-9a-f-]{36}$/i.test(value),
     "Choose a category",
   ),
+  seo_title: optionalText(70),
+  meta_description: optionalText(170),
+  focus_keyword: optionalText(80),
+  // Comma-separated in the form.
+  tags: z
+    .string()
+    .max(600)
+    .default("")
+    .transform((value) => [
+      ...new Set(
+        value
+          .split(",")
+          .map((tag) => tag.trim().slice(0, 50))
+          .filter(Boolean),
+      ),
+    ])
+    .refine((tags) => tags.length <= 10, "At most 10 tags"),
 });
 
 export const categorySchema = z.object({

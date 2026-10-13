@@ -38,7 +38,7 @@ ${data}`;
 
 export function draftPrompt(data, research, categories) {
   return `${RULES}
-Write an original article in the website's language, 250-650 words, using only the verified research. Leave out everything listed in research.unresolved; do not speculate about it. Plain text paragraphs, no HTML or inline URLs, no verbatim quotations. Include a concise title, ASCII slug, excerpt, a category ID from the supplied list or null, and the exact collected source URLs. Avoid unsupported context or statistics.
+Write an original article in the website's language, 250-650 words, using only the verified research. Leave out everything listed in research.unresolved; do not speculate about it. Plain text paragraphs, no HTML or inline URLs, no verbatim quotations. Include a concise title, ASCII slug, excerpt, a category ID from the supplied list or null, and the exact collected source URLs. For search engines add: seo_title (at most 60 characters, containing the focus keyphrase), meta_description (120-155 characters, factual, no clickbait), focus_keyword (the 2-4 word phrase readers would search for) and 3-6 short topic tags (companies, places, sectors). Avoid unsupported context or statistics.
 DATA:
 ${data}
 RESEARCH:

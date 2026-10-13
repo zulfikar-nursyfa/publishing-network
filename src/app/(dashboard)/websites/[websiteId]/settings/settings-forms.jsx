@@ -2,7 +2,7 @@
 
 import { useActionState, useId } from "react";
 import { Plus, RefreshCw } from "lucide-react";
-import { addCategory, syncCategories } from "@/app/actions/categories";
+import { addCategory, syncCategories, updateCategory } from "@/app/actions/categories";
 import { testWebsiteConnection } from "@/app/actions/websites";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { CheckboxLabel, Field, inputClass } from "@/components/ui";
@@ -123,22 +123,33 @@ export function SyncCategoriesButton({ websiteId }) {
   );
 }
 
-export function AddCategoryForm({ websiteId }) {
-  const [state, action] = useActionState(addCategory.bind(null, websiteId), {});
+/** Adds a category, or edits `category` when given. */
+export function CategoryForm({ websiteId, category }) {
+  const [state, action] = useActionState(
+    category ? updateCategory.bind(null, websiteId, category.id) : addCategory.bind(null, websiteId),
+    {},
+  );
   const errors = state.fieldErrors ?? {};
+  const id = useId();
   return (
     <form action={action} className="space-y-4 rounded-lg bg-muted/40 p-4">
-      <div className="text-sm font-medium">Add a category</div>
+      {category ? null : <div className="text-sm font-medium">Add a category</div>}
       <FormAlert state={state} />
       <div className="grid gap-4 md:grid-cols-[1fr_14rem]">
-        <Field label="Name" htmlFor="category-name" error={errors.name}>
-          <input id="category-name" name="name" required className={inputClass} />
+        <Field label="Name" htmlFor={`${id}-name`} error={errors.name}>
+          <input id={`${id}-name`} name="name" required defaultValue={category?.name} className={inputClass} />
         </Field>
-        <Field label="Slug" htmlFor="category-slug" error={errors.slug} hint="Optional for Latin names.">
+        <Field
+          label="Slug"
+          htmlFor={`${id}-slug`}
+          error={errors.slug}
+          hint={category ? "Changing it changes the category's URL in WordPress." : "Optional for Latin names."}
+        >
           <input
-            id="category-slug"
+            id={`${id}-slug`}
             name="slug"
             dir="ltr"
+            defaultValue={category?.slug}
             className={`${inputClass} font-mono text-xs`}
             placeholder="auto"
           />
@@ -146,15 +157,20 @@ export function AddCategoryForm({ websiteId }) {
       </div>
       <Field
         label="Description"
-        htmlFor="category-description"
+        htmlFor={`${id}-description`}
         error={errors.description}
         hint="Helps the AI choose the right category for a story."
       >
-        <input id="category-description" name="description" className={inputClass} />
+        <input
+          id={`${id}-description`}
+          name="description"
+          defaultValue={category?.description ?? ""}
+          className={inputClass}
+        />
       </Field>
-      <SubmitButton variant="secondary" pendingLabel="Adding…">
-        <Plus />
-        Add category
+      <SubmitButton variant="secondary" pendingLabel={category ? "Saving…" : "Adding…"}>
+        {category ? null : <Plus />}
+        {category ? "Save category" : "Add category"}
       </SubmitButton>
     </form>
   );

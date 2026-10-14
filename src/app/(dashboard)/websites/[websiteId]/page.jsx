@@ -29,6 +29,7 @@ import { requireWebsite } from "@/lib/auth";
 
 import { createClient } from "@/lib/supabase/server";
 import { AiUsageCard } from "./ai-usage-card";
+import { TrafficCard } from "./traffic-card";
 import { TodaySchedule } from "./today-schedule";
 
 const FILTERS = [
@@ -135,6 +136,8 @@ export default async function WebsitePage({ params, searchParams }) {
       </div>
 
       {!website.archived_at ? <TodaySchedule website={website} /> : null}
+
+      <TrafficCard supabase={supabase} website={website} isAdmin={user.isAdmin} />
 
       <AiUsageCard supabase={supabase} website={website} />
 

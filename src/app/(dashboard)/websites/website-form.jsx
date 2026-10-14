@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { CalendarClock, Globe, Palette, Plug, Users } from "lucide-react";
+import { CalendarClock, ChartLine, Globe, Palette, Plug, Users } from "lucide-react";
 import { FormAlert, SubmitButton } from "@/components/form-controls";
 import { Card, CheckboxLabel, Field, inputClass } from "@/components/ui";
 import { DEFAULT_PUBLISH_TIMES, DEFAULT_TIMEZONE } from "@/lib/schedule";
@@ -186,6 +186,45 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
       </Card>
 
       <Card
+        icon={ChartLine}
+        title="Google Analytics and Search Console"
+        description="Optional. Add the service account's email as a Viewer on the GA4 property and as a user on the Search Console property."
+      >
+        <div className="grid gap-5 md:grid-cols-2">
+          <Field
+            label="GA4 property ID"
+            htmlFor="ga4_property_id"
+            error={errors.ga4_property_id}
+            hint="Numbers only: GA4 → Admin → Property details."
+          >
+            <input
+              id="ga4_property_id"
+              name="ga4_property_id"
+              inputMode="numeric"
+              defaultValue={website?.ga4_property_id ?? ""}
+              className={`${inputClass} font-mono`}
+              placeholder="412345678"
+            />
+          </Field>
+          <Field
+            label="Search Console property"
+            htmlFor="search_console_site"
+            error={errors.search_console_site}
+            hint="sc-domain:example.com for a domain property, or https://example.com/ for a URL prefix."
+          >
+            <input
+              id="search_console_site"
+              name="search_console_site"
+              dir="ltr"
+              defaultValue={website?.search_console_site ?? ""}
+              className={`${inputClass} font-mono`}
+              placeholder="sc-domain:example.com"
+            />
+          </Field>
+        </div>
+      </Card>
+
+      <Card
         icon={CalendarClock}
         title="Publishing and automation"
         description="Automation starts paused. Manual articles are never limited by these settings."
@@ -247,8 +286,8 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
             >
               <option value="review">Review: every automated article is approved first</option>
               <option value="off">Off: no automated articles</option>
-              <option value="automatic" disabled={website?.automation_mode !== "automatic"}>
-                Automatic: allowed categories skip review (after the testing period)
+              <option value="automatic">
+                Automatic: drafts in auto-publish categories skip review when every check passes
               </option>
             </select>
           </Field>

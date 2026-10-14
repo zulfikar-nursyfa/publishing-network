@@ -165,6 +165,25 @@ export async function syncCategories(websiteId, _prev) {
     : { ok: true, message: "Categories match WordPress." };
 }
 
+/** Lets automated articles in this category skip review when the website is in automatic mode. */
+export async function setCategoryAutoPublish(websiteId, categoryId, allowed) {
+  const user = await requireAdmin();
+  const supabase = await createClient();
+  await supabase
+    .from("categories")
+    .update({ auto_publish_allowed: allowed })
+    .eq("id", categoryId)
+    .eq("website_id", websiteId);
+  await recordAudit({
+    action: allowed ? "category.auto_publish_on" : "category.auto_publish_off",
+    entityType: "category",
+    entityId: categoryId,
+    websiteId,
+    actorId: user.id,
+  });
+  revalidatePath(`/websites/${websiteId}/settings`);
+}
+
 /** Archived categories stay on existing articles but are not offered to editors or the AI. */
 export async function setCategoryArchived(websiteId, categoryId, archived) {
   const user = await requireAdmin();

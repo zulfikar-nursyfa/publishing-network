@@ -4,6 +4,7 @@ import { publishArticle } from "@/lib/publishing/publish";
 import { unpublishArticle } from "@/lib/publishing/unpublish";
 import { checkLivePost } from "@/lib/publishing/live-check";
 import { automationBlockReason } from "@/lib/automation/policy";
+import { reviewReasons } from "@/lib/automation/auto-publish";
 import { slotsOn } from "@/lib/schedule";
 
 function setup({ status = "approved", existing = null, postStatus = "publish" } = {}) {
@@ -111,6 +112,22 @@ test("the live check reports noindex, error pages and a foreign canonical", asyn
     page('<link rel="canonical" href="https://other.test/x" />'),
   );
   assert.match(moved.problems[0], /canonical/);
+});
+
+test("automated articles skip review only when every condition holds", () => {
+  const clean = {
+    draft: { sensitive: false },
+    research: { corroboration: { met: true } },
+    verification: { passed: true },
+    warnings: [],
+  };
+  const allowed = { website: { automation_mode: "automatic" }, category: { auto_publish_allowed: true }, state: clean };
+  assert.deepEqual(reviewReasons(allowed), []);
+  assert.equal(reviewReasons({ ...allowed, website: { automation_mode: "review" } }).length, 1);
+  assert.equal(reviewReasons({ ...allowed, category: null }).length, 1);
+  assert.equal(reviewReasons({ ...allowed, state: { ...clean, draft: { sensitive: true } } }).length, 1);
+  assert.equal(reviewReasons({ ...allowed, state: { ...clean, warnings: ["Unsupported claim"] } }).length, 1);
+  assert.equal(reviewReasons({ ...allowed, state: {} }).length, 2);
 });
 
 test("Cairo slots follow daylight saving", () => {

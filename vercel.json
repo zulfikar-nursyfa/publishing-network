@@ -3,6 +3,7 @@
     { "path": "/api/cron/publish", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/discover", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/draft", "schedule": "* * * * *" },
-    { "path": "/api/cron/queue", "schedule": "*/5 * * * *" }
+    { "path": "/api/cron/queue", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/traffic", "schedule": "0 4 * * *" }
   ]
 }

@@ -23,6 +23,8 @@ const serverEnvSchema = z.object({
     .string()
     .regex(/^gemini-[A-Za-z0-9._-]+$/)
     .default("gemini-3.1-flash-image"),
+  // Google service account JSON key (raw or base64) with read access to GA4 and Search Console.
+  GOOGLE_SERVICE_ACCOUNT_KEY: z.string().optional(),
   // Allows http:// WordPress URLs. Only for the local Docker WordPress; never in staging/production.
   ALLOW_INSECURE_WORDPRESS: z
     .enum(["true", "false"])

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/costs";
+import { trafficSince, trafficTotals } from "@/lib/traffic/totals";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OverviewPage() {
@@ -44,11 +45,12 @@ export default async function OverviewPage() {
     { data: failures },
     { data: network },
     { data: spend, error: spendError },
+    { data: traffic },
   ] = await Promise.all([
     supabase
       .from("websites")
       .select(
-        "id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at, monthly_ai_budget_usd, niche:niches(name)",
+        "id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at, monthly_ai_budget_usd, ga4_property_id, search_console_site, niche:niches(name)",
       )
       .is("archived_at", null)
       .order("name"),
@@ -66,9 +68,11 @@ export default async function OverviewPage() {
       .limit(10),
     supabase.from("network_settings").select("automation_paused").maybeSingle(),
     supabase.from("website_ai_spend").select("*"),
+    supabase.from("website_traffic_daily").select("website_id, page_views, clicks").gte("day", trafficSince()),
   ]);
 
   const statsBySite = new Map((stats ?? []).map((row) => [row.website_id, row]));
+  const trafficFor = (siteId) => trafficTotals((traffic ?? []).filter((row) => row.website_id === siteId));
   const spendBySite = new Map(
     (spend ?? []).map((row) => [row.website_id, Number(row.estimated_cost_usd) + Number(row.reserved_cost_usd)]),
   );
@@ -175,6 +179,7 @@ export default async function OverviewPage() {
                 <Th className="hidden text-right sm:table-cell">Approved</Th>
                 <Th className="hidden text-right sm:table-cell">Today</Th>
                 <Th className="text-right">Failed</Th>
+                <Th className="hidden text-right xl:table-cell">Views / clicks (28d)</Th>
                 <Th className="hidden text-right lg:table-cell">AI this month</Th>
               </tr>
             </thead>
@@ -225,6 +230,19 @@ export default async function OverviewPage() {
                         <span className="font-semibold text-red-600 dark:text-red-400">{row?.failed_publications}</span>
                       ) : (
                         <span className="text-muted-foreground">0</span>
+                      )}
+                    </Td>
+                    <Td className="hidden text-right whitespace-nowrap tabular-nums xl:table-cell">
+                      {site.ga4_property_id || site.search_console_site ? (
+                        <>
+                          {site.ga4_property_id ? trafficFor(site.id).pageViews : "—"}
+                          <span className="text-muted-foreground">
+                            {" "}
+                            / {site.search_console_site ? trafficFor(site.id).clicks : "—"}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">not connected</span>
                       )}
                     </Td>
                     <Td className="hidden text-right whitespace-nowrap tabular-nums lg:table-cell">

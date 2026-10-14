@@ -1,5 +1,5 @@
 import { Tags } from "lucide-react";
-import { setCategoryArchived } from "@/app/actions/categories";
+import { setCategoryArchived, setCategoryAutoPublish } from "@/app/actions/categories";
 import { SubmitButton } from "@/components/form-controls";
 import { Badge, Card } from "@/components/ui";
 import { AddCategoryForm, SyncCategoriesButton } from "./settings-forms";
@@ -13,20 +13,36 @@ function CategoryItem({ category, websiteId, isAdmin }) {
           <span className="font-mono text-xs font-normal text-muted-foreground">{category.slug}</span>
           {category.wp_term_id ? null : <Badge tone="amber">not in WordPress</Badge>}
           {category.archived_at ? <Badge>archived</Badge> : null}
+          {category.auto_publish_allowed ? <Badge tone="purple">auto-publish</Badge> : null}
         </div>
         {category.description ? (
           <div className="mt-0.5 text-xs text-muted-foreground">{category.description}</div>
         ) : null}
       </div>
       {isAdmin ? (
-        <form
-          action={setCategoryArchived.bind(null, websiteId, category.id, !category.archived_at)}
-          className="shrink-0"
-        >
-          <SubmitButton variant="secondary" size="sm">
-            {category.archived_at ? "Restore" : "Archive"}
-          </SubmitButton>
-        </form>
+        <div className="flex shrink-0 gap-2">
+          {!category.archived_at ? (
+            <form action={setCategoryAutoPublish.bind(null, websiteId, category.id, !category.auto_publish_allowed)}>
+              <SubmitButton
+                variant="secondary"
+                size="sm"
+                confirm={
+                  category.auto_publish_allowed
+                    ? undefined
+                    : "Allow automated articles in this category to publish without review? It only applies when the website is in Automatic mode, and sensitive, uncorroborated or flagged drafts are still reviewed."
+                }
+                confirmLabel="Allow auto-publish"
+              >
+                {category.auto_publish_allowed ? "Require review" : "Allow auto-publish"}
+              </SubmitButton>
+            </form>
+          ) : null}
+          <form action={setCategoryArchived.bind(null, websiteId, category.id, !category.archived_at)}>
+            <SubmitButton variant="secondary" size="sm">
+              {category.archived_at ? "Restore" : "Archive"}
+            </SubmitButton>
+          </form>
+        </div>
       ) : null}
     </li>
   );
@@ -38,7 +54,7 @@ export function CategoriesCard({ websiteId, categories, isAdmin }) {
       icon={Tags}
       className="mb-6"
       title="Categories"
-      description="Editors and the AI choose from active categories. Each one is linked to a WordPress category of the same slug."
+      description="Editors and the AI choose from active categories. Each one is linked to a WordPress category of the same slug. Auto-publish is off for every category until allowed here, and only applies in Automatic mode."
     >
       {categories.length > 0 ? (
         <ul className="mb-5 divide-y rounded-lg border">

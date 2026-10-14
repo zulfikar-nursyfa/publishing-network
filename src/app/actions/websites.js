@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prepareLogo, uploadLogo, removeLogo, LogoUploadError } from "@/lib/storage/logos";
 import { assertAllowedWordPressUrl, testConnection } from "@/lib/wordpress/connection";
 import { normaliseBaseUrl } from "@/lib/wordpress/client";
+import { syncTraffic } from "@/lib/traffic/sync";
 import { fieldErrorsFrom, slugify, websiteSettingsSchema } from "@/lib/validation";
 
 function websiteColumns(input, branding = {}) {
@@ -34,9 +35,29 @@ function websiteColumns(input, branding = {}) {
       tagline: input.brand_tagline,
       primary_color: input.brand_primary_color || null,
     },
+    ga4_property_id: input.ga4_property_id,
+    search_console_site: input.search_console_site,
     wp_base_url: normaliseBaseUrl(input.wp_base_url),
     wp_username: input.wp_username,
   };
+}
+
+/** Admin only: pulls Google Analytics and Search Console now instead of waiting for the daily run. */
+export async function syncWebsiteTraffic(websiteId) {
+  await requireAdmin();
+  await requireWebsite(websiteId);
+  try {
+    await syncTraffic({ websiteId });
+  } catch (error) {
+    await createAdminClient()
+      .from("websites")
+      .update({
+        traffic_checked_at: new Date().toISOString(),
+        traffic_error: String(error.message ?? error).slice(0, 500),
+      })
+      .eq("id", websiteId);
+  }
+  revalidatePath(`/websites/${websiteId}`);
 }
 
 /** Stores the encrypted application password. Returns an error message, or null. */

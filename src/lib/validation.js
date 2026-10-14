@@ -115,6 +115,14 @@ export const websiteSettingsSchema = z.object({
   brand_tagline: optionalText(200),
   brand_primary_color: hexColor,
   brand_remove_logo: checkbox,
+  ga4_property_id: optionalText(20).refine(
+    (value) => value === null || /^[0-9]{5,20}$/.test(value),
+    "The numeric property ID from GA4 → Admin → Property details",
+  ),
+  search_console_site: optionalText(200).refine(
+    (value) => value === null || /^(sc-domain:[a-z0-9.-]+|https?:\/\/\S+\/)$/.test(value),
+    "sc-domain:example.com, or https://example.com/ with the trailing slash",
+  ),
   wp_base_url: z.string().trim().url("Enter the WordPress site URL, for example https://example.com"),
   wp_username: z.string().trim().min(1, "WordPress username is required").max(120),
   wp_app_password: z.string().trim().max(200).default(""),

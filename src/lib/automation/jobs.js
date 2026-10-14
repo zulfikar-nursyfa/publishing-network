@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { GeminiError } from "@/lib/ai/gemini";
 import { recordAudit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { approveIfAllowed } from "./auto-publish";
 import { DraftCheckError } from "./draft-checks";
 import { collectStep, needsCorroboration, searchStep, startCorroboration } from "./drafting/collect";
 import { advance, budgetGuard, loadJobContext, textModelFor } from "./drafting/context";
@@ -27,8 +28,8 @@ const WRITING_STEPS = {
 /** Ready for the next tick, with a fresh attempt counter. */
 const queuedNow = () => ({ status: "queued", attempt_count: 0, last_error: null, run_after: new Date().toISOString() });
 
-/** Creates the article in review from the finished job (see complete_draft_job). */
-async function createArticle(db, job, worker) {
+/** Creates the article in review from the finished job (see complete_draft_job), then auto-approves it if allowed. */
+async function createArticle(db, job, worker, website) {
   const { data: articleId, error } = await db.rpc("complete_draft_job", { target_job: job.id, worker });
   if (error) throw new Error(error.message);
   const { seo_title, meta_description, focus_keyword, tags } = job.state.draft;
@@ -52,11 +53,20 @@ async function createArticle(db, job, worker) {
     websiteId: job.website_id,
     details: { job_id: job.id, story_id: job.story_id },
   });
+  if (await approveIfAllowed(db, { job, website, articleId })) {
+    await recordAudit({
+      action: "article.auto_approved",
+      entityType: "article",
+      entityId: articleId,
+      websiteId: job.website_id,
+      details: { job_id: job.id, category_id: job.state.draft?.category_id ?? null },
+    });
+  }
 }
 
 async function runStep(db, job, worker) {
   const context = await loadJobContext(db, job, worker);
-  if (job.step === "create_article") return createArticle(db, job, worker);
+  if (job.step === "create_article") return createArticle(db, job, worker, context.website);
 
   const model = textModelFor(context);
   const assertControls = budgetGuard(db, job, worker);

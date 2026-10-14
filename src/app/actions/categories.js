@@ -97,6 +97,56 @@ export async function addCategory(websiteId, _prev, formData) {
     : { ok: true, message: "Category added and linked to WordPress." };
 }
 
+/** Saves name, slug and description, then updates the linked WordPress category to match. */
+export async function updateCategory(websiteId, categoryId, _prev, formData) {
+  const user = await requireAdmin();
+  const { website } = await requireWebsite(websiteId);
+  const parsed = categorySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
+
+  const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("categories")
+    .select("slug, wp_term_id")
+    .eq("id", categoryId)
+    .eq("website_id", websiteId)
+    .maybeSingle();
+  if (!current) return { error: "Category not found" };
+  // An empty slug keeps the current one, so the category's WordPress URL does not change by accident.
+  const values = {
+    name: parsed.data.name,
+    slug: parsed.data.slug || current.slug,
+    description: parsed.data.description,
+  };
+  const { error } = await supabase.from("categories").update(values).eq("id", categoryId).eq("website_id", websiteId);
+  if (error) return { error: error.code === "23505" ? "A category with that slug already exists" : error.message };
+
+  let wordpressError = null;
+  if (current.wp_term_id) {
+    const connection = await loadConnection(website);
+    try {
+      if (!connection) throw new Error("No WordPress credentials are saved for this website.");
+      await createWordPressClient(connection).updateCategory(current.wp_term_id, values);
+    } catch (updateError) {
+      wordpressError = updateError instanceof Error ? updateError.message : String(updateError);
+    }
+  } else {
+    wordpressError = await syncWithWordPress(supabase, website);
+  }
+  await recordAudit({
+    action: "category.edited",
+    entityType: "category",
+    entityId: categoryId,
+    websiteId,
+    actorId: user.id,
+    details: { ...values, previous_slug: current.slug, wordpress_error: wordpressError },
+  });
+  revalidatePath(`/websites/${websiteId}/settings`);
+  return wordpressError
+    ? { ok: true, message: `Saved here, but WordPress was not updated: ${wordpressError}` }
+    : { ok: true, message: "Category saved and updated in WordPress." };
+}
+
 export async function syncCategories(websiteId, _prev) {
   const user = await requireAdmin();
   const { website } = await requireWebsite(websiteId);

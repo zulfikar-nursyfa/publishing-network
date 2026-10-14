@@ -151,6 +151,15 @@ export function createWordPressClient(connection, options = {}) {
       });
     },
 
+    /** @param {number} id @param {{name: string, slug: string, description?: string|null}} category @returns {Promise<WordPressCategory>} */
+    async updateCategory(id, category) {
+      return request("POST", `/wp/v2/categories/${id}?_fields=id,name,slug`, {
+        name: category.name,
+        slug: category.slug,
+        description: category.description ?? "",
+      });
+    },
+
     /**
      * Uploads an image to the media library, then sets its alt text and caption.
      * @param {{bytes: Buffer, filename: string, contentType: string, altText?: string|null, caption?: string|null}} media

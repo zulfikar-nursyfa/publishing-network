@@ -11,13 +11,16 @@ export function textModelFor({ website, network }) {
   return website.ai_model ?? network.default_ai_model ?? serverEnv().GEMINI_MODEL;
 }
 
+/** The niche's writing guide for the website's language, or null. */
+export const nicheGuideFor = (website) => website.niche?.[`guide_${website.language}`] ?? null;
+
 /**
  * Loads everything a step needs and re-checks the controls: this worker still holds the job,
  * automation is running for the website, and the story is still selected.
  */
 export async function loadJobContext(db, job, worker) {
   const results = await Promise.all([
-    db.from("websites").select("*").eq("id", job.website_id).single(),
+    db.from("websites").select("*, niche:niches(*)").eq("id", job.website_id).single(),
     db.from("network_settings").select("*").single(),
     db.from("story_candidates").select("*").eq("id", job.story_id).eq("website_id", job.website_id).single(),
     db.from("content_sources").select("*").eq("website_id", job.website_id).eq("active", true),

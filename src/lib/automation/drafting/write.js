@@ -8,7 +8,7 @@ import {
   researchSchema,
   verificationSchema,
 } from "../draft-checks";
-import { storyTime } from "./context";
+import { nicheGuideFor, storyTime } from "./context";
 import { PermanentJob } from "./errors";
 import { draftPrompt, researchPrompt, verifyPrompt } from "./prompts";
 
@@ -33,13 +33,13 @@ export function promptData(context, evidence) {
 }
 
 /** Claims, quotes and the primary source, checked against the collected pages. Returns warnings. */
-export async function researchStep(db, job, worker, { state, data, model, assertControls }) {
+export async function researchStep(db, job, worker, { state, data, context, model, assertControls }) {
   const research = await generateForJob(db, job, worker, {
     model,
     operation: "research",
     schema: researchSchema,
     assertControls,
-    prompt: researchPrompt(data),
+    prompt: researchPrompt(data, nicheGuideFor(context.website)),
   });
   const checked = checkResearch(research, state.evidence ?? []);
   state.research = checked.research;
@@ -53,7 +53,10 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
     operation: "draft",
     schema: draftSchema,
     assertControls,
-    prompt: draftPrompt(data, state.research, context.categories),
+    prompt: draftPrompt(data, state.research, context.categories, {
+      language: context.website.language,
+      nicheGuide: nicheGuideFor(context.website),
+    }),
   });
   const checked = checkDraft(
     generated,

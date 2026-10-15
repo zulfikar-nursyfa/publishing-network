@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { contentSourceSchema, fieldErrorsFrom, nicheSchema, slugify } from "@/lib/validation";
+import { contentSourceSchema, fieldErrorsFrom, nicheGuideSchema, nicheSchema, slugify } from "@/lib/validation";
 
 /** Brings every website in the niche in step with its source group. Returns an error message or null. */
 async function syncNicheWebsites(supabase, nicheId) {
@@ -47,6 +47,33 @@ export async function addNiche(_prev, formData) {
   });
   revalidatePath("/niches");
   return { ok: true, message: "Niche added." };
+}
+
+/** Writing guides are read by the drafting steps, so they apply from the next research or draft step. */
+export async function updateNicheGuides(nicheId, _prev, formData) {
+  const user = await requireAdmin();
+  const parsed = nicheGuideSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("niches")
+    .update(parsed.data)
+    .eq("id", nicheId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "Niche not found" };
+
+  await recordAudit({
+    action: "niche.guides_edited",
+    entityType: "niche",
+    entityId: nicheId,
+    actorId: user.id,
+    details: { guide_en: Boolean(parsed.data.guide_en), guide_ar: Boolean(parsed.data.guide_ar) },
+  });
+  revalidatePath("/niches");
+  return { ok: true, message: "Writing guides saved." };
 }
 
 export async function addNicheSource(nicheId, _prev, formData) {

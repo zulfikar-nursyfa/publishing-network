@@ -256,6 +256,11 @@ export const nicheSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
 });
 
+export const nicheGuideSchema = z.object({
+  guide_en: optionalText(3000),
+  guide_ar: optionalText(3000),
+});
+
 export const networkSettingsSchema = z.object({
   default_ai_model: optionalText(100).refine(
     (model) => model === null || /^gemini-[A-Za-z0-9._-]+$/.test(model),

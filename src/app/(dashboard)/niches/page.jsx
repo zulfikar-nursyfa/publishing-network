@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SOURCE_KINDS } from "@/lib/validation";
 import { SourceForm } from "../websites/[websiteId]/settings/settings-forms";
 import { AddNicheForm } from "./add-niche-form";
+import { NicheGuideForm } from "./niche-guide-form";
 
 export const metadata = { title: "Niches" };
 
@@ -15,7 +16,7 @@ export default async function NichesPage() {
   await requireAdmin();
   const supabase = await createClient();
   const [{ data: niches, error }, { data: sources }, { data: websites }] = await Promise.all([
-    supabase.from("niches").select("id, name").order("sort_order"),
+    supabase.from("niches").select("*").order("sort_order"),
     supabase.from("niche_sources").select("*").order("name"),
     supabase.from("websites").select("id, name, language, niche_id").not("niche_id", "is", null).order("name"),
   ]);
@@ -24,7 +25,7 @@ export default async function NichesPage() {
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title="Niches"
-        description="Each niche has one source group, shared by its English and Arabic websites. Changes apply to every website in the niche."
+        description="Each niche has one source group and writing guides, shared by its English and Arabic websites. Changes apply to every website in the niche."
       />
       {error ? (
         <Alert tone="error">Niches are unavailable. Apply migration 29 before using this page.</Alert>
@@ -122,6 +123,11 @@ export default async function NichesPage() {
                       </p>
                     )}
                     <SourceForm saveSource={addNicheSource.bind(null, niche.id)} />
+                    {"guide_en" in niche ? (
+                      <NicheGuideForm niche={niche} />
+                    ) : (
+                      <Alert tone="error">Apply migration 34 to edit writing guides.</Alert>
+                    )}
                   </div>
                 </details>
               );

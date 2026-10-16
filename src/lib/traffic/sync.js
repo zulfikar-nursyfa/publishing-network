@@ -2,6 +2,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchAnalyticsDays, fetchSearchDays, googleAccessToken } from "./google";
+import { fetchTopLists, pagePath } from "./top";
 
 const DAYS = 28;
 
@@ -14,10 +15,47 @@ function serviceAccountKey() {
 
 const isoDay = (date) => date.toISOString().slice(0, 10);
 
+/** Every published article's path → id, read in pages because a site can have thousands. */
+async function articlesByPath(db, websiteId) {
+  const result = new Map();
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await db
+      .from("articles")
+      .select("id, wp_post_url")
+      .eq("website_id", websiteId)
+      .not("wp_post_url", "is", null)
+      .order("id")
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    for (const article of data) result.set(pagePath(article.wp_post_url), article.id);
+    if (data.length < 1000) return result;
+  }
+}
+
+/** Replaces the website's 28-day top pages and search queries. */
+async function saveTopLists(db, websiteId, { pages, queries }) {
+  const articleIds = await articlesByPath(db, websiteId);
+  const updatedAt = new Date().toISOString();
+  const tables = [
+    ["website_traffic_pages", pages.map((row) => ({ ...row, article_id: articleIds.get(row.path) ?? null }))],
+    ["website_search_queries", queries],
+  ];
+  for (const [table, rows] of tables) {
+    const { error: clearError } = await db.from(table).delete().eq("website_id", websiteId);
+    if (clearError) throw new Error(clearError.message);
+    if (!rows.length) continue;
+    const { error } = await db
+      .from(table)
+      .insert(rows.map((row) => ({ ...row, website_id: websiteId, updated_at: updatedAt })));
+    if (error) throw new Error(error.message);
+  }
+}
+
 /**
  * Pulls the last 28 days from Google Analytics and Search Console for every website that has
  * them configured (or just `websiteId`) and stores one row per day. Search Console data lags by
- * 2-3 days, so recent days fill in on later runs. One website's error does not stop the others.
+ * 2-3 days, so recent days fill in on later runs. Top pages and queries for the same window are
+ * replaced each run. One website's error does not stop the others.
  */
 export async function syncTraffic({ websiteId = null } = {}) {
   const key = serviceAccountKey();
@@ -64,6 +102,7 @@ export async function syncTraffic({ websiteId = null } = {}) {
           .upsert(rows, { onConflict: "website_id,day" });
         if (saveError) throw new Error(saveError.message);
       }
+      await saveTopLists(db, site.id, await fetchTopLists(token, site, isoDay(start), isoDay(end)));
     } catch (syncError) {
       failure = (syncError instanceof Error ? syncError.message : String(syncError)).slice(0, 500);
     }

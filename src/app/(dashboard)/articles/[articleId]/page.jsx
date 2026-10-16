@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/server";
 import { nextFreeSlot, toLocalInput } from "@/lib/schedule";
 import { formatSourceLines } from "@/lib/validation";
 import { ArticleForm } from "../article-form";
+import { ArticleTraffic } from "./article-traffic";
 import { FeaturedImage } from "./featured-image";
 import { WorkflowPanel } from "./workflow-panel";
 
@@ -75,7 +76,7 @@ export default async function ArticlePage({ params, searchParams }) {
   ] = await Promise.all([
     supabase
       .from("websites")
-      .select("id, name, timezone, publish_times, text_direction, archived_at")
+      .select("id, name, timezone, publish_times, text_direction, archived_at, ga4_property_id, search_console_site")
       .eq("id", article.website_id)
       .single(),
     supabase
@@ -340,6 +341,8 @@ export default async function ArticlePage({ params, searchParams }) {
               </div>
             ) : null}
           </Card>
+
+          <ArticleTraffic supabase={supabase} article={article} website={website} />
 
           <Card icon={History} title="History">
             {history && history.length > 0 ? (

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { fieldErrorsFrom, modelPriceSchema, networkSettingsSchema } from "@/lib/validation";
+import { emailConfigured, sendEmail } from "@/lib/alerts/email";
+import { alertEmailsSchema, fieldErrorsFrom, modelPriceSchema, networkSettingsSchema } from "@/lib/validation";
 
 /** Network kill switch: stops automation on every website. Manual and scheduled publishing continue. */
 export async function setNetworkPaused(paused) {
@@ -37,6 +38,47 @@ export async function updateNetworkSettings(_prev, formData) {
   });
   revalidatePath("/", "layout");
   return { ok: true, message: "Network settings saved." };
+}
+
+export async function updateAlertEmails(_prev, formData) {
+  const user = await requireAdmin();
+  const parsed = alertEmailsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
+  const db = await createClient();
+  const { error } = await db
+    .from("network_settings")
+    .update({ ...parsed.data, updated_by: user.id })
+    .eq("id", true);
+  if (error) return { error: error.message };
+  await recordAudit({
+    action: "network.alert_emails_updated",
+    entityType: "network",
+    actorId: user.id,
+    details: { recipients: parsed.data.alert_emails.length },
+  });
+  revalidatePath("/network");
+  return { ok: true, message: "Alert recipients saved." };
+}
+
+export async function sendTestAlert() {
+  const user = await requireAdmin();
+  const db = await createClient();
+  const { data, error } = await db.from("network_settings").select("alert_emails").single();
+  if (error) return { error: error.message };
+  if (!data.alert_emails.length) return { error: "Save at least one alert recipient first." };
+  if (!emailConfigured())
+    return { error: "Email is not configured: set RESEND_API_KEY and ALERT_EMAIL_FROM in Vercel." };
+  try {
+    await sendEmail({
+      to: data.alert_emails,
+      subject: "Publishing Network: test alert",
+      text: "This is a test. Alerts for spending limits, missed publishing slots, publishing failures and failed AI drafts will arrive at this address.",
+    });
+  } catch (sendError) {
+    return { error: sendError.message };
+  }
+  await recordAudit({ action: "network.test_alert_sent", entityType: "network", actorId: user.id });
+  return { ok: true, message: `Test email sent to ${data.alert_emails.join(", ")}.` };
 }
 
 export async function saveModelPrice(_prev, formData) {

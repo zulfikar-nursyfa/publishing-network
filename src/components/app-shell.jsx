@@ -24,6 +24,7 @@ import {
   Sun,
   Users,
   X,
+  Receipt,
 } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
@@ -45,6 +46,7 @@ const NAV = [
     items: [
       { href: "/niches", label: "Niches", icon: Layers, adminOnly: true },
       { href: "/users", label: "Users", icon: Users, adminOnly: true },
+      { href: "/costs", label: "Costs", icon: Receipt, adminOnly: true },
       { href: "/network", label: "Network settings", icon: Settings, adminOnly: true },
       { href: "/activity", label: "Activity", icon: Activity },
     ],

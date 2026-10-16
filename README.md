@@ -25,7 +25,7 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 - **Traffic and search:** Google Analytics and Search Console numbers per website (last 28 days), pulled daily with a service account.
 - **Unpublish and preview:** live articles can be taken down (the WordPress post becomes a draft and is reused when the corrected article is published again); every article has a preview of exactly what WordPress will receive.
 
-Still pending: full cost reports and forecast, alerts, CSV exports and WordPress themes.
+Still pending: the multi-site cost forecast and WordPress themes.
 
 ## Repository layout
 

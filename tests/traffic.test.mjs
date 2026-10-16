@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { test } from "node:test";
 import { fetchAnalyticsDays, fetchSearchDays, googleAccessToken } from "@/lib/traffic/google";
+import { fetchTopLists, pagePath } from "@/lib/traffic/top";
 import { trafficTotals } from "@/lib/traffic/totals";
 
 const reply =
@@ -61,4 +62,48 @@ test("average position is weighted by impressions", () => {
   ]);
   assert.equal(totals.position, 4);
   assert.equal(totals.ctr, 0.005);
+});
+
+test("page paths from GA4, Search Console and WordPress match", () => {
+  assert.equal(pagePath("https://www.example.com/%D8%A7%D9%82%D8%AA%D8%B5%D8%A7%D8%AF/?utm=x#top"), "/اقتصاد/");
+  assert.equal(pagePath("/اقتصاد"), "/اقتصاد/");
+  assert.equal(pagePath("/bad%E0%A4%A/"), "/bad%E0%A4%A/");
+});
+
+test("top pages merge GA4 and Search Console rows by path", async () => {
+  const fake = async (url, init) => {
+    const body = JSON.parse(init.body);
+    const json = url.includes("analyticsdata")
+      ? { rows: [{ dimensionValues: [{ value: "/story/" }], metricValues: [{ value: "5" }, { value: "9" }] }] }
+      : {
+          rows: {
+            page: [
+              { keys: ["https://example.com/story/"], clicks: 2, impressions: 100, ctr: 0.02, position: 10 },
+              { keys: ["https://www.example.com/story/?a=1"], clicks: 2, impressions: 300, ctr: 0.0067, position: 2 },
+            ],
+            query: [{ keys: ["gcc ipo"], clicks: 4, impressions: 50, ctr: 0.08, position: 3 }],
+            "page,query": [
+              { keys: ["https://example.com/story/", "gcc ipo"], clicks: 4, impressions: 50, ctr: 0.08, position: 3 },
+            ],
+          }[body.dimensions.join(",")],
+        };
+    return { ok: true, status: 200, json: async () => json };
+  };
+  const { pages, queries } = await fetchTopLists(
+    "t",
+    { ga4_property_id: "123456", search_console_site: "sc-domain:example.com" },
+    "2026-10-01",
+    "2026-10-28",
+    fake,
+  );
+  assert.deepEqual(pages, [
+    { path: "/story/", users: 5, page_views: 9, clicks: 4, impressions: 400, ctr: 0.01, position: 4 },
+  ]);
+  assert.deepEqual(
+    queries.map((row) => [row.path, row.query, row.clicks]),
+    [
+      ["", "gcc ipo", 4],
+      ["/story/", "gcc ipo", 4],
+    ],
+  );
 });

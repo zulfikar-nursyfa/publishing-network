@@ -272,6 +272,30 @@ export const networkSettingsSchema = z.object({
   ),
 });
 
+export const alertEmailsSchema = z.object({
+  alert_emails: z.preprocess(
+    (value) => [
+      ...new Set(
+        String(value ?? "")
+          .split(/[\s,;]+/)
+          .filter(Boolean),
+      ),
+    ],
+    z
+      .array(z.string())
+      .max(10, "Enter up to 10 addresses")
+      .refine((list) => list.every((email) => z.email().safeParse(email).success), "Enter valid email addresses"),
+  ),
+});
+
+export const costEntrySchema = z.object({
+  month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Choose a month"),
+  website_id: z.preprocess((value) => (value === "" ? null : value), z.uuid().nullable()),
+  category: z.enum(["images", "sources", "hosting", "editorial", "other"]),
+  amount_usd: z.coerce.number().min(0).max(1000000),
+  note: optionalText(300),
+});
+
 export const modelPriceSchema = z.object({
   model: z
     .string()

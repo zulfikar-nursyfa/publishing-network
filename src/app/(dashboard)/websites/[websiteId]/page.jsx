@@ -31,6 +31,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AiUsageCard } from "./ai-usage-card";
 import { TrafficCard } from "./traffic-card";
 import { TodaySchedule } from "./today-schedule";
+import { TopContentCard } from "./top-content-card";
 
 const FILTERS = [
   { key: "all", label: "All" },
@@ -138,6 +139,8 @@ export default async function WebsitePage({ params, searchParams }) {
       {!website.archived_at ? <TodaySchedule website={website} /> : null}
 
       <TrafficCard supabase={supabase} website={website} isAdmin={user.isAdmin} />
+
+      <TopContentCard supabase={supabase} website={website} />
 
       <AiUsageCard supabase={supabase} website={website} />
 

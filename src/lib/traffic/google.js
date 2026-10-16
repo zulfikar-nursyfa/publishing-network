@@ -77,19 +77,56 @@ export async function fetchAnalyticsDays(token, propertyId, startDate, endDate, 
   });
 }
 
-/** Daily clicks, impressions, CTR and average position from a Search Console property. */
-export async function fetchSearchDays(token, site, startDate, endDate, fetchImpl = globalThis.fetch) {
+/** Users and page views per page path from a GA4 property, most viewed first. */
+export async function fetchAnalyticsPages(token, propertyId, startDate, endDate, fetchImpl = globalThis.fetch) {
+  const report = await post(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    token,
+    {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "pagePath" }],
+      metrics: [{ name: "activeUsers" }, { name: "screenPageViews" }],
+      orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+      limit: 250,
+    },
+    fetchImpl,
+  );
+  return (report.rows ?? []).map((row) => {
+    const [users, pageViews] = row.metricValues.map((metric) => Number(metric.value));
+    return { path: row.dimensionValues[0].value, users, page_views: pageViews };
+  });
+}
+
+/**
+ * Search Console rows grouped by `dimensions` (e.g. ["date"], ["page"], ["page", "query"]),
+ * most clicked first. `keys` holds one value per dimension.
+ */
+export async function fetchSearchRows(
+  token,
+  site,
+  startDate,
+  endDate,
+  dimensions,
+  rowLimit,
+  fetchImpl = globalThis.fetch,
+) {
   const result = await post(
     `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(site)}/searchAnalytics/query`,
     token,
-    { startDate, endDate, dimensions: ["date"], rowLimit: 1000 },
+    { startDate, endDate, dimensions, rowLimit },
     fetchImpl,
   );
   return (result.rows ?? []).map((row) => ({
-    day: row.keys[0],
+    keys: row.keys,
     clicks: row.clicks,
     impressions: row.impressions,
     ctr: Number(row.ctr.toFixed(4)),
     position: Number(row.position.toFixed(2)),
   }));
+}
+
+/** Daily clicks, impressions, CTR and average position from a Search Console property. */
+export async function fetchSearchDays(token, site, startDate, endDate, fetchImpl = globalThis.fetch) {
+  const rows = await fetchSearchRows(token, site, startDate, endDate, ["date"], 1000, fetchImpl);
+  return rows.map(({ keys, ...row }) => ({ day: keys[0], ...row }));
 }

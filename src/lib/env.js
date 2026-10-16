@@ -25,6 +25,10 @@ const serverEnvSchema = z.object({
     .default("gemini-3.1-flash-image"),
   // Google service account JSON key (raw or base64) with read access to GA4 and Search Console.
   GOOGLE_SERVICE_ACCOUNT_KEY: z.string().optional(),
+  // Alert emails go through Resend. The sender's domain must be verified there,
+  // e.g. "Publishing Network <alerts@cosmosprcampaign.com>". Without both, alerts are not sent.
+  RESEND_API_KEY: z.string().optional(),
+  ALERT_EMAIL_FROM: z.string().optional(),
   // Allows http:// WordPress URLs. Only for the local Docker WordPress; never in staging/production.
   ALLOW_INSECURE_WORDPRESS: z
     .enum(["true", "false"])

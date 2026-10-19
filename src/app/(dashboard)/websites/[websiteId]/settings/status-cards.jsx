@@ -1,6 +1,6 @@
 import { Bot, Plug } from "lucide-react";
 import { setAutomationPaused, setWebsiteArchived } from "@/app/actions/websites";
-import { SubmitButton } from "@/components/form-controls";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { Alert, Badge, Card, ConnectionBadge, DescriptionList, formatDateTime } from "@/components/ui";
 import { formatPublishTimes } from "@/lib/schedule";
 import { TestConnectionButton } from "./settings-forms";
@@ -52,12 +52,12 @@ export function AutomationCard({ website, isAdmin }) {
       <p className="mb-5 text-sm leading-relaxed text-muted-foreground">{automationSummary(website)}</p>
       {isAdmin ? (
         <div className="flex flex-wrap gap-2">
-          <form action={setAutomationPaused.bind(null, website.id, !paused)}>
+          <ActionForm action={setAutomationPaused.bind(null, website.id, !paused)}>
             <SubmitButton variant={paused ? "success" : "secondary"}>
               {paused ? "Resume automation" : "Pause automation"}
             </SubmitButton>
-          </form>
-          <form action={setWebsiteArchived.bind(null, website.id, !archived)}>
+          </ActionForm>
+          <ActionForm action={setWebsiteArchived.bind(null, website.id, !archived)}>
             <SubmitButton
               variant={archived ? "secondary" : "danger-outline"}
               confirm={
@@ -69,7 +69,7 @@ export function AutomationCard({ website, isAdmin }) {
             >
               {archived ? "Restore website" : "Archive website"}
             </SubmitButton>
-          </form>
+          </ActionForm>
         </div>
       ) : null}
     </Card>

@@ -5,7 +5,7 @@ import {
   setContentSourceActive,
   updateContentSource,
 } from "@/app/actions/sources";
-import { SubmitButton } from "@/components/form-controls";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { Badge, Card, formatDateTime } from "@/components/ui";
 import { SOURCE_KINDS } from "@/lib/validation";
 import { SourceForm } from "./settings-forms";
@@ -69,17 +69,22 @@ function SourceItem({ source, website, isAdmin }) {
 
       {isAdmin ? (
         <div className="flex shrink-0 gap-2">
-          <form action={setContentSourceActive.bind(null, website.id, source.id, !source.active)}>
-            <SubmitButton variant="secondary" size="sm">
+          <ActionForm action={setContentSourceActive.bind(null, website.id, source.id, !source.active)}>
+            <SubmitButton
+              variant="secondary"
+              size="sm"
+              confirm={source.active ? "Disable this source for future discovery?" : undefined}
+              confirmLabel="Disable"
+            >
               {source.active ? "Disable" : "Enable"}
             </SubmitButton>
-          </form>
+          </ActionForm>
           {ownSource ? (
-            <form action={deleteContentSource.bind(null, website.id, source.id)}>
+            <ActionForm action={deleteContentSource.bind(null, website.id, source.id)}>
               <SubmitButton variant="danger-outline" size="sm" confirm={`Remove ${source.name}?`} confirmLabel="Remove">
                 Remove
               </SubmitButton>
-            </form>
+            </ActionForm>
           ) : null}
         </div>
       ) : null}
@@ -87,7 +92,7 @@ function SourceItem({ source, website, isAdmin }) {
   );
 }
 
-export function SourcesCard({ website, sources, niche, isAdmin }) {
+export function SourcesCard({ website, sources, niche, isAdmin, filtered = false }) {
   const description = niche
     ? `Sources marked "niche" come from the ${niche.name} source group (Niches page) and can only be disabled here. Automation only draws stories from active sources.`
     : "Automation only draws stories from active sources on this list. Choose a niche below to add its source group.";
@@ -102,7 +107,7 @@ export function SourcesCard({ website, sources, niche, isAdmin }) {
         </ul>
       ) : (
         <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          No sources yet.
+          {filtered ? "No sources match these filters." : "No sources yet."}
         </p>
       )}
       {isAdmin ? <SourceForm saveSource={addContentSource.bind(null, website.id)} /> : null}

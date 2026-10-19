@@ -79,10 +79,16 @@ export async function saveFeaturedImage(articleId, _prev, formData) {
 /** Makes another stored image (e.g. the AI illustration instead of the source photo) the featured one. */
 export async function chooseFeaturedImage(articleId, imageId) {
   const { error: loadError, user, supabase, article, current } = await loadEditableArticle(articleId);
-  if (loadError) return;
+  if (loadError) return { error: loadError };
   // One featured image per article: step the current one down first.
-  if (current) await supabase.from("article_images").update({ role: "option", wp_media_id: null }).eq("id", current.id);
-  const { data: chosen } = await supabase
+  if (current) {
+    const { error } = await supabase
+      .from("article_images")
+      .update({ role: "option", wp_media_id: null })
+      .eq("id", current.id);
+    if (error) return { error: error.message };
+  }
+  const { data: chosen, error: chooseError } = await supabase
     .from("article_images")
     .update({ role: "featured", wp_media_id: null })
     .eq("id", imageId)
@@ -92,7 +98,7 @@ export async function chooseFeaturedImage(articleId, imageId) {
     .maybeSingle();
   if (!chosen) {
     if (current) await supabase.from("article_images").update({ role: "featured" }).eq("id", current.id);
-    return;
+    return { error: chooseError?.message ?? "That image is unavailable. Reload and try again." };
   }
   await recordAudit({
     action: "article.image_chosen",
@@ -103,13 +109,15 @@ export async function chooseFeaturedImage(articleId, imageId) {
     details: { image_id: imageId },
   });
   revalidatePath(`/articles/${articleId}`);
+  return { ok: true, message: "Featured image changed." };
 }
 
 export async function removeFeaturedImage(articleId) {
   const { error: loadError, user, supabase, article, current } = await loadEditableArticle(articleId);
-  if (loadError || !current) return;
+  if (loadError) return { error: loadError };
+  if (!current) return { error: "There is no featured image to remove." };
   const { error } = await supabase.from("article_images").delete().eq("id", current.id);
-  if (error) return;
+  if (error) return { error: error.message };
   await removeArticleImage(supabase, current.storage_path);
   await recordAudit({
     action: "article.image_removed",
@@ -119,4 +127,5 @@ export async function removeFeaturedImage(articleId) {
     actorId: user.id,
   });
   revalidatePath(`/articles/${articleId}`);
+  return { ok: true, message: "Featured image removed." };
 }

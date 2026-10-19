@@ -147,7 +147,8 @@ export async function updateNicheSource(nicheId, sourceId, _prev, formData) {
 export async function removeNicheSource(nicheId, sourceId) {
   const user = await requireAdmin();
   const supabase = await createClient();
-  await supabase.from("niche_sources").delete().eq("id", sourceId).eq("niche_id", nicheId);
+  const { error } = await supabase.from("niche_sources").delete().eq("id", sourceId).eq("niche_id", nicheId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: "niche_source.removed",
     entityType: "niche_source",

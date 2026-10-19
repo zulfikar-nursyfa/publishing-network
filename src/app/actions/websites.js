@@ -46,10 +46,17 @@ function websiteColumns(input, branding = {}) {
 
 /** Admin only: pulls Google Analytics and Search Console now instead of waiting for the daily run. */
 export async function syncWebsiteTraffic(websiteId) {
-  await requireAdmin();
+  const user = await requireAdmin();
   await requireWebsite(websiteId);
   try {
     await syncTraffic({ websiteId });
+    await recordAudit({
+      action: "website.traffic_synced",
+      entityType: "website",
+      entityId: websiteId,
+      websiteId,
+      actorId: user.id,
+    });
   } catch (error) {
     await createAdminClient()
       .from("websites")
@@ -58,8 +65,11 @@ export async function syncWebsiteTraffic(websiteId) {
         traffic_error: String(error.message ?? error).slice(0, 500),
       })
       .eq("id", websiteId);
+    revalidatePath(`/websites/${websiteId}`);
+    return { error: String(error.message ?? error) };
   }
   revalidatePath(`/websites/${websiteId}`);
+  return { ok: true, message: "Traffic snapshot updated." };
 }
 
 /** Stores the encrypted application password. Returns an error message, or null. */
@@ -295,8 +305,10 @@ export async function testWebsiteConnection(websiteId, _prev) {
 
 export async function setAutomationPaused(websiteId, paused) {
   const user = await requireAdmin();
+  await requireWebsite(websiteId);
   const supabase = await createClient();
-  await supabase.from("websites").update({ automation_paused: paused }).eq("id", websiteId);
+  const { error } = await supabase.from("websites").update({ automation_paused: paused }).eq("id", websiteId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: paused ? "website.automation_paused" : "website.automation_resumed",
     entityType: "website",
@@ -305,18 +317,21 @@ export async function setAutomationPaused(websiteId, paused) {
     actorId: user.id,
   });
   revalidatePath(`/websites/${websiteId}`, "layout");
+  return { ok: true, message: paused ? "Website automation paused." : "Website automation resumed." };
 }
 
 export async function setWebsiteArchived(websiteId, archived) {
   const user = await requireAdmin();
+  await requireWebsite(websiteId);
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("websites")
     .update({
       archived_at: archived ? new Date().toISOString() : null,
       ...(archived ? { automation_paused: true } : {}),
     })
     .eq("id", websiteId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: archived ? "website.archived" : "website.restored",
     entityType: "website",
@@ -326,4 +341,5 @@ export async function setWebsiteArchived(websiteId, archived) {
   });
   revalidatePath("/websites");
   revalidatePath(`/websites/${websiteId}`, "layout");
+  return { ok: true, message: archived ? "Website archived." : "Website restored." };
 }

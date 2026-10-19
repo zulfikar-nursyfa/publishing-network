@@ -1,119 +1,98 @@
 import Link from "next/link";
-import { Activity, ChevronLeft, ChevronRight } from "lucide-react";
-import { ButtonLink, EmptyState, PageHeader, Table, Td, Th, formatDateTime } from "@/components/ui";
+import { PageHeader, Table, Td, Th } from "@/components/ui";
+import { ListToolbar, SortTh } from "@/components/list-controls";
+import { ListResults } from "@/components/list-results";
+import { RelativeTime } from "@/components/relative-time";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { allRows, listContext, readList } from "@/lib/lists";
+import { activityList } from "@/lib/list-configs";
 
 export const metadata = { title: "Activity" };
-
-const PAGE_SIZE = 100;
-
 export default async function ActivityPage({ searchParams }) {
-  const user = await requireUser();
-  const page = Math.max(1, Number((await searchParams).page) || 1);
-  const supabase = await createClient();
-
-  // RLS limits editors to entries for their websites; administrators see everything.
-  const { data: entries } = await supabase
-    .from("audit_log")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
-
-  const actorIds = [...new Set((entries ?? []).map((entry) => entry.actor_id).filter((id) => Boolean(id)))];
-  const websiteIds = [...new Set((entries ?? []).map((entry) => entry.website_id).filter((id) => Boolean(id)))];
-  const [{ data: actors }, { data: websites }] = await Promise.all([
-    actorIds.length
-      ? supabase.from("profiles").select("id, email, full_name").in("id", actorIds)
-      : Promise.resolve({ data: [] }),
-    websiteIds.length
-      ? supabase.from("websites").select("id, name").in("id", websiteIds)
-      : Promise.resolve({ data: [] }),
-  ]);
-  const actorName = new Map((actors ?? []).map((actor) => [actor.id, actor.full_name || actor.email]));
-  const websiteName = new Map((websites ?? []).map((site) => [site.id, site.name]));
-
+  await requireUser();
+  const db = await createClient();
+  const { state, websites, timezone } = await listContext(db, await searchParams, activityList);
+  const actors = await allRows(() => db.from("profiles").select("id, email, full_name").order("id"));
+  const result = await readList(
+    () => {
+      let query = db.from("audit_log").select("*", { count: "exact" });
+      if (state.area !== "all") query = query.like("action", `${state.area}%`);
+      return query;
+    },
+    state,
+    timezone,
+  );
+  const actorName = new Map(actors.map((actor) => [actor.id, actor.full_name || actor.email]));
+  const websiteName = new Map(websites.map((site) => [site.id, site.name]));
   return (
     <>
       <PageHeader
         title="Activity"
-        description={
-          user.isAdmin ? "Administrative and publishing actions across the network." : "Actions on your websites."
-        }
+        description={`Administrative and publishing actions you can access. Dates use ${timezone}.`}
       />
-      {entries && entries.length > 0 ? (
-        <>
-          <Table>
-            <thead>
-              <tr>
-                <Th>Action</Th>
-                <Th className="hidden sm:table-cell">Who</Th>
-                <Th className="hidden md:table-cell">Website</Th>
-                <Th className="hidden xl:table-cell">Details</Th>
-                <Th className="text-right">When</Th>
+      <ListToolbar
+        path="/activity"
+        state={state}
+        websites={websites}
+        choices={{
+          actor: [
+            { value: "all", label: "All actors" },
+            ...actors.map((actor) => ({ value: actor.id, label: actor.full_name || actor.email })),
+          ],
+        }}
+      />
+      <ListResults
+        result={result}
+        path="/activity"
+        state={state}
+        title="No activity recorded yet"
+        empty="Administrative and publishing actions appear here."
+      >
+        <Table>
+          <thead>
+            <tr>
+              <SortTh path="/activity" state={state} column="action">
+                Action
+              </SortTh>
+              <Th>Who</Th>
+              <Th>Website</Th>
+              <Th>Details</Th>
+              <SortTh path="/activity" state={state} column="created">
+                When
+              </SortTh>
+            </tr>
+          </thead>
+          <tbody>
+            {result.data.map((entry) => (
+              <tr key={entry.id}>
+                <Td>
+                  {entry.entity_type === "article" && entry.entity_id ? (
+                    <Link href={`/articles/${entry.entity_id}`} className="font-mono text-xs hover:underline">
+                      {entry.action}
+                    </Link>
+                  ) : (
+                    <code className="text-xs">{entry.action}</code>
+                  )}
+                </Td>
+                <Td>{entry.actor_id ? (actorName.get(entry.actor_id) ?? "Unknown user") : "System"}</Td>
+                <Td>{websiteName.get(entry.website_id) ?? "Network"}</Td>
+                <Td>
+                  <details className="max-w-sm">
+                    <summary className="cursor-pointer text-xs text-primary">Show details</summary>
+                    <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all text-xs">
+                      {JSON.stringify(entry.details, null, 2)}
+                    </pre>
+                  </details>
+                </Td>
+                <Td className="whitespace-nowrap">
+                  <RelativeTime value={entry.created_at} timezone={timezone} />
+                </Td>
               </tr>
-            </thead>
-            <tbody>
-              {entries.map((entry) => {
-                const who = entry.actor_id ? (actorName.get(entry.actor_id) ?? "Unknown user") : "System";
-                return (
-                  <tr key={entry.id}>
-                    <Td>
-                      {entry.entity_type === "article" && entry.entity_id ? (
-                        <Link
-                          href={`/articles/${entry.entity_id}`}
-                          className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground hover:bg-accent hover:text-accent-foreground"
-                        >
-                          {entry.action}
-                        </Link>
-                      ) : (
-                        <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{entry.action}</span>
-                      )}
-                      <div className="mt-1 text-xs text-muted-foreground sm:hidden">{who}</div>
-                    </Td>
-                    <Td className="hidden sm:table-cell">{who}</Td>
-                    <Td className="hidden text-muted-foreground md:table-cell">
-                      {entry.website_id ? (websiteName.get(entry.website_id) ?? "—") : "—"}
-                    </Td>
-                    <Td className="hidden xl:table-cell">
-                      <code
-                        className="block max-w-sm truncate text-xs text-muted-foreground"
-                        title={JSON.stringify(entry.details)}
-                      >
-                        {JSON.stringify(entry.details)}
-                      </code>
-                    </Td>
-                    <Td className="text-right text-xs whitespace-nowrap text-muted-foreground sm:text-sm">
-                      {formatDateTime(entry.created_at)}
-                    </Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-          <div className="mt-4 flex items-center justify-between">
-            {page > 1 ? (
-              <ButtonLink href={`/activity?page=${page - 1}`} variant="secondary" size="sm">
-                <ChevronLeft />
-                Newer
-              </ButtonLink>
-            ) : (
-              <span />
-            )}
-            <span className="text-sm text-muted-foreground">Page {page}</span>
-            {entries.length === PAGE_SIZE ? (
-              <ButtonLink href={`/activity?page=${page + 1}`} variant="secondary" size="sm">
-                Older
-                <ChevronRight />
-              </ButtonLink>
-            ) : (
-              <span />
-            )}
-          </div>
-        </>
-      ) : (
-        <EmptyState icon={Activity}>No activity recorded yet.</EmptyState>
-      )}
+            ))}
+          </tbody>
+        </Table>
+      </ListResults>
     </>
   );
 }

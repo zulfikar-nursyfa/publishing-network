@@ -1,6 +1,6 @@
 import { CircleDollarSign } from "lucide-react";
-import { Card } from "@/components/ui";
-import { formatUsd, monthStartUtc, summariseUsage } from "@/lib/costs";
+import { Alert, Card } from "@/components/ui";
+import { formatUsd, monthStartUtc, summariseAggregatedUsage } from "@/lib/costs";
 
 const STEPS = [
   { key: "search", label: "Web search" },
@@ -13,13 +13,8 @@ const STEPS = [
 /** This month's estimated AI spend for one website, by drafting step and per drafted article. */
 export async function AiUsageCard({ supabase, website }) {
   const since = monthStartUtc();
-  const [{ data: rows }, { count: drafted }] = await Promise.all([
-    supabase
-      .from("ai_usage")
-      .select("operation, status, estimated_cost_usd, reserved_cost_usd, search_queries")
-      .eq("website_id", website.id)
-      .gte("created_at", since)
-      .limit(10000),
+  const [{ data: rows, error }, { count: drafted, error: draftedError }] = await Promise.all([
+    supabase.rpc("website_month_usage", { target_website: website.id, target_month: since.slice(0, 10) }),
     supabase
       .from("jobs")
       .select("id", { count: "exact", head: true })
@@ -27,7 +22,15 @@ export async function AiUsageCard({ supabase, website }) {
       .eq("status", "succeeded")
       .gte("updated_at", since),
   ]);
-  const usage = summariseUsage(rows ?? []);
+  if (error || draftedError)
+    return (
+      <Card title="AI usage this month" className="mb-8">
+        <Alert tone="error">
+          AI totals could not be loaded. Apply migration 41 or retry. Amounts have not been shown as zero.
+        </Alert>
+      </Card>
+    );
+  const usage = summariseAggregatedUsage(rows ?? []);
   const budget = Number(website.monthly_ai_budget_usd);
   const share = budget > 0 ? Math.min(100, (usage.total / budget) * 100) : 0;
 

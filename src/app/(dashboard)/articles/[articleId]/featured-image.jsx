@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { ImageIcon, Trash2 } from "lucide-react";
 import { chooseFeaturedImage, removeFeaturedImage, saveFeaturedImage } from "@/app/actions/images";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { ActionForm, FormAlert, SubmitButton } from "@/components/form-controls";
 import { Badge, Card, Field, inputClass } from "@/components/ui";
 import { IMAGE_SOURCE_KINDS } from "@/lib/validation";
 
@@ -46,11 +46,11 @@ export function FeaturedImage({ articleId, image, options = [], readOnly }) {
                 ) : null}
                 <div className="mb-2 text-xs text-muted-foreground">{describe(option)}</div>
                 {readOnly ? null : (
-                  <form action={chooseFeaturedImage.bind(null, articleId, option.id)}>
+                  <ActionForm action={chooseFeaturedImage.bind(null, articleId, option.id)}>
                     <SubmitButton variant="secondary" size="sm" pendingLabel="Switching…">
                       Use this image
                     </SubmitButton>
-                  </form>
+                  </ActionForm>
                 )}
               </div>
             ))}
@@ -141,12 +141,12 @@ export function FeaturedImage({ articleId, image, options = [], readOnly }) {
         </form>
       )}
       {image && !readOnly ? (
-        <form action={removeFeaturedImage.bind(null, articleId)} className="mt-2">
+        <ActionForm action={removeFeaturedImage.bind(null, articleId)} className="mt-2">
           <SubmitButton variant="danger-outline" confirm="Remove the featured image?" confirmLabel="Remove">
             <Trash2 />
             Remove image
           </SubmitButton>
-        </form>
+        </ActionForm>
       ) : null}
     </Card>
   );

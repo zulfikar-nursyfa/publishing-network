@@ -1,154 +1,228 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Download, Receipt } from "lucide-react";
+import { ListLoading } from "@/components/list-loading";
+import { z } from "zod";
 import { deleteCostEntry } from "@/app/actions/costs";
-import { SubmitButton } from "@/components/form-controls";
-import { Alert, Card, PageHeader, Table, Td, Th, buttonClass, linkClass } from "@/components/ui";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
+import { Card, PageHeader, Table, Td, Th, ButtonLink, FilterTabs } from "@/components/ui";
+import { ListToolbar, SortTh, Pagination, ListEmpty } from "@/components/list-controls";
+import { ListResults } from "@/components/list-results";
 import { requireAdmin } from "@/lib/auth";
 import { COST_CATEGORIES, buildCostReport, monthParam, shiftMonth } from "@/lib/cost-report";
 import { formatUsd } from "@/lib/costs";
+import { allRows, readList, listContext } from "@/lib/lists";
+import { listHref, sortRows, uuidFilter, enumFilter } from "@/lib/list-params";
 import { createClient } from "@/lib/supabase/server";
 import { CostEntryForm } from "./cost-entry-form";
 
 export const metadata = { title: "Costs" };
-
-const categoryLabel = Object.fromEntries(COST_CATEGORIES.map((category) => [category.key, category.label]));
-const monthLabel = (month) =>
-  new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(
-    new Date(`${month}-01T00:00:00Z`),
-  );
-
+const columns = [
+  ["published", "Published"],
+  ["drafted", "Drafted"],
+  ["ai", "AI (est.)"],
+  ["other", "Entered costs"],
+  ["networkShare", "Network share"],
+  ["total", "Total"],
+  ["perArticle", "Per published article"],
+];
 export default async function CostsPage({ searchParams }) {
   await requireAdmin();
-  const month = monthParam((await searchParams).month);
+  const input = await searchParams;
+  const month = monthParam(input.month);
+  const section = z.enum(["report", "entries"]).catch("report").parse(input.section);
+  const config =
+    section === "report"
+      ? {
+          sorts: { name: "name", ...Object.fromEntries(columns.map(([key]) => [key, key])) },
+          defaultSort: "name",
+          defaultDirection: "asc",
+          search: ["name"],
+          filters: {},
+        }
+      : {
+          sorts: { created: "created_at", amount: "amount_usd", category: "category" },
+          defaultSort: "created",
+          search: ["note"],
+          filters: {
+            website: uuidFilter("Website"),
+            category: enumFilter("Category", ["all", ...COST_CATEGORIES.map((item) => item.key)], "category"),
+          },
+        };
   const db = await createClient();
-  const [{ data: websites }, { data: monthCosts, error }, { data: entries }] = await Promise.all([
-    db.from("websites").select("id, name, archived_at").order("name"),
-    db.rpc("website_month_costs", { target_month: `${month}-01` }),
-    db
-      .from("cost_entries")
-      .select("id, website_id, category, amount_usd, note, website:websites(name)")
-      .eq("month", `${month}-01`)
-      .order("created_at"),
+  const { state, websites } = await listContext(
+    db,
+    { ...input, month },
+    {
+      ...config,
+      filters: {
+        ...config.filters,
+        month: { label: "Month", text: true, default: month, hidden: true },
+        section: {
+          label: "Section",
+          options: [{ value: "report" }, { value: "entries" }],
+          default: "report",
+          hidden: true,
+        },
+      },
+    },
+  );
+  // Keep the chosen month in every sort/filter/page link, including historical months.
+  state.defaults.month = "";
+  const [monthCosts, amounts] = await Promise.all([
+    allRows(() => db.rpc("website_month_costs", { target_month: `${month}-01` }).order("website_id")),
+    allRows(() => db.rpc("month_other_costs", { target_month: `${month}-01` }).order("website_id")),
   ]);
-  const report = error ? null : buildCostReport({ websites: websites ?? [], monthCosts, entries: entries ?? [] });
-  const columns = [
-    ["Published", (row) => row.published],
-    ["Drafted", (row) => row.drafted],
-    ["AI (est.)", (row) => formatUsd(row.ai)],
-    ["Entered costs", (row) => formatUsd(row.other)],
-    ["Network share", (row) => formatUsd(row.networkShare)],
-    ["Total", (row) => formatUsd(row.total)],
-    ["Per published article", (row) => (row.perArticle === null ? "—" : formatUsd(row.perArticle))],
-  ];
-
+  const report = buildCostReport({ websites, monthCosts, entries: amounts });
+  const rows =
+    section === "report"
+      ? sortRows(
+          report.rows.filter((row) => !state.q || row.name.toLowerCase().includes(state.q.toLowerCase())),
+          state,
+        )
+      : [];
+  if (section === "report") state.page = Math.min(state.page, Math.max(1, Math.ceil(rows.length / state.size)));
+  const entries =
+    section === "entries"
+      ? await readList(
+          () =>
+            db.from("cost_entries").select("*, website:websites(name)", { count: "exact" }).eq("month", `${month}-01`),
+          state,
+        )
+      : null;
+  const display = (row, key) =>
+    ["published", "drafted"].includes(key) ? row[key] : row[key] === null ? "—" : formatUsd(row[key]);
   return (
     <div className="space-y-6">
       <PageHeader
         title="Costs"
-        description="Estimated AI spend plus the other costs entered here, per website and per published article. AI amounts are estimates; provider bills are the real cost. Existing Vercel Pro, Supabase Pro and SiteGround plans are not included."
+        description="Monthly estimated AI spend and entered costs. Totals include every row; provider bills remain authoritative."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <a href={`/costs/export?type=costs&month=${month}`} download className={buttonClass("secondary")}>
-              <Download />
+          <>
+            <ButtonLink href={`/costs/export?type=costs&month=${month}`} variant="secondary">
               Costs CSV
-            </a>
-            <a href={`/costs/export?type=articles&month=${month}`} download className={buttonClass("secondary")}>
-              <Download />
+            </ButtonLink>
+            <ButtonLink href={`/costs/export?type=articles&month=${month}`} variant="secondary">
               Articles CSV
-            </a>
-          </div>
+            </ButtonLink>
+          </>
         }
       />
-
-      <div className="flex items-center gap-2">
-        <Link href={`/costs?month=${shiftMonth(month, -1)}`} className={buttonClass("secondary", null, "sm")}>
-          <ChevronLeft />
-          Previous
-        </Link>
-        <span className="px-2 text-sm font-medium">{monthLabel(month)} (UTC)</span>
-        <Link href={`/costs?month=${shiftMonth(month, 1)}`} className={buttonClass("secondary", null, "sm")}>
-          Next
-          <ChevronRight />
-        </Link>
+      <div className="flex flex-wrap items-center gap-3">
+        <ButtonLink href={listHref("/costs", state, { month: shiftMonth(month, -1) })} variant="secondary" size="sm">
+          Previous month
+        </ButtonLink>
+        <span className="text-sm font-medium">{month} (UTC)</span>
+        <ButtonLink href={listHref("/costs", state, { month: shiftMonth(month, 1) })} variant="secondary" size="sm">
+          Next month
+        </ButtonLink>
       </div>
-
-      {!report ? (
-        <Alert tone="error">The cost report is unavailable. Apply migration 37_cost_report.sql.</Alert>
-      ) : (
-        <>
+      <FilterTabs
+        active={section}
+        items={["report", "entries"].map((key) => ({ key, label: key, href: `/costs?month=${month}&section=${key}` }))}
+      />
+      <ListToolbar
+        path="/costs"
+        state={state}
+        websites={websites}
+        searchLabel={section === "report" ? "Search websites" : "Search cost notes"}
+      />
+      {section === "report" ? (
+        <ListLoading>
+          {!rows.length ? (
+            <ListEmpty path="/costs" state={state} title="No websites in this report">
+              Add a website or enter a cost below.
+            </ListEmpty>
+          ) : null}
           <Table>
             <thead>
               <tr>
-                <Th>Website</Th>
-                {columns.map(([label]) => (
-                  <Th key={label} className="text-right">
+                <SortTh path="/costs" state={state} column="name">
+                  Website
+                </SortTh>
+                {columns.map(([key, label]) => (
+                  <SortTh key={key} path="/costs" state={state} column={key}>
                     {label}
-                  </Th>
+                  </SortTh>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {report.rows.map((row) => (
+              {rows.slice((state.page - 1) * state.size, state.page * state.size).map((row) => (
                 <tr key={row.websiteId}>
                   <Td>
-                    <Link href={`/websites/${row.websiteId}`} className={linkClass}>
+                    <Link href={`/websites/${row.websiteId}`} className="font-medium hover:underline">
                       {row.name}
                     </Link>
-                    {row.archived ? <span className="ml-1 text-xs text-muted-foreground">(archived)</span> : null}
+                    {row.archived ? " (archived)" : ""}
                   </Td>
-                  {columns.map(([label, value]) => (
-                    <Td key={label} className="text-right tabular-nums">
-                      {value(row)}
+                  {columns.map(([key]) => (
+                    <Td key={key} className="tabular-nums">
+                      {display(row, key)}
                     </Td>
                   ))}
                 </tr>
               ))}
               <tr className="font-semibold">
-                <Td>All websites</Td>
-                {columns.map(([label, value]) => (
-                  <Td key={label} className="text-right tabular-nums">
-                    {value(report.totals)}
-                  </Td>
+                <Td>All websites (unfiltered total)</Td>
+                {columns.map(([key]) => (
+                  <Td key={key}>{display(report.totals, key)}</Td>
                 ))}
               </tr>
             </tbody>
           </Table>
+          <Pagination path="/costs" state={state} count={rows.length} />
           <p className="text-xs text-muted-foreground">
-            AI images this month: {formatUsd(report.totals.aiImages)} of the AI total. Web searches:{" "}
-            {report.totals.searches}. Drafted counts automated articles created this month.
+            AI images: {formatUsd(report.totals.aiImages)} · Web searches: {report.totals.searches}
           </p>
-
-          <Card
-            icon={Receipt}
-            title={`Other costs for ${monthLabel(month)}`}
-            description="Charges that are not AI calls: stock images, paid sources, extra hosting, editorial time. Whole-network costs are split evenly across the active websites."
-          >
-            {entries?.length ? (
-              <ul className="mb-6 divide-y rounded-lg border text-sm">
-                {entries.map((entry) => (
-                  <li key={entry.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
-                    <span className="font-medium tabular-nums">{formatUsd(Number(entry.amount_usd))}</span>
-                    <span>{categoryLabel[entry.category]}</span>
-                    <span className="text-muted-foreground">{entry.website?.name ?? "Whole network"}</span>
-                    {entry.note ? <span className="text-muted-foreground">· {entry.note}</span> : null}
-                    <form action={deleteCostEntry.bind(null, entry.id)} className="ml-auto">
+        </ListLoading>
+      ) : (
+        <ListResults
+          result={entries}
+          path="/costs"
+          state={state}
+          title="No entered costs this month"
+          empty="Add costs using the form below."
+        >
+          <Table>
+            <thead>
+              <tr>
+                <Th>Website</Th>
+                <Th>Category</Th>
+                <Th>Amount</Th>
+                <Th>Note</Th>
+                <Th>Action</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.data.map((entry) => (
+                <tr key={entry.id}>
+                  <Td>{entry.website?.name ?? "Whole network"}</Td>
+                  <Td>{entry.category}</Td>
+                  <Td>{formatUsd(entry.amount_usd)}</Td>
+                  <Td className="max-w-md">{entry.note}</Td>
+                  <Td>
+                    <ActionForm action={deleteCostEntry.bind(null, entry.id)}>
                       <SubmitButton
-                        variant="danger-outline"
                         size="sm"
-                        confirm="Delete this cost?"
+                        variant="danger-outline"
+                        confirm="Delete this cost entry?"
                         confirmLabel="Delete"
                       >
                         Delete
                       </SubmitButton>
-                    </form>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            <CostEntryForm month={month} websites={(websites ?? []).filter((site) => !site.archived_at)} />
-          </Card>
-        </>
+                    </ActionForm>
+                  </Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </ListResults>
       )}
+      <Card
+        title="Add a cost"
+        description="Images, paid sources, extra hosting, editorial time or other costs. Whole-network charges are split among active websites."
+      >
+        <CostEntryForm month={month} websites={websites} />
+      </Card>
     </div>
   );
 }

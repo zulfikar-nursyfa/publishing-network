@@ -1,21 +1,17 @@
+import { z } from "zod";
+import { ArticleTable } from "@/components/article-table";
+import { ListToolbar } from "@/components/list-controls";
+import { ListResults } from "@/components/list-results";
+import { WebsiteNav } from "@/components/website-nav";
+import { allRows, readList } from "@/lib/lists";
+import { parseListParams, listHref } from "@/lib/list-params";
+import { ARTICLE_LIST_FIELDS, articleList, slotList, articleStatuses } from "@/lib/list-configs";
 import Link from "next/link";
+import { CircleCheck, ClipboardCheck, ExternalLink, Plus, Send, Settings, TriangleAlert, Upload } from "lucide-react";
 import {
-  CircleCheck,
-  ClipboardCheck,
-  ExternalLink,
-  FileText,
-  Plus,
-  Send,
-  Settings,
-  TriangleAlert,
-  Upload,
-} from "lucide-react";
-import {
-  ArticleStatusBadge,
   Badge,
   ButtonLink,
   ConnectionBadge,
-  EmptyState,
   FilterTabs,
   PageHeader,
   Stat,
@@ -33,37 +29,53 @@ import { TrafficCard } from "./traffic-card";
 import { TodaySchedule } from "./today-schedule";
 import { TopContentCard } from "./top-content-card";
 
-const FILTERS = [
-  { key: "all", label: "All" },
-  { key: "draft", label: "Drafts" },
-  { key: "in_review", label: "In review" },
-  { key: "approved", label: "Approved" },
-  { key: "published", label: "Published" },
-  { key: "unpublished", label: "Unpublished" },
-  { key: "rejected", label: "Rejected" },
-];
+const sections = ["articles", "overview", "schedule", "traffic", "costs"];
+const sectionFilter = {
+  label: "Section",
+  options: sections.map((value) => ({ value, label: value })),
+  default: "articles",
+  hidden: true,
+};
 
 export default async function WebsitePage({ params, searchParams }) {
   const { websiteId } = await params;
   const { user, website } = await requireWebsite(websiteId);
-  const statusParam = (await searchParams).status;
-  const filter = FILTERS.find((item) => item.key === statusParam)?.key ?? "all";
+  const input = await searchParams;
+  const section = z.enum(sections).catch("articles").parse(input.section);
+  const config = section === "schedule" ? slotList : articleList;
+  const state = parseListParams(input, { ...config, filters: { ...config.filters, section: sectionFilter } });
+  const path = `/websites/${websiteId}`;
 
   const supabase = await createClient();
-  let articlesQuery = supabase
-    .from("articles")
-    .select("id, title, status, origin, updated_at, published_at, wp_post_url")
-    .eq("website_id", websiteId)
-    .order("updated_at", { ascending: false })
-    .limit(100);
-  if (filter !== "all") articlesQuery = articlesQuery.eq("status", filter);
-
-  const [{ data: articles }, { data: stats }, { data: niche }] = await Promise.all([
-    articlesQuery,
+  const [result, { data: stats }, { data: niche }, categories] = await Promise.all([
+    ["articles", "schedule"].includes(section)
+      ? readList(
+          () => {
+            let query = supabase
+              .from(section === "schedule" ? "publish_slots" : "article_list")
+              .select(section === "schedule" ? "*" : ARTICLE_LIST_FIELDS, { count: "exact" })
+              .eq("website_id", websiteId);
+            if (section === "schedule" && state.status !== "all")
+              query =
+                state.status === "problems"
+                  ? query.in("status", ["skipped", "failed"])
+                  : query.eq("status", state.status);
+            if (section === "articles" && state.scheduled !== "all")
+              query =
+                state.scheduled === "yes" ? query.not("scheduled_for", "is", null) : query.is("scheduled_for", null);
+            return query;
+          },
+          state,
+          website.timezone,
+        )
+      : Promise.resolve({ data: [], count: 0 }),
     supabase.from("website_article_stats").select("*").eq("website_id", websiteId).maybeSingle(),
     website.niche_id
       ? supabase.from("niches").select("name").eq("id", website.niche_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    allRows(() =>
+      supabase.from("categories").select("id, name").eq("website_id", websiteId).order("sort_order").order("id"),
+    ),
   ]);
   const rtl = website.text_direction === "rtl";
 
@@ -122,6 +134,7 @@ export default async function WebsitePage({ params, searchParams }) {
         }
       />
 
+      <WebsiteNav websiteId={websiteId} active={section} />
       <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
         <Stat label="In review" value={stats?.in_review ?? 0} icon={ClipboardCheck} tone="amber" />
         <Stat label="Approved" value={stats?.approved ?? 0} icon={CircleCheck} tone="blue" />
@@ -136,93 +149,90 @@ export default async function WebsitePage({ params, searchParams }) {
         />
       </div>
 
-      {!website.archived_at ? <TodaySchedule website={website} /> : null}
-
-      <TrafficCard supabase={supabase} website={website} isAdmin={user.isAdmin} />
-
-      <TopContentCard supabase={supabase} website={website} />
-
-      <AiUsageCard supabase={supabase} website={website} />
-
-      <FilterTabs
-        active={filter}
-        items={FILTERS.map((item) => ({
-          key: item.key,
-          label: item.label,
-          href: item.key === "all" ? `/websites/${websiteId}` : `/websites/${websiteId}?status=${item.key}`,
-        }))}
-      />
-
-      {articles && articles.length > 0 ? (
-        <Table>
-          <thead>
-            <tr>
-              <Th>Title</Th>
-              <Th>Status</Th>
-              <Th className="hidden lg:table-cell">Origin</Th>
-              <Th className="hidden md:table-cell">Updated</Th>
-              <Th className="hidden sm:table-cell">Published</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {articles.map((article) => (
-              <tr key={article.id}>
-                <Td className="max-w-md">
-                  <Link
-                    href={`/articles/${article.id}`}
-                    dir={rtl ? "rtl" : "ltr"}
-                    className={`${linkClass} line-clamp-2`}
-                  >
-                    {article.title}
-                  </Link>
-                  <div className="mt-0.5 text-xs text-muted-foreground md:hidden">
-                    Updated {formatDateTime(article.updated_at, website.timezone)}
-                  </div>
-                </Td>
-                <Td>
-                  <ArticleStatusBadge status={article.status} />
-                </Td>
-                <Td className="hidden capitalize text-muted-foreground lg:table-cell">{article.origin}</Td>
-                <Td className="hidden whitespace-nowrap text-muted-foreground md:table-cell">
-                  {formatDateTime(article.updated_at, website.timezone)}
-                </Td>
-                <Td className="hidden whitespace-nowrap text-muted-foreground sm:table-cell">
-                  {article.wp_post_url ? (
-                    <a
-                      href={article.wp_post_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 underline-offset-4 hover:text-primary hover:underline"
-                    >
-                      {formatDateTime(article.published_at, website.timezone)}
-                      <ExternalLink className="size-3" />
-                    </a>
-                  ) : (
-                    "—"
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      ) : (
-        <EmptyState
-          icon={FileText}
-          title={`No articles${filter !== "all" ? " with this status" : " yet"}`}
-          action={
-            !website.archived_at ? (
-              <ButtonLink href={`/websites/${websiteId}/articles/new`} variant="secondary">
-                <Plus />
-                Write an article
-              </ButtonLink>
-            ) : null
-          }
-        >
-          {filter !== "all"
-            ? "Try another filter, or write a new article."
-            : "Articles you write or automation drafts will appear here."}
-        </EmptyState>
-      )}
+      {section === "overview" || section === "schedule" ? <TodaySchedule website={website} /> : null}
+      {section === "traffic" ? (
+        <>
+          <TrafficCard supabase={supabase} website={website} isAdmin={user.isAdmin} />
+          <TopContentCard supabase={supabase} website={website} />
+        </>
+      ) : null}
+      {section === "costs" ? <AiUsageCard supabase={supabase} website={website} /> : null}
+      {section === "articles" ? (
+        <>
+          <FilterTabs
+            active={state.status}
+            items={articleStatuses.map((key) => ({
+              key,
+              label: key.replaceAll("_", " "),
+              href: listHref(path, state, { status: key }),
+            }))}
+          />
+          <ListToolbar
+            path={path}
+            state={state}
+            searchLabel="Search article titles"
+            choices={{
+              category: [
+                { value: "all", label: "All categories" },
+                ...categories.map((category) => ({ value: category.id, label: category.name })),
+              ],
+            }}
+          />
+          <ListResults
+            result={result}
+            path={path}
+            state={state}
+            title="No articles yet"
+            empty={<Link href={`${path}/articles/new`}>Write an article, or choose a story for drafting.</Link>}
+          >
+            <ArticleTable articles={result.data} websites={[website]} path={path} state={state} />
+          </ListResults>
+        </>
+      ) : null}
+      {section === "schedule" ? (
+        <>
+          <h2 className="mb-3 text-lg font-semibold">Publishing slot history</h2>
+          <ListToolbar path={path} state={state} />
+          <ListResults
+            result={result}
+            path={path}
+            state={state}
+            title="No publishing slots yet"
+            empty="Handled automatic publishing slots appear here."
+          >
+            <Table>
+              <thead>
+                <tr>
+                  <Th>Time ({website.timezone})</Th>
+                  <Th>Status</Th>
+                  <Th>Article / note</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.data.map((slot) => (
+                  <tr key={slot.id}>
+                    <Td>{formatDateTime(slot.slot_at, website.timezone)}</Td>
+                    <Td>
+                      <Badge tone={slot.status === "failed" ? "red" : slot.status === "published" ? "green" : "amber"}>
+                        {slot.status}
+                      </Badge>
+                    </Td>
+                    <Td>
+                      {slot.article_id ? (
+                        <Link href={`/articles/${slot.article_id}`} className={linkClass}>
+                          View article
+                        </Link>
+                      ) : (
+                        slot.note
+                      )}
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </ListResults>
+        </>
+      ) : null}
     </>
   );
 }

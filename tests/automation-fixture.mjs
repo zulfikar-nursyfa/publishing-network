@@ -19,6 +19,10 @@ export function automationFixture(tables) {
           filters.push((row) => valueAt(row, key) === value);
           return query;
         },
+        neq(key, value) {
+          filters.push((row) => valueAt(row, key) !== value);
+          return query;
+        },
         is(key, value) {
           return query.eq(key, value);
         },

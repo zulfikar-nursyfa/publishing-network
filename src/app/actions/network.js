@@ -37,13 +37,18 @@ export async function updateStrictDraftChecks(_prev, formData) {
 export async function setNetworkPaused(paused) {
   const user = await requireAdmin();
   const supabase = await createClient();
-  await supabase.from("network_settings").update({ automation_paused: paused, updated_by: user.id }).eq("id", true);
+  const { error } = await supabase
+    .from("network_settings")
+    .update({ automation_paused: paused, updated_by: user.id })
+    .eq("id", true);
+  if (error) return { error: error.message };
   await recordAudit({
     action: paused ? "network.automation_paused" : "network.automation_resumed",
     entityType: "network",
     actorId: user.id,
   });
   revalidatePath("/", "layout");
+  return { ok: true, message: paused ? "Network automation paused." : "Network automation resumed." };
 }
 
 export async function updateNetworkSettings(_prev, formData) {

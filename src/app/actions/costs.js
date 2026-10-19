@@ -33,11 +33,12 @@ export async function addCostEntry(_prev, formData) {
 export async function deleteCostEntry(entryId) {
   const user = await requireAdmin();
   const db = await createClient();
-  const { data } = await db
+  const { data, error } = await db
     .from("cost_entries")
     .delete()
     .eq("id", entryId)
     .select("website_id, month, category, amount_usd");
+  if (error) return { error: error.message };
   if (data?.length) {
     await recordAudit({
       action: "costs.entry_deleted",

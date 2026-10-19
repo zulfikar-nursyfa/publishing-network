@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export const COST_CATEGORIES = [
   { key: "images", label: "Images" },
   { key: "sources", label: "Paid sources" },
@@ -8,7 +10,11 @@ export const COST_CATEGORIES = [
 
 /** "YYYY-MM" from the query string, or the current UTC month (the budget month). */
 export function monthParam(value, now = new Date()) {
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value ?? "") ? value : now.toISOString().slice(0, 7);
+  const parsed = z
+    .string()
+    .regex(/^[1-9]\d{3}-(0[1-9]|1[0-2])$/)
+    .safeParse(value);
+  return parsed.success ? parsed.data : now.toISOString().slice(0, 7);
 }
 
 export function shiftMonth(month, delta) {

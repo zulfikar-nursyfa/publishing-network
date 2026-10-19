@@ -1,3 +1,9 @@
+import { RelativeTime } from "@/components/relative-time";
+import { z } from "zod";
+import { parseListParams, enumFilter } from "@/lib/list-params";
+import { readList } from "@/lib/lists";
+import { ListToolbar } from "@/components/list-controls";
+import { ListResults } from "@/components/list-results";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -5,21 +11,37 @@ import { createClient } from "@/lib/supabase/server";
 import { Alert, Badge, Card, PageHeader } from "@/components/ui";
 import { JobControls, UsageReconciliationForm } from "../job-controls";
 
-export default async function JobPage({ params }) {
+export default async function JobPage({ params, searchParams }) {
   const user = await requireUser();
   const { jobId } = await params;
+  if (!z.uuid().safeParse(jobId).success) notFound();
   const db = await createClient();
   const { data: job } = await db
     .from("jobs")
-    .select("*, websites(name), story_candidates(title, url)")
+    .select("*, websites(name, timezone), story_candidates(title, url)")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) notFound();
-  const { data: usage } = await db
-    .from("ai_usage")
-    .select("id, model, operation, status, input_tokens, output_tokens, estimated_cost_usd, reserved_cost_usd")
-    .eq("job_id", jobId)
-    .order("created_at");
+  const state = parseListParams(await searchParams, {
+    sorts: { created: "created_at", operation: "operation", model: "model" },
+    defaultSort: "created",
+    search: ["model"],
+    dateColumn: "created_at",
+    filters: {
+      status: enumFilter(
+        "Call status",
+        ["all", "reserved", "uncertain", "completed", "failed", "reconciled"],
+        "status",
+      ),
+      operation: enumFilter("Operation", ["all", "search", "research", "draft", "verify", "illustrate"], "operation"),
+    },
+  });
+  const usageResult = await readList(
+    () => db.from("ai_usage").select("*", { count: "exact" }).eq("job_id", jobId),
+    state,
+    job.websites?.timezone ?? "UTC",
+  );
+  const usage = usageResult.data;
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
@@ -162,21 +184,30 @@ export default async function JobPage({ params }) {
         title="AI usage estimates"
         description="Calendar months use UTC. Uncertain calls retain their full reservation until reconciled; provider billing is authoritative."
       >
-        <ul className="space-y-2 text-sm">
-          {(usage ?? []).map((call) => (
-            <li key={call.id}>
-              {call.operation} · {call.model} · {call.status} · {call.input_tokens} input / {call.output_tokens} output
-              tokens · $
-              {Number(
-                ["reserved", "uncertain"].includes(call.status) ? call.reserved_cost_usd : call.estimated_cost_usd,
-              ).toFixed(5)}{" "}
-              {["reserved", "uncertain"].includes(call.status) ? "reserved" : "estimated"}
-              {user.isAdmin && ["reserved", "uncertain"].includes(call.status) ? (
-                <UsageReconciliationForm usageId={call.id} />
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        <ListToolbar path={`/jobs/${job.id}`} state={state} searchLabel="Search AI model" />
+        <ListResults
+          result={usageResult}
+          path={`/jobs/${job.id}`}
+          state={state}
+          title="No AI calls yet"
+          empty="Calls are recorded when the job runs."
+        >
+          <ul className="space-y-2 text-sm">
+            {(usage ?? []).map((call) => (
+              <li key={call.id}>
+                <RelativeTime value={call.created_at} timezone={job.websites?.timezone} /> · {call.operation} ·{" "}
+                {call.model} · {call.status} · {call.input_tokens} input / {call.output_tokens} output tokens · $
+                {Number(
+                  ["reserved", "uncertain"].includes(call.status) ? call.reserved_cost_usd : call.estimated_cost_usd,
+                ).toFixed(5)}{" "}
+                {["reserved", "uncertain"].includes(call.status) ? "reserved" : "estimated"}
+                {user.isAdmin && ["reserved", "uncertain"].includes(call.status) ? (
+                  <UsageReconciliationForm usageId={call.id} />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </ListResults>
       </Card>
     </div>
   );

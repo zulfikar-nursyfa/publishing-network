@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { z } from "zod";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -33,6 +34,7 @@ export async function requireAdmin() {
  */
 export async function requireWebsite(websiteId) {
   const user = await requireUser();
+  if (!z.uuid().safeParse(websiteId).success) notFound();
   const supabase = await createClient();
   const { data: website } = await supabase.from("websites").select("*").eq("id", websiteId).maybeSingle();
   if (!website) notFound();

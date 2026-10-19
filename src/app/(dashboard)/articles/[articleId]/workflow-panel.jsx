@@ -9,7 +9,7 @@ import {
   transitionArticle,
   unpublishArticleAction,
 } from "@/app/actions/articles";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { ActionForm, FormAlert, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, cn, inputClass } from "@/components/ui";
 
 const STEPS = [
@@ -174,7 +174,7 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
         ) : null}
 
         {exhausted && isAdmin ? (
-          <form action={resetPublicationAttempts.bind(null, articleId)}>
+          <ActionForm action={resetPublicationAttempts.bind(null, articleId)}>
             <SubmitButton
               variant="secondary"
               className="w-full"
@@ -184,7 +184,7 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
               <RotateCcw />
               Reset retry attempts
             </SubmitButton>
-          </form>
+          </ActionForm>
         ) : null}
 
         {status !== "published" ? (

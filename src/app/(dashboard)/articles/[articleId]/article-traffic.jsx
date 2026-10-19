@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ChartLine } from "lucide-react";
 import { Card, DescriptionList } from "@/components/ui";
 import { pagePath } from "@/lib/traffic/top";
@@ -59,6 +60,12 @@ export async function ArticleTraffic({ supabase, article, website }) {
             ))}
           </ul>
           <p className="mt-2 text-xs text-muted-foreground">Clicks / impressions</p>
+          <Link
+            href={`/websites/${website.id}/traffic?type=searches&path=${encodeURIComponent(path)}`}
+            className="mt-2 inline-block text-sm text-primary hover:underline"
+          >
+            View all searches for this article
+          </Link>
         </div>
       ) : null}
     </Card>

@@ -1,3 +1,5 @@
+import { AttentionPanel } from "@/components/attention-panel";
+import { allRows } from "@/lib/lists";
 import Link from "next/link";
 import {
   CircleCheck,
@@ -12,7 +14,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { setNetworkPaused } from "@/app/actions/network";
-import { SubmitButton } from "@/components/form-controls";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
 import {
   Alert,
   ArticleStatusBadge,
@@ -31,7 +33,7 @@ import {
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/costs";
-import { trafficSince, trafficTotals } from "@/lib/traffic/totals";
+import { trafficTotals } from "@/lib/traffic/totals";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OverviewPage() {
@@ -47,14 +49,17 @@ export default async function OverviewPage() {
     { data: spend, error: spendError },
     { data: traffic },
   ] = await Promise.all([
-    supabase
-      .from("websites")
-      .select(
-        "id, name, domain, language, daily_quota, automation_paused, wp_connection_status, archived_at, monthly_ai_budget_usd, ga4_property_id, search_console_site, niche:niches(name)",
-      )
-      .is("archived_at", null)
-      .order("name"),
-    supabase.from("website_article_stats").select("*"),
+    allRows(() =>
+      supabase
+        .from("websites")
+        .select(
+          "id, name, domain, language, timezone, daily_quota, automation_paused, wp_connection_status, archived_at, monthly_ai_budget_usd, ga4_property_id, search_console_site, niche:niches(name)",
+        )
+        .is("archived_at", null)
+        .order("name")
+        .order("id"),
+    ).then((data) => ({ data })),
+    allRows(() => supabase.from("website_article_stats").select("*").order("website_id")).then((data) => ({ data })),
     supabase
       .from("articles")
       .select("id, title, status, website_id, published_at, updated_at, wp_post_url")
@@ -67,8 +72,8 @@ export default async function OverviewPage() {
       .order("updated_at", { ascending: false })
       .limit(10),
     supabase.from("network_settings").select("automation_paused").maybeSingle(),
-    supabase.from("website_ai_spend").select("*"),
-    supabase.from("website_traffic_daily").select("website_id, page_views, clicks").gte("day", trafficSince()),
+    allRows(() => supabase.from("website_ai_spend").select("*").order("website_id")).then((data) => ({ data })),
+    allRows(() => supabase.from("website_traffic_totals").select("*").order("website_id")).then((data) => ({ data })),
   ]);
 
   const statsBySite = new Map((stats ?? []).map((row) => [row.website_id, row]));
@@ -102,7 +107,7 @@ export default async function OverviewPage() {
           user.isAdmin ? (
             <>
               {!network?.automation_paused ? (
-                <form action={setNetworkPaused.bind(null, true)}>
+                <ActionForm action={setNetworkPaused.bind(null, true)}>
                   <SubmitButton
                     variant="secondary"
                     confirm="Pause automation on every website? Publishing slots stop until you resume. Manual and scheduled publishing continue."
@@ -111,7 +116,7 @@ export default async function OverviewPage() {
                     <CirclePause />
                     Pause all automation
                   </SubmitButton>
-                </form>
+                </ActionForm>
               ) : null}
               <ButtonLink href="/websites/new">
                 <Plus />
@@ -122,15 +127,16 @@ export default async function OverviewPage() {
         }
       />
 
+      <AttentionPanel db={supabase} />
       {network?.automation_paused ? (
         <Alert tone="warning" title="Automation is paused across the network" className="mb-8">
           Publishing slots do not run on any website. Manual and scheduled publishing continue.
           {user.isAdmin ? (
-            <form action={setNetworkPaused.bind(null, false)} className="mt-3">
+            <ActionForm action={setNetworkPaused.bind(null, false)} className="mt-3">
               <SubmitButton size="sm" variant="secondary">
                 Resume automation
               </SubmitButton>
-            </form>
+            </ActionForm>
           ) : null}
         </Alert>
       ) : null}
@@ -184,7 +190,7 @@ export default async function OverviewPage() {
               </tr>
             </thead>
             <tbody>
-              {websites.map((site) => {
+              {websites.slice(0, 10).map((site) => {
                 const row = statsBySite.get(site.id);
                 const aiSpend = spendBySite.get(site.id) ?? 0;
                 const budget = Number(site.monthly_ai_budget_usd);
@@ -280,7 +286,14 @@ export default async function OverviewPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="min-w-0">
-          <SectionHeading title="Recent articles" />
+          <SectionHeading
+            title="Recent articles"
+            actions={
+              <Link href="/articles?website=all" className="text-sm font-medium text-primary">
+                View all
+              </Link>
+            }
+          />
           {recent && recent.length > 0 ? (
             <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
               {recent.map((article) => (
@@ -293,9 +306,15 @@ export default async function OverviewPage() {
                       <FileText className="size-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{article.title}</div>
+                      <div dir="auto" className="truncate text-sm font-medium">
+                        {article.title}
+                      </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {siteName.get(article.website_id) ?? "Archived website"} · {formatDateTime(article.updated_at)}
+                        {siteName.get(article.website_id) ?? "Archived website"} ·{" "}
+                        {formatDateTime(
+                          article.updated_at,
+                          websites?.find((site) => site.id === article.website_id)?.timezone,
+                        )}
                       </div>
                     </div>
                     <ArticleStatusBadge status={article.status} />
@@ -308,7 +327,14 @@ export default async function OverviewPage() {
           )}
         </section>
         <section className="min-w-0">
-          <SectionHeading title="Publishing failures" />
+          <SectionHeading
+            title="Publishing failures"
+            actions={
+              <Link href="/articles?publication=failed&website=all" className="text-sm font-medium text-primary">
+                View all
+              </Link>
+            }
+          />
           {failures && failures.length > 0 ? (
             <ul className="divide-y overflow-hidden rounded-xl border border-red-500/20 bg-card shadow-xs">
               {failures.map((failure) => (

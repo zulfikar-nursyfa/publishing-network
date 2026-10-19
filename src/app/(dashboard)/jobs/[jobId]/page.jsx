@@ -10,6 +10,9 @@ import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Alert, Badge, Card, PageHeader } from "@/components/ui";
 import { JobControls, UsageReconciliationForm } from "../job-controls";
+import { RemoveDraftForm } from "@/components/draft-removal";
+import { DraftJobState } from "@/components/draft-job-state";
+import { canRemoveDraft } from "@/lib/draft-job-policy";
 
 export default async function JobPage({ params, searchParams }) {
   const user = await requireUser();
@@ -18,7 +21,7 @@ export default async function JobPage({ params, searchParams }) {
   const db = await createClient();
   const { data: job } = await db
     .from("jobs")
-    .select("*, websites(name, timezone), story_candidates(title, url)")
+    .select("*, websites(name, timezone), story_candidates(title, url, status)")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) notFound();
@@ -48,9 +51,16 @@ export default async function JobPage({ params, searchParams }) {
         back={{ href: "/jobs", label: "Draft jobs" }}
         title={job.story_candidates?.title ?? "Draft job"}
         description={`${job.websites?.name} · ${job.step.replaceAll("_", " ")}`}
+        actions={
+          canRemoveDraft(job, job.story_candidates?.status) ? (
+            <RemoveDraftForm jobId={job.id} title={job.story_candidates?.title} />
+          ) : null
+        }
       />
-      <Badge tone={job.status === "failed" ? "red" : job.status === "succeeded" ? "green" : "blue"}>{job.status}</Badge>
-      {job.last_error ? <Alert tone="error">{job.last_error}</Alert> : null}
+      <DraftJobState job={job} timezone={job.websites?.timezone} />
+      {job.last_error && !job.waiting_kind ? (
+        <Alert tone={job.status === "failed" ? "error" : "info"}>{job.last_error}</Alert>
+      ) : null}
       {job.state.warnings?.length ? (
         <Card
           title="Warnings for the reviewer"

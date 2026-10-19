@@ -11,7 +11,7 @@ import {
   sortRows,
   websitePreference,
 } from "@/lib/list-params";
-import { storyList, websiteList, articleList, activityList } from "@/lib/list-configs";
+import { storyList, websiteList, articleList, activityList, jobList } from "@/lib/list-configs";
 import { allRows, applyListQuery, readList } from "@/lib/list-query";
 
 const website = "11111111-1111-4111-8111-111111111111";
@@ -134,6 +134,34 @@ function queryRecorder(count = 70) {
   );
   return { query, calls };
 }
+
+test("draft jobs default to active work and preserve explicit history filters before pagination", async () => {
+  const active = state({}, jobList);
+  assert.equal(active.status, "active");
+  const { query, calls } = queryRecorder();
+  await readList(() => query, active);
+  assert.ok(
+    calls.some(
+      (call) =>
+        call[0] === "in" &&
+        call[1] === "status" &&
+        JSON.stringify(call[2]) === JSON.stringify(["queued", "running", "failed"]),
+    ),
+  );
+  assert.ok(calls.findIndex((call) => call[0] === "in") < calls.findIndex((call) => call[0] === "range"));
+  for (const status of ["cancelled", "succeeded"]) {
+    const history = queryRecorder();
+    applyListQuery(history.query, state({ status }, jobList));
+    assert.ok(history.calls.some((call) => call[0] === "eq" && call[1] === "status" && call[2] === status));
+    assert.equal(
+      new URL(listHref("/jobs", state({ status }, jobList)), "https://local.test").searchParams.get("status"),
+      status,
+    );
+  }
+  const all = queryRecorder();
+  applyListQuery(all.query, state({ status: "all" }, jobList));
+  assert.ok(!all.calls.some((call) => call[1] === "status"));
+});
 
 test("server queries narrow filters and stable orders; pagination never uses URL column names", async () => {
   const parsed = state({ website, status: "selected", q: "50%_off", sort: "unknown", size: "50", page: "2" });

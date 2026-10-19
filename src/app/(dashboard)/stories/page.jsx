@@ -1,6 +1,6 @@
 import { setStoryStatus } from "@/app/actions/stories";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
-import { Badge, FilterTabs, PageHeader, Table, Td, Th, checkboxClass } from "@/components/ui";
+import { Badge, FilterTabs, PageHeader, Table, Td, Th, RowCheckbox } from "@/components/ui";
 import { BulkStoryActions } from "@/components/bulk-story-actions";
 import { ListToolbar, SortTh } from "@/components/list-controls";
 import { ListResults } from "@/components/list-results";
@@ -11,6 +11,9 @@ import { allRows, listContext, readList } from "@/lib/lists";
 import { listHref } from "@/lib/list-params";
 import { storyList } from "@/lib/list-configs";
 import { QueueDraftForm } from "../jobs/job-controls";
+import Link from "next/link";
+import { RemoveDraftForm } from "@/components/draft-removal";
+import { canRemoveDraft } from "@/lib/draft-job-policy";
 
 export const metadata = { title: "Story inbox" };
 export default async function StoriesPage({ searchParams }) {
@@ -33,12 +36,19 @@ export default async function StoriesPage({ searchParams }) {
     timezone,
   );
   const path = "/stories";
+  const { data: jobs = [], error: jobsError } = result.data.length
+    ? await db
+        .from("jobs")
+        .select("id, story_id, status")
+        .in(
+          "story_id",
+          result.data.map((story) => story.id),
+        )
+    : { data: [] };
+  const jobsByStory = new Map((jobs ?? []).map((job) => [job.story_id, job]));
   return (
     <>
-      <PageHeader
-        title="Story inbox"
-        description={`Choose stories from approved feeds. Dates use ${timezone}. Select or skip a page of stories together.`}
-      />
+      <PageHeader title="Story inbox" description={`Stories from approved feeds · ${timezone}`} />
       <FilterTabs
         active={state.status}
         items={["new", "selected", "skipped", "used", "all"].map((key) => ({
@@ -50,6 +60,7 @@ export default async function StoriesPage({ searchParams }) {
       <ListToolbar
         path={path}
         state={state}
+        tabFilter="status"
         websites={websites}
         searchLabel="Search story titles"
         choices={{
@@ -66,7 +77,7 @@ export default async function StoriesPage({ searchParams }) {
         title="No stories yet"
         empty="Add active source feeds in website settings. Discovery will bring their stories here."
       >
-        <BulkStoryActions />
+        <BulkStoryActions selectionKey={listHref(path, state)} />
         <Table className="story-inbox-table">
           <thead>
             <tr>
@@ -88,98 +99,110 @@ export default async function StoriesPage({ searchParams }) {
             </tr>
           </thead>
           <tbody>
-            {result.data.map((story) => (
-              <tr key={story.id}>
-                <Td>
-                  {story.status !== "used" ? (
-                    <input
-                      aria-label={`Choose ${story.title}`}
-                      type="checkbox"
-                      name="story_ids"
-                      value={story.id}
-                      form="bulk-stories"
-                      className={checkboxClass}
-                    />
-                  ) : null}
-                </Td>
-                <Td className="min-w-56 max-w-md">
-                  <a
-                    href={story.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    dir="auto"
-                    className="font-medium hover:underline"
-                  >
-                    {story.title}
-                  </a>
-                  <p dir="auto" className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                    {story.summary}
-                  </p>
-                  <div className="mt-1 flex gap-1">
-                    <Badge>{story.status}</Badge>
-                    {story.selected_automatically ? <Badge tone="green">Auto-selected</Badge> : null}
-                  </div>
-                  {story.status === "selected" ? <QueueDraftForm storyId={story.id} /> : null}
-                </Td>
-                <Td>
-                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Website</span>
-                  {story.website_name}
-                </Td>
-                <Td>
-                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Source</span>
-                  {story.source_name ?? "Removed source"}
-                  <div className="mt-1">
-                    <Badge tone={["newsroom", "government"].includes(story.source_kind) ? "blue" : "gray"}>
-                      {story.source_kind ?? "unknown"}
-                    </Badge>
-                  </div>
-                </Td>
-                <Td className="whitespace-nowrap">
-                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Published</span>
-                  <RelativeTime value={story.source_published_at} timezone={story.timezone} />
-                </Td>
-                <Td className="whitespace-nowrap">
-                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Discovered</span>
-                  <RelativeTime value={story.created_at} timezone={story.timezone} />
-                </Td>
-                <Td>
-                  {story.status !== "used" ? (
-                    <div className="flex flex-wrap gap-2">
-                      {story.status !== "selected" ? (
-                        <ActionForm action={setStoryStatus.bind(null, story.id, "selected")}>
-                          <SubmitButton size="sm">Select</SubmitButton>
-                        </ActionForm>
-                      ) : (
-                        <ActionForm action={setStoryStatus.bind(null, story.id, "new")}>
-                          <SubmitButton
-                            size="sm"
-                            variant="secondary"
-                            confirm="Unselect this story and cancel any queued or running draft?"
-                            confirmLabel="Unselect"
-                          >
-                            Unselect
-                          </SubmitButton>
-                        </ActionForm>
-                      )}
-                      {story.status !== "skipped" ? (
-                        <ActionForm action={setStoryStatus.bind(null, story.id, "skipped")}>
-                          <SubmitButton
-                            size="sm"
-                            variant="secondary"
-                            confirm={
-                              story.status === "selected" ? "Skip this story and cancel its draft job?" : undefined
-                            }
-                            confirmLabel="Skip"
-                          >
-                            Skip
-                          </SubmitButton>
-                        </ActionForm>
-                      ) : null}
+            {result.data.map((story) => {
+              const job = jobsByStory.get(story.id);
+              return (
+                <tr key={story.id}>
+                  <Td>
+                    {story.status !== "used" ? (
+                      <RowCheckbox
+                        aria-label={`Choose ${story.title}`}
+                        type="checkbox"
+                        name="story_ids"
+                        value={story.id}
+                        form="bulk-stories"
+                      />
+                    ) : null}
+                  </Td>
+                  <Td className="min-w-56 max-w-md">
+                    <a
+                      href={story.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      dir="auto"
+                      className="font-medium hover:underline"
+                    >
+                      {story.title}
+                    </a>
+                    <p dir="auto" className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {story.summary}
+                    </p>
+                    <div className="mt-1 flex gap-1">
+                      <Badge>{story.status}</Badge>
+                      {story.selected_automatically ? <Badge tone="green">Auto-selected</Badge> : null}
                     </div>
-                  ) : null}
-                </Td>
-              </tr>
-            ))}
+                    {story.status === "selected" && !job && !jobsError ? <QueueDraftForm storyId={story.id} /> : null}
+                    {job ? (
+                      <Link href={`/jobs/${job.id}`} className="mt-2 inline-block text-xs underline underline-offset-4">
+                        View draft job
+                      </Link>
+                    ) : null}
+                  </Td>
+                  <Td>
+                    <span className="mb-1 block text-xs text-muted-foreground lg:hidden">Website</span>
+                    {story.website_name}
+                  </Td>
+                  <Td>
+                    <span className="mb-1 block text-xs text-muted-foreground lg:hidden">Source</span>
+                    {story.source_name ?? "Removed source"}
+                    <div className="mt-1">
+                      <Badge tone={["newsroom", "government"].includes(story.source_kind) ? "blue" : "gray"}>
+                        {story.source_kind ?? "unknown"}
+                      </Badge>
+                    </div>
+                  </Td>
+                  <Td className="whitespace-nowrap">
+                    <span className="mb-1 block text-xs text-muted-foreground lg:hidden">Published</span>
+                    <RelativeTime value={story.source_published_at} timezone={story.timezone} />
+                  </Td>
+                  <Td className="whitespace-nowrap">
+                    <span className="mb-1 block text-xs text-muted-foreground lg:hidden">Discovered</span>
+                    <RelativeTime value={story.created_at} timezone={story.timezone} />
+                  </Td>
+                  <Td>
+                    {story.status !== "used" ? (
+                      <div className="flex flex-wrap gap-2">
+                        {canRemoveDraft(job, story.status) ? (
+                          <RemoveDraftForm jobId={job.id} title={story.title} />
+                        ) : null}
+                        {story.status !== "selected" ? (
+                          <ActionForm action={setStoryStatus.bind(null, story.id, "selected")}>
+                            <SubmitButton size="sm" variant="secondary">
+                              Select
+                            </SubmitButton>
+                          </ActionForm>
+                        ) : (
+                          <ActionForm action={setStoryStatus.bind(null, story.id, "new")}>
+                            <SubmitButton
+                              size="sm"
+                              variant="secondary"
+                              confirm="Unselect this story and cancel any queued or running draft?"
+                              confirmLabel="Unselect"
+                            >
+                              Unselect
+                            </SubmitButton>
+                          </ActionForm>
+                        )}
+                        {story.status !== "skipped" ? (
+                          <ActionForm action={setStoryStatus.bind(null, story.id, "skipped")}>
+                            <SubmitButton
+                              size="sm"
+                              variant="secondary"
+                              confirm={
+                                story.status === "selected" ? "Skip this story and cancel its draft job?" : undefined
+                              }
+                              confirmLabel="Skip"
+                            >
+                              Skip
+                            </SubmitButton>
+                          </ActionForm>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </Td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
       </ListResults>

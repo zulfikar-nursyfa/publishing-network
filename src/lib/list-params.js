@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { humanLabel } from "./list-labels";
 
 export const PAGE_SIZES = [25, 50, 100];
 const integer = z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(1_000_000));
@@ -7,7 +8,7 @@ const parse = (schema, value, fallback) => {
   const result = schema.safeParse(value);
   return result.success ? result.data : fallback;
 };
-export const options = (...values) => values.map((value) => ({ value, label: value.replaceAll("_", " ") }));
+export const options = (...values) => values.map((value) => ({ value, label: humanLabel(value) }));
 export const uuidFilter = (label, column = "website_id") => ({ label, column, uuid: true, default: "all" });
 export const enumFilter = (label, values, column, fallback = "all") => ({
   label,

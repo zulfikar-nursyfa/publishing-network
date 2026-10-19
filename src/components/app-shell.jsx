@@ -68,16 +68,16 @@ function Brand({ appEnv }) {
         href="/"
         className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
       >
-        <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-violet-500 text-white shadow-sm shadow-primary/30">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-foreground text-background">
           <Newspaper className="size-4" />
         </span>
         <span className="leading-tight">
           <span className="block text-sm font-semibold tracking-tight">Publishing Network</span>
-          <span className="block text-[0.7rem] text-muted-foreground">Editorial control centre</span>
+          <span className="block text-xs text-muted-foreground">Editorial control centre</span>
         </span>
       </Link>
       {appEnv !== "production" ? (
-        <Badge tone="amber" className="px-1.5 text-[0.65rem] uppercase">
+        <Badge tone="amber" className="px-1.5 text-xs">
           {appEnv}
         </Badge>
       ) : null}
@@ -94,7 +94,7 @@ function Nav({ isAdmin, onNavigate, attention = {} }) {
         if (items.length === 0) return null;
         return (
           <div key={section.label}>
-            <div className="mb-1.5 px-3 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground/80">
+            <div className="mb-1.5 px-3 text-xs font-medium text-muted-foreground">
               {section.label === "Administration" && !isAdmin ? "History" : section.label}
             </div>
             <ul className="space-y-0.5">
@@ -110,20 +110,20 @@ function Nav({ isAdmin, onNavigate, attention = {} }) {
                       className={cn(
                         "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40",
                         active
-                          ? "bg-accent text-accent-foreground"
+                          ? "bg-muted text-foreground"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >
                       <Icon
                         className={cn(
                           "size-4 shrink-0",
-                          active ? "text-primary" : "text-muted-foreground group-hover:text-foreground",
+                          active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
                         )}
                       />
                       {item.label}
                       {attention[item.href] > 0 ? (
                         <span
-                          className="ml-auto rounded-full bg-accent px-2 py-0.5 text-xs tabular-nums text-accent-foreground"
+                          className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-foreground"
                           aria-label={`${attention[item.href]} ${item.href === "/jobs" ? "failed jobs" : "waiting for review"}`}
                         >
                           {attention[item.href]}
@@ -278,21 +278,21 @@ export function AppShell({ user, appEnv, children, attention }) {
     <div className="min-h-screen">
       <ActionNotice />
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar xl:block">
         <SidebarBody user={user} appEnv={appEnv} attention={attention} />
       </aside>
 
       {/* Mobile top bar + drawer */}
       <Dialog.Root open={open} onOpenChange={setOpen}>
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-lg supports-backdrop-filter:bg-background/70 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background px-4 xl:hidden">
           <Dialog.Trigger
-            className="-ml-1.5 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            className="-ml-1.5 flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
             aria-label="Open navigation"
           >
             <Menu className="size-5" />
           </Dialog.Trigger>
           <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-primary to-violet-500 text-white">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground text-background">
               <Newspaper className="size-3.5" />
             </span>
             <span className="truncate">Publishing Network</span>
@@ -302,8 +302,8 @@ export function AppShell({ user, appEnv, children, attention }) {
           </div>
         </header>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] data-[state=open]:animate-fade-in lg:hidden" />
-          <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-sidebar-border bg-sidebar shadow-2xl outline-none data-[state=open]:animate-slide-in-left lg:hidden">
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 data-[state=open]:animate-fade-in xl:hidden" />
+          <Dialog.Content className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] border-r border-sidebar-border bg-sidebar shadow-2xl outline-none data-[state=open]:animate-slide-in-left xl:hidden">
             <Dialog.Title className="sr-only">Navigation</Dialog.Title>
             <Dialog.Description className="sr-only">Main dashboard navigation</Dialog.Description>
             <Dialog.Close
@@ -323,8 +323,9 @@ export function AppShell({ user, appEnv, children, attention }) {
       >
         Skip to content
       </a>
-      <main id="main-content" className="min-w-0 lg:pl-64">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">{children}</div>
+      <main id="main-content" className="min-w-0 xl:pl-64">
+        {/* At 1440px: 256px navigation + two 32px gutters + 1120px canvas. Mobile keeps two 16px gutters. */}
+        <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">{children}</div>
       </main>
     </div>
   );

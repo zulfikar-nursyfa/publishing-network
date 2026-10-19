@@ -1,4 +1,5 @@
 import { enumFilter, uuidFilter } from "./list-params";
+import { ACTIVE_DRAFT_STATUSES } from "./draft-job-policy";
 
 export const ARTICLE_LIST_FIELDS =
   "id, website_id, title, status, origin, category_id, sensitive, submitted_at, created_at, updated_at, published_at, scheduled_for, has_warnings, publication_status";
@@ -58,8 +59,17 @@ export const jobList = {
   dateColumn: "created_at",
   filters: {
     website,
-    status: enumFilter("Status", ["all", "queued", "running", "failed", "succeeded", "cancelled"], "status"),
+    status: {
+      ...enumFilter(
+        "Status",
+        ["active", "all", "queued", "running", "failed", "succeeded", "cancelled"],
+        "status",
+        "active",
+      ),
+      groups: { active: ACTIVE_DRAFT_STATUSES },
+    },
     step: enumFilter("Step", ["all", "collect", "research", "draft", "verify", "illustrate", "create_article"], "step"),
+    waiting: enumFilter("Waiting for", ["all", "budget", "paused"], "waiting_kind"),
   },
 };
 export const websiteList = {

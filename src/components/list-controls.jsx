@@ -1,7 +1,9 @@
 import { ListLink as Link } from "./list-link";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { EmptyState, Th, buttonClass, inputClass, cn } from "./ui";
 import { listHref, clearListHref, PAGE_SIZES } from "@/lib/list-params";
+import { FilterPopover } from "./filter-popover";
+import { humanLabel, sortLabel, dateLabels } from "@/lib/list-labels";
 import { ListForm, DateFilters } from "./list-form";
 
 function HiddenState({ state, except = [] }) {
@@ -10,24 +12,27 @@ function HiddenState({ state, except = [] }) {
     .map((key) => <input key={key} type="hidden" name={key} value={state[key]} />);
 }
 
-export function ListToolbar({ path, state, websites = [], choices = {}, searchLabel = "Search" }) {
-  const fields = Object.entries(state.config.filters ?? {}).filter(([, filter]) => !filter.hidden);
+export function ListToolbar({ path, state, websites = [], choices = {}, searchLabel = "Search", tabFilter }) {
+  const fields = Object.entries(state.config.filters ?? {}).filter(
+    ([key, filter]) => !filter.hidden && key !== tabFilter,
+  );
+  const active = fields.filter(([key, filter]) => state[key] !== (filter.default ?? "all"));
+  const count = active.length + (state.period !== "all" ? 1 : 0);
+  const itemsFor = (key, filter) =>
+    key === "website"
+      ? [{ value: "all", label: "All websites" }, ...websites.map((site) => ({ value: site.id, label: site.name }))]
+      : (choices[key] ?? filter.options ?? [{ value: "all", label: `All ${filter.label.toLowerCase()}s` }]);
   return (
-    <div className="mb-5 space-y-3">
-      <ListForm
-        key={listHref(path, state)}
-        path={path}
-        website={state.website}
-        className="rounded-xl border bg-card p-3 sm:p-4"
-      >
+    <div className="mb-4 space-y-2">
+      <ListForm key={listHref(path, state)} path={path} website={state.website}>
         <HiddenState
           state={state}
           except={["q", "sort", "direction", "period", "from", "to", ...fields.map(([key]) => key)]}
         />
-        <div className="grid min-w-0 grid-cols-2 items-end gap-3 xl:grid-cols-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           {state.config.search?.length ? (
-            <label className="col-span-2 min-w-0 space-y-1 text-xs font-medium">
-              {searchLabel}
+            <label className="min-w-0 basis-full sm:basis-64 sm:flex-1">
+              <span className="sr-only">{searchLabel}</span>
               <input
                 type="search"
                 name="q"
@@ -38,120 +43,98 @@ export function ListToolbar({ path, state, websites = [], choices = {}, searchLa
               />
             </label>
           ) : null}
-          <label className="min-w-0 space-y-1 text-xs font-medium">
-            Sort by
-            <select name="sort" defaultValue={state.sort} className={inputClass}>
-              {Object.keys(state.config.sorts).map((key) => (
-                <option key={key} value={key}>
-                  {key.replaceAll("_", " ")}
-                </option>
+          {fields.length || state.config.dateColumn ? (
+            <FilterPopover count={count}>
+              {fields.map(([key, filter]) => (
+                <label key={key} className="min-w-0 space-y-1.5 text-sm font-medium">
+                  {filter.label}
+                  {filter.text ? (
+                    <input name={key} defaultValue={state[key]} maxLength={filter.max ?? 200} className={inputClass} />
+                  ) : (
+                    <select name={key} aria-label={filter.label} defaultValue={state[key]} className={inputClass}>
+                      {itemsFor(key, filter).map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {humanLabel(item.label)}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </label>
               ))}
-            </select>
-          </label>
-          <label className="min-w-0 space-y-1 text-xs font-medium">
-            Direction
-            <select name="direction" defaultValue={state.direction} className={inputClass}>
-              <option value="asc">Ascending</option>
-              <option value="desc">Descending</option>
-            </select>
-          </label>
-        </div>
-        {fields.length || state.config.dateColumn ? (
-          <details
-            open={fields.some(([key, filter]) => state[key] !== (filter.default ?? "all")) || state.period !== "all"}
-            className="rounded-lg border p-3"
-          >
-            <summary className="cursor-pointer text-sm font-medium">Filters</summary>
-            <div className="mt-3 grid min-w-0 grid-cols-1 items-end gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {fields.map(([key, filter]) => {
-                const items =
-                  key === "website"
-                    ? [
-                        { value: "all", label: "All websites" },
-                        ...websites.map((site) => ({ value: site.id, label: site.name })),
-                      ]
-                    : (choices[key] ?? filter.options ?? [{ value: "all", label: "All" }]);
-                return (
-                  <label key={key} className="min-w-0 space-y-1 text-xs font-medium">
-                    {filter.label}
-                    {filter.text ? (
-                      <input
-                        name={key}
-                        defaultValue={state[key]}
-                        maxLength={filter.max ?? 200}
-                        className={inputClass}
-                      />
-                    ) : (
-                      <select name={key} defaultValue={state[key]} className={inputClass}>
-                        {items.map((item) => (
-                          <option key={item.value} value={item.value}>
-                            {item.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </label>
-                );
-              })}
               {state.config.dateColumn ? <DateFilters period={state.period} from={state.from} to={state.to} /> : null}
-            </div>
-          </details>
-        ) : null}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-          <p className="text-xs text-muted-foreground">
-            Selections apply automatically. Press Enter or Apply to search.
-          </p>
-          <button type="submit" className={buttonClass("secondary", "w-full sm:w-auto")}>
-            Apply
+            </FilterPopover>
+          ) : null}
+          <label className="min-w-0 flex-1 sm:max-w-56">
+            <span className="sr-only">Sort results</span>
+            <select name="ordering" defaultValue={`${state.sort}:${state.direction}`} className={inputClass}>
+              {Object.keys(state.config.sorts).flatMap((key) =>
+                ["desc", "asc"].map((direction) => (
+                  <option key={`${key}:${direction}`} value={`${key}:${direction}`}>
+                    {sortLabel(key, direction, state.config.sorts[key])}
+                  </option>
+                )),
+              )}
+            </select>
+          </label>
+          <button type="submit" className="sr-only">
+            Search
           </button>
         </div>
       </ListForm>
-      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        {state.q ? (
-          <Link
-            className="max-w-full break-words rounded-full border px-2 py-1"
-            href={listHref(path, state, { q: "" })}
-          >
-            Search: {state.q} ×
-          </Link>
-        ) : null}
-        {fields
-          .filter(([key, filter]) => state[key] !== (filter.default ?? "all"))
-          .map(([key, filter]) => (
+      {state.q || count || state.filtered ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {state.q ? (
+            <Link
+              className="filter-chip"
+              aria-label={`Remove search: ${state.q}`}
+              href={listHref(path, state, { q: "" })}
+            >
+              Search: {state.q} ×
+            </Link>
+          ) : null}
+          {active.map(([key, filter]) => (
             <Link
               key={key}
-              className="max-w-full break-words rounded-full border px-2 py-1"
-              href={listHref(path, state, { [key]: filter.default ?? "all" })}
+              className="filter-chip"
+              aria-label={`Remove ${filter.label} filter`}
+              href={listHref(path, state, {
+                [key]: filter.default ?? "all",
+                ...(key === "website" ? { source: "all", category: "all" } : {}),
+              })}
             >
               {filter.label}:{" "}
-              {(key === "website"
-                ? websites.find((site) => site.id === state[key])?.name
-                : (choices[key] ?? filter.options)?.find((item) => item.value === state[key])?.label) ??
-                state[key]}{" "}
-              ×
+              {humanLabel(itemsFor(key, filter).find((item) => item.value === state[key])?.label ?? state[key])} ×
             </Link>
           ))}
-        {state.period !== "all" ? (
-          <Link
-            className="max-w-full break-words rounded-full border px-2 py-1"
-            href={listHref(path, state, { period: "all", from: "", to: "" })}
-          >
-            Dates: {state.period} {state.period === "custom" ? `${state.from}–${state.to}` : ""} ×
-          </Link>
-        ) : null}
-        {state.filtered ? (
-          <Link className="font-medium text-primary underline" href={clearListHref(path, state)}>
-            Clear all
-          </Link>
-        ) : null}
-      </div>
+          {state.period !== "all" ? (
+            <Link
+              className="filter-chip"
+              aria-label="Remove date filter"
+              href={listHref(path, state, { period: "all", from: "", to: "" })}
+            >
+              {state.period === "custom"
+                ? `${state.from || "Any start"}–${state.to || "Any end"}`
+                : dateLabels[state.period]}{" "}
+              ×
+            </Link>
+          ) : null}
+          {state.filtered ? (
+            <Link
+              className="inline-flex min-h-9 items-center px-1 font-medium underline underline-offset-4"
+              href={clearListHref(path, state)}
+            >
+              Clear all
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
 
 export function SortTh({ path, state, column, children, className }) {
   const active = state.sort === column;
-  const Icon = active ? (state.direction === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
+  const Icon = active ? (state.direction === "asc" ? ArrowUp : ArrowDown) : null;
   return (
     <Th className={className} aria-sort={active ? (state.direction === "asc" ? "ascending" : "descending") : "none"}>
       <Link
@@ -159,7 +142,7 @@ export function SortTh({ path, state, column, children, className }) {
         href={listHref(path, state, { sort: column, direction: active && state.direction === "asc" ? "desc" : "asc" })}
       >
         {children}
-        <Icon aria-hidden className="size-3" />
+        {Icon ? <Icon aria-hidden className="size-3" /> : null}
       </Link>
     </Th>
   );

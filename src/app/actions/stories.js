@@ -10,6 +10,17 @@ import { createClient } from "@/lib/supabase/server";
 
 const STATUSES = ["new", "selected", "skipped"];
 
+async function cancelStoryJobs(ids) {
+  const db = createAdminClient();
+  const { data, error } = await db.from("jobs").select("id").in("story_id", ids).in("status", ["queued", "running"]);
+  if (error) return { error };
+  for (const job of data) {
+    const result = await db.rpc("cancel_draft_job", { target_job: job.id });
+    if (result.error) return { error: result.error };
+  }
+  return { error: null };
+}
+
 export async function bulkStoryStatus(_prev, formData) {
   const user = await requireUser();
   const result = await changeStories({
@@ -25,15 +36,11 @@ export async function bulkStoryStatus(_prev, formData) {
         actorId: user.id,
         details: { story_ids: storyIds },
       }),
-    cancelJobs: (ids) =>
-      createAdminClient()
-        .from("jobs")
-        .update({ status: "cancelled", locked_by: null, locked_until: null, last_error: "Story was skipped" })
-        .in("story_id", ids)
-        .in("status", ["queued", "running"]),
+    cancelJobs: cancelStoryJobs,
   });
   revalidatePath("/stories");
-  revalidatePath("/jobs");
+  revalidatePath("/jobs", "layout");
+  revalidatePath("/");
   return result;
 }
 
@@ -61,11 +68,7 @@ export async function setStoryStatus(storyId, status) {
   // A draft for an unselected story can never finish; cancel it so it stops holding a review-buffer place.
   let cancellationError;
   if (story && status !== "selected") {
-    const { error: cancelError } = await createAdminClient()
-      .from("jobs")
-      .update({ status: "cancelled", locked_by: null, locked_until: null, last_error: "Story was unselected" })
-      .eq("story_id", storyId)
-      .in("status", ["queued", "running"]);
+    const { error: cancelError } = await cancelStoryJobs([storyId]);
     cancellationError = cancelError;
   }
   await recordAudit({
@@ -76,7 +79,8 @@ export async function setStoryStatus(storyId, status) {
     actorId: user.id,
   });
   revalidatePath("/stories");
-  revalidatePath("/jobs");
+  revalidatePath("/jobs", "layout");
+  revalidatePath("/");
   return cancellationError
     ? {
         error:

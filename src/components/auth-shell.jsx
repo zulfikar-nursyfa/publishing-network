@@ -21,14 +21,9 @@ const HIGHLIGHTS = [
 export function AuthShell({ title, description, children, footer }) {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      <div className="relative hidden overflow-hidden bg-[oklch(0.2_0.05_274)] text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -top-32 -left-32 size-[28rem] rounded-full bg-primary/50 blur-3xl" />
-          <div className="absolute -right-24 bottom-0 size-[24rem] rounded-full bg-violet-500/30 blur-3xl" />
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgb(255_255_255/0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgb(255_255_255/0.04)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_75%)]" />
-        </div>
+      <div className="relative hidden overflow-hidden bg-card text-foreground lg:flex lg:flex-col lg:justify-between lg:p-12">
         <div className="relative flex items-center gap-2.5">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/20 backdrop-blur">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-foreground text-background">
             <Newspaper className="size-4.5" />
           </span>
           <span className="font-semibold tracking-tight">Publishing Network</span>
@@ -40,24 +35,24 @@ export function AuthShell({ title, description, children, footer }) {
           <ul className="mt-10 space-y-6">
             {HIGHLIGHTS.map(({ icon: Icon, title: itemTitle, text }) => (
               <li key={itemTitle} className="flex gap-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/10 ring-1 ring-white/15">
+                <span className="flex size-9 shrink-0 items-center justify-center text-muted-foreground">
                   <Icon className="size-4" />
                 </span>
                 <span>
                   <span className="block text-sm font-medium">{itemTitle}</span>
-                  <span className="mt-0.5 block text-sm text-white/65">{text}</span>
+                  <span className="mt-0.5 block text-sm text-muted-foreground">{text}</span>
                 </span>
               </li>
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-white/50">Internal tool. Access is by invitation only.</p>
+        <p className="relative text-xs text-muted-foreground">Internal tool. Access is by invitation only.</p>
       </div>
 
       <div className="flex items-center justify-center px-4 py-12 sm:px-8">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <span className="flex size-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-violet-500 text-white shadow-sm shadow-primary/30">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-foreground text-background">
               <Newspaper className="size-4.5" />
             </span>
             <span className="font-semibold tracking-tight">Publishing Network</span>

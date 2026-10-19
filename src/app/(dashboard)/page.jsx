@@ -92,17 +92,14 @@ export default async function OverviewPage() {
     }),
     { inReview: 0, approved: 0, today: 0, week: 0, failed: 0 },
   );
-  const firstName = (user.profile.full_name || "").split(" ")[0];
   const estimatedSpend = (spend ?? []).reduce((sum, row) => sum + Number(row.estimated_cost_usd), 0);
   const reservedSpend = (spend ?? []).reduce((sum, row) => sum + Number(row.reserved_cost_usd), 0);
 
   return (
     <>
       <PageHeader
-        title={firstName ? `Welcome back, ${firstName}` : "Overview"}
-        description={
-          user.isAdmin ? "Here is what is happening across the network." : "Here is what is happening on your websites."
-        }
+        title="Overview"
+        description={"Your editorial queue and publishing activity."}
         actions={
           user.isAdmin ? (
             <>
@@ -141,7 +138,7 @@ export default async function OverviewPage() {
         </Alert>
       ) : null}
 
-      <div className="mb-10 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border md:grid-cols-3 2xl:grid-cols-6">
         <Stat label="Pending review" value={totals.inReview} href="/review" icon={ClipboardCheck} tone="amber" />
         <Stat label="Ready to publish" value={totals.approved} icon={CircleCheck} tone="blue" />
         <Stat label="Published today" value={totals.today} hint="In each site's timezone" icon={Send} tone="green" />
@@ -190,7 +187,7 @@ export default async function OverviewPage() {
               </tr>
             </thead>
             <tbody>
-              {websites.slice(0, 10).map((site) => {
+              {websites.slice(0, 5).map((site) => {
                 const row = statsBySite.get(site.id);
                 const aiSpend = spendBySite.get(site.id) ?? 0;
                 const budget = Number(site.monthly_ai_budget_usd);
@@ -253,7 +250,7 @@ export default async function OverviewPage() {
                     </Td>
                     <Td className="hidden text-right whitespace-nowrap tabular-nums lg:table-cell">
                       <span
-                        className={budget > 0 && aiSpend >= budget * 0.9 ? "font-semibold text-red-600" : undefined}
+                        className={budget > 0 && aiSpend >= budget * 0.9 ? "font-semibold text-destructive" : undefined}
                       >
                         {spendError ? "—" : formatUsd(aiSpend)}
                       </span>
@@ -295,7 +292,7 @@ export default async function OverviewPage() {
             }
           />
           {recent && recent.length > 0 ? (
-            <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
+            <ul className="divide-y overflow-hidden rounded-lg bg-card">
               {recent.map((article) => (
                 <li key={article.id}>
                   <Link
@@ -336,7 +333,7 @@ export default async function OverviewPage() {
             }
           />
           {failures && failures.length > 0 ? (
-            <ul className="divide-y overflow-hidden rounded-xl border border-red-500/20 bg-card shadow-xs">
+            <ul className="divide-y overflow-hidden rounded-lg bg-card">
               {failures.map((failure) => (
                 <li key={failure.article_id}>
                   <Link

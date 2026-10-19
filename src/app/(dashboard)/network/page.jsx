@@ -2,7 +2,7 @@ import { RelativeTime } from "@/components/relative-time";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { Alert, Card, PageHeader } from "@/components/ui";
+import { Alert, Badge, Card, PageHeader } from "@/components/ui";
 import { AlertEmailsForm } from "./alerts-form";
 import { NetworkSettingsForm, ModelPriceForm } from "./settings-form";
 import { StrictChecksForm } from "./strict-checks-form";
@@ -14,7 +14,7 @@ export default async function NetworkPage() {
   const [{ data: settings, error }, { data: prices, error: priceError }, { data: alerts }] = await Promise.all([
     db.from("network_settings").select("*").single(),
     db.from("ai_model_prices").select("*").order("model"),
-    db.from("alerts").select("id, message, created_at").order("created_at", { ascending: false }).limit(10),
+    db.from("alerts").select("id, kind, message, created_at").order("created_at", { ascending: false }).limit(3),
   ]);
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -40,12 +40,12 @@ export default async function NetworkPage() {
           </Card>
           <Card
             title="Alerts"
-            description="Checked every 15 minutes. One email per new problem: AI spend at 80% and 100% of a monthly limit, skipped or failed publishing slots, articles that failed to publish twice, and failed AI drafts."
+            description="Budget, publishing and draft failures. Checked every 15 minutes; one email per new problem."
           >
             {settings.alert_emails === undefined ? (
               <Alert tone="warning">Apply migration 35_alerts.sql to set up alert emails.</Alert>
             ) : (
-              <AlertEmailsForm emails={settings.alert_emails} />
+              <AlertEmailsForm key={settings.alert_emails.join(",")} emails={settings.alert_emails} />
             )}
             <Link
               href="/network/alerts?website=all"
@@ -57,11 +57,12 @@ export default async function NetworkPage() {
               <ul className="mt-6 space-y-2 border-t pt-4 text-sm">
                 <li className="font-medium">Recently sent</li>
                 {alerts.map((alert) => (
-                  <li key={alert.id}>
+                  <li key={alert.id} className="space-y-1 py-2">
+                    <Badge>{alert.kind}</Badge>{" "}
                     <span className="text-muted-foreground">
                       <RelativeTime value={alert.created_at} timezone="UTC" />
                     </span>{" "}
-                    {alert.message}
+                    <p className="text-sm">{alert.message}</p>
                   </li>
                 ))}
               </ul>

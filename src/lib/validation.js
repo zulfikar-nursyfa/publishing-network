@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { alertRecipientList } from "./alert-recipients";
 import { MAX_DAILY_ARTICLES } from "@/lib/schedule";
 import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
 
@@ -294,19 +295,7 @@ export const networkSettingsSchema = z.object({
 });
 
 export const alertEmailsSchema = z.object({
-  alert_emails: z.preprocess(
-    (value) => [
-      ...new Set(
-        String(value ?? "")
-          .split(/[\s,;]+/)
-          .filter(Boolean),
-      ),
-    ],
-    z
-      .array(z.string())
-      .max(10, "Enter up to 10 addresses")
-      .refine((list) => list.every((email) => z.email().safeParse(email).success), "Enter valid email addresses"),
-  ),
+  alert_emails: alertRecipientList,
 });
 
 export const costEntrySchema = z.object({

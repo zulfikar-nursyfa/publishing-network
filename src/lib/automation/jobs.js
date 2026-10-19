@@ -11,6 +11,7 @@ import { DeferredJob, LostLease, PermanentJob } from "./drafting/errors";
 import { illustrateStep } from "./drafting/illustrate";
 import { draftStep, promptData, researchStep, verifyStep } from "./drafting/write";
 import { EvidenceError } from "./evidence";
+import { waitingKind } from "./drafting/queue-policy";
 
 export { queueSelectedStories } from "./drafting/queue";
 
@@ -26,7 +27,15 @@ const WRITING_STEPS = {
 };
 
 /** Ready for the next tick, with a fresh attempt counter. */
-const queuedNow = () => ({ status: "queued", attempt_count: 0, last_error: null, run_after: new Date().toISOString() });
+const queuedNow = () => ({
+  status: "queued",
+  attempt_count: 0,
+  last_error: null,
+  waiting_kind: null,
+  waiting_reason: null,
+  waiting_since: null,
+  run_after: new Date().toISOString(),
+});
 
 /** Creates the article in review from the finished job (see complete_draft_job), then auto-approves it if allowed. */
 async function createArticle(db, job, worker, website) {
@@ -121,10 +130,17 @@ async function handleFailure(db, job, worker, error) {
       ? "AI response failed structured validation; review the job before retrying"
       : error.message;
   const retryDelaySeconds = deferred ? 300 : Math.min(3600, 30 * 2 ** job.attempt_count);
+  const kind = deferred ? waitingKind(message) : null;
 
   await advance(db, job, worker, {
     status: failed ? "failed" : "queued",
     last_error: message.slice(0, 1000),
+    waiting_kind: kind,
+    waiting_reason: kind ? message.slice(0, 1000) : null,
+    waiting_since: kind
+      ? ((job.waiting_kind === kind && job.waiting_reason === message.slice(0, 1000) ? job.waiting_since : null) ??
+        new Date().toISOString())
+      : null,
     attempt_count: deferred ? Math.max(0, job.attempt_count - 1) : job.attempt_count,
     run_after: new Date(Date.now() + retryDelaySeconds * 1000).toISOString(),
   });

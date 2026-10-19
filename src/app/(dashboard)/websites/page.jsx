@@ -56,6 +56,7 @@ export default async function WebsitesPage({ searchParams }) {
         path="/websites"
         state={state}
         searchLabel="Search name or domain"
+        tabFilter="status"
         choices={{
           niche: [
             { value: "all", label: "All niches" },
@@ -77,12 +78,12 @@ export default async function WebsitesPage({ searchParams }) {
         }
       >
         {websites && websites.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-4">
             {websites.map((site) => (
               <Link
                 key={site.id}
                 href={`/websites/${site.id}`}
-                className="group flex min-w-0 flex-col rounded-xl border bg-card p-5 shadow-xs transition-all hover:-translate-y-px hover:border-primary/30 hover:shadow-md"
+                className="group flex min-w-0 flex-col rounded-lg bg-card p-5 outline-none transition-colors hover:ring-1 hover:ring-input focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-center gap-3">

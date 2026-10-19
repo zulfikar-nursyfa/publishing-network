@@ -76,7 +76,7 @@ export default async function NichesPage({ searchParams }) {
                 const group = (sources ?? []).filter((source) => source.niche_id === niche.id);
                 const sites = (websites ?? []).filter((website) => website.niche_id === niche.id);
                 return (
-                  <details key={niche.id} className="group rounded-xl border bg-card shadow-xs">
+                  <details key={niche.id} className="group rounded-lg bg-card">
                     <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 sm:px-6">
                       <div className="min-w-0">
                         <div className="font-semibold">{niche.name}</div>

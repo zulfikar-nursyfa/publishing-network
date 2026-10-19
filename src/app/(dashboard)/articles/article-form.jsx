@@ -14,7 +14,7 @@ export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel
       <FormAlert state={state} />
       {values?.version !== undefined ? <input type="hidden" name="version" value={values.version} /> : null}
       <Card>
-        <fieldset disabled={readOnly} className="space-y-5">
+        <fieldset disabled={readOnly} className="min-w-0 space-y-5">
           <Field label="Title" htmlFor="title" error={errors.title}>
             <input
               id="title"
@@ -103,7 +103,7 @@ export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel
                 rows={3}
                 defaultValue={values?.sources}
                 className={`${inputClass} font-mono text-xs leading-relaxed`}
-                placeholder="https://example.com/story | Original headline | Publisher"
+                placeholder="https://publisher.example/story | Original headline | Publisher"
               />
             </Field>
           </div>
@@ -169,7 +169,7 @@ export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel
         </fieldset>
       </Card>
       {!readOnly ? (
-        <div className="sticky bottom-0 z-10 -mx-4 flex justify-end border-t bg-background/85 px-4 py-3 backdrop-blur-lg sm:mx-0 sm:rounded-xl sm:border sm:px-4">
+        <div className="sticky bottom-0 z-10 -mx-4 flex justify-end border-t bg-background px-4 py-3 sm:mx-0 sm:rounded-lg sm:border sm:px-4">
           <SubmitButton className="w-full sm:w-auto" pendingLabel="Saving…">
             {submitLabel}
           </SubmitButton>

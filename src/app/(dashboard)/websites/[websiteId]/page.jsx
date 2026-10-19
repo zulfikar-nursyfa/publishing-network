@@ -135,7 +135,7 @@ export default async function WebsitePage({ params, searchParams }) {
       />
 
       <WebsiteNav websiteId={websiteId} active={section} />
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-border xl:grid-cols-5 [&>:first-child]:col-span-2 xl:[&>:first-child]:col-span-1">
         <Stat label="In review" value={stats?.in_review ?? 0} icon={ClipboardCheck} tone="amber" />
         <Stat label="Approved" value={stats?.approved ?? 0} icon={CircleCheck} tone="blue" />
         <Stat label="Published today" value={stats?.published_today ?? 0} icon={Send} tone="green" />
@@ -171,6 +171,7 @@ export default async function WebsitePage({ params, searchParams }) {
             path={path}
             state={state}
             searchLabel="Search article titles"
+            tabFilter="status"
             choices={{
               category: [
                 { value: "all", label: "All categories" },

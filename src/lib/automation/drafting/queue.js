@@ -2,8 +2,8 @@ import "server-only";
 import { automationBlockReason } from "../policy";
 import { storyRows } from "../story-history";
 import { autoSelectStories } from "./auto-select";
-
-const MAX_QUEUED_PER_RUN = 12;
+import { draftsNeededFor } from "./queue-policy";
+import { maintainDraftQueue } from "./queue-maintenance";
 
 /** How many more drafts the website needs to keep two days of articles waiting for review. */
 async function draftsNeeded(db, website) {
@@ -21,7 +21,7 @@ async function draftsNeeded(db, website) {
       .in("status", ["queued", "running"]),
   ]);
   if (articles.error || jobs.error) throw new Error("Could not count review buffer");
-  return Math.min(MAX_QUEUED_PER_RUN, website.daily_quota * 2 - articles.count - jobs.count);
+  return draftsNeededFor(website.daily_quota, articles.count, jobs.count);
 }
 
 /** Selected stories of the website that have no draft job yet, newest first. */
@@ -47,6 +47,8 @@ export async function queueSelectedStories(db) {
   if (networkError) throw new Error(networkError.message);
   const { data: websites, error } = await db.from("websites").select("*").is("archived_at", null).limit(100);
   if (error) throw new Error(error.message);
+
+  await maintainDraftQueue(db, websites, network);
 
   const spend = websites.some((website) => website.auto_select_stories)
     ? await storyRows(() =>

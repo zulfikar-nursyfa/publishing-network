@@ -307,6 +307,13 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
           </Field>
         </div>
         <div className="mt-5">
+          <CheckboxLabel name="auto_select_stories" defaultChecked={website?.auto_select_stories ?? false}>
+            Automatically select recent stories to fill the review buffer
+          </CheckboxLabel>
+          <p className="mt-1 mb-4 text-xs text-muted-foreground">
+            Off by default. Prefers official, recent and widely reported stories, avoids duplicates and limits each
+            source to two stories per run. Unselecting cancels its job and prevents automatic reselection.
+          </p>
           <CheckboxLabel name="generate_illustrations" defaultChecked={website?.generate_illustrations ?? false}>
             Generate AI illustrations for automated articles{" "}
             <span className="text-muted-foreground">(each needs approval)</span>

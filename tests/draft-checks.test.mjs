@@ -6,7 +6,11 @@ import {
   checkVerification,
   corroboration,
   draftSchema,
+  DraftCheckError,
 } from "@/lib/automation/draft-checks";
+import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
+import { strictDraftChecksSchema, nicheCategorySchema } from "@/lib/validation";
+import { readFileSync } from "node:fs";
 import { summariseUsage } from "@/lib/costs";
 
 const statement = "The company announced a new route to Dubai.";
@@ -149,4 +153,62 @@ test("verification problems become warnings", () => {
     "Verification: Wrong date",
     "Unsupported claim: Route starts in May",
   ]);
+});
+
+test("each configurable warning keeps its message and becomes a DraftCheckError only when strict", () => {
+  const r = research([official.url, outletA.url], { primary_source_url: official.url });
+  const dropped = structuredClone(r);
+  dropped.claims[0].evidence[0].quote = "Nothing here resembles any of the words in the collected statement.";
+  const uncovered = structuredClone(r);
+  uncovered.claims[0].source_urls = [outletA.url];
+  const scenarios = {
+    research_quotes_missing: (keys) => checkResearch(dropped, [official, outletA], keys).warnings,
+    sensitive_second_source: (keys) =>
+      checkResearch(research([official.url], { sensitive: true, primary_source_url: official.url }), [official], keys)
+        .warnings,
+    single_unofficial_source: (keys) => checkResearch(research([outletA.url]), [outletA], keys).warnings,
+    unresolved_claims: (keys) =>
+      checkResearch({ ...r, unresolved: ["Launch date"] }, [official, outletA], keys).warnings,
+    uncollected_citations: (keys) =>
+      checkDraft(draft(["https://unknown.test/"]), r, [official, outletA], [], "en", keys).warnings,
+    official_source_not_cited: (keys) =>
+      checkDraft(draft([outletA.url]), r, [official, outletA], [], "en", keys).warnings,
+    research_not_cited: (keys) =>
+      checkDraft(draft([official.url]), uncovered, [official, outletA], [], "en", keys).warnings,
+    verification_failed: (keys) => checkVerification({ passed: false, issues: [], checked_claims: [] }, keys),
+    verification_issues: (keys) =>
+      checkVerification({ passed: true, issues: ["Wrong date"], checked_claims: [] }, keys),
+    unsupported_claims: (keys) =>
+      checkVerification(
+        { passed: true, issues: [], checked_claims: [{ claim: "Launch in May", supported: false }] },
+        keys,
+      ),
+  };
+  assert.deepEqual(Object.keys(scenarios).sort(), DRAFT_CHECKS.map(({ key }) => key).sort());
+  for (const [key, run] of Object.entries(scenarios)) {
+    const warnings = run([]);
+    assert.ok(warnings.length, key);
+    assert.throws(
+      () => run([key]),
+      (error) => error instanceof DraftCheckError && warnings.includes(error.message),
+      key,
+    );
+  }
+});
+
+test("strict check validation and SQL allow exactly the advertised stable keys", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/40_strict_draft_checks.sql", import.meta.url), "utf8");
+  const keys = DRAFT_CHECKS.map(({ key }) => key);
+  assert.deepEqual(strictDraftChecksSchema.parse({ strict_draft_checks: keys }).strict_draft_checks, keys);
+  assert.equal(strictDraftChecksSchema.safeParse({ strict_draft_checks: ["unknown"] }).success, false);
+  for (const key of keys) assert.ok(sql.includes(`'${key}'`));
+});
+
+test("Arabic niche category names require an explicit ASCII slug and integer order", () => {
+  const input = { language: "ar", name: "أخبار", slug: "news", description: "", sort_order: "2" };
+  assert.equal(nicheCategorySchema.parse(input).sort_order, 2);
+  assert.equal(nicheCategorySchema.parse(input).archived, false);
+  assert.equal(nicheCategorySchema.safeParse({ ...input, slug: "أخبار" }).success, false);
+  assert.equal(nicheCategorySchema.safeParse({ ...input, slug: "" }).success, false);
+  assert.equal(nicheCategorySchema.safeParse({ ...input, sort_order: "1.5" }).success, false);
 });

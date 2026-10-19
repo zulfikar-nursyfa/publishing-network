@@ -4,14 +4,16 @@ import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { syncNicheWebsite } from "@/lib/niche-sync";
 import { contentSourceSchema, fieldErrorsFrom, nicheGuideSchema, nicheSchema, slugify } from "@/lib/validation";
 
 /** Brings every website in the niche in step with its source group. Returns an error message or null. */
 async function syncNicheWebsites(supabase, nicheId) {
-  const { data: websites } = await supabase.from("websites").select("id").eq("niche_id", nicheId);
+  const { data: websites, error } = await supabase.from("websites").select("id").eq("niche_id", nicheId);
+  if (error) return error.message;
   for (const website of websites ?? []) {
-    const { error } = await supabase.rpc("sync_niche_sources", { target_website: website.id });
-    if (error) return error.message;
+    const syncError = await syncNicheWebsite(supabase, website.id);
+    if (syncError) return syncError;
   }
   revalidatePath("/websites", "layout");
   return null;
@@ -65,15 +67,23 @@ export async function updateNicheGuides(nicheId, _prev, formData) {
   if (error) return { error: error.message };
   if (!data) return { error: "Niche not found" };
 
+  const syncError = await syncNicheWebsites(supabase, nicheId);
+
   await recordAudit({
     action: "niche.guides_edited",
     entityType: "niche",
     entityId: nicheId,
     actorId: user.id,
-    details: { guide_en: Boolean(parsed.data.guide_en), guide_ar: Boolean(parsed.data.guide_ar) },
+    details: {
+      guide_en: Boolean(parsed.data.guide_en),
+      guide_ar: Boolean(parsed.data.guide_ar),
+      sync_error: syncError,
+    },
   });
   revalidatePath("/niches");
-  return { ok: true, message: "Writing guides saved." };
+  return syncError
+    ? { error: `Writing guides saved, but websites could not be synced: ${syncError}` }
+    : { ok: true, message: "Writing guides saved." };
 }
 
 export async function addNicheSource(nicheId, _prev, formData) {

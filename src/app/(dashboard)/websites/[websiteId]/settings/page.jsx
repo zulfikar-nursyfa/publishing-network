@@ -11,7 +11,8 @@ import { AutomationCard, ConnectionCard } from "./status-cards";
 export default async function WebsiteSettingsPage({ params, searchParams }) {
   const { websiteId } = await params;
   const { user, website } = await requireWebsite(websiteId);
-  const created = (await searchParams).created === "1";
+  const query = await searchParams;
+  const created = query.created === "1";
   const supabase = await createClient();
 
   const [sources, categories, members, editors, niches] = await Promise.all([
@@ -35,7 +36,14 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
 
       {created ? (
         <Alert tone="success" title="Website added" className="mb-6">
-          Check the connection result below before publishing.
+          Check the connection result below before publishing. In Categories, click Sync with WordPress to create any
+          niche categories.
+        </Alert>
+      ) : null}
+      {query.niche_sync === "failed" ? (
+        <Alert tone="error" className="mb-6">
+          Website added, but niche sources/categories could not be copied. Apply the pending migrations, then use Niches
+          → Apply to websites.
         </Alert>
       ) : null}
 

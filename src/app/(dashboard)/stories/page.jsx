@@ -31,7 +31,7 @@ export default async function StoriesPage({ searchParams }) {
   let query = supabase
     .from("story_candidates")
     .select(
-      "id, website_id, url, title, summary, image_url, source_published_at, created_at, content_sources(name, kind)",
+      "id, website_id, url, title, summary, image_url, source_published_at, created_at, selected_automatically, content_sources(name, kind)",
     )
     .eq("status", status)
     .order("source_published_at", { ascending: false, nullsFirst: false })
@@ -95,6 +95,7 @@ export default async function StoriesPage({ searchParams }) {
                       {story.content_sources?.name ?? "Removed source"}
                     </span>
                     {primary ? <Badge tone="blue">primary</Badge> : null}
+                    {story.selected_automatically ? <Badge tone="green">Auto-selected</Badge> : null}
                     <span>·</span>
                     <span>{formatDateTime(story.source_published_at ?? story.created_at, site?.timezone)}</span>
                   </div>
@@ -131,12 +132,22 @@ export default async function StoriesPage({ searchParams }) {
                       </form>
                     </>
                   ) : (
-                    <form action={setStoryStatus.bind(null, story.id, "new")}>
-                      <SubmitButton size="sm" variant="ghost" className="w-full">
-                        <Undo2 />
-                        Back to new
-                      </SubmitButton>
-                    </form>
+                    <div className="flex gap-2 sm:flex-col">
+                      <form action={setStoryStatus.bind(null, story.id, "new")}>
+                        <SubmitButton size="sm" variant="ghost" className="w-full">
+                          <Undo2 />
+                          Back to new
+                        </SubmitButton>
+                      </form>
+                      {status === "selected" ? (
+                        <form action={setStoryStatus.bind(null, story.id, "skipped")}>
+                          <SubmitButton size="sm" variant="secondary" className="w-full">
+                            <X />
+                            Skip
+                          </SubmitButton>
+                        </form>
+                      ) : null}
+                    </div>
                   )}
                 </div>
               </li>

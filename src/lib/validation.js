@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DAILY_ARTICLES } from "@/lib/schedule";
+import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
 
 /**
  * @typedef {Object} FormState
@@ -112,6 +113,7 @@ export const websiteSettingsSchema = z.object({
   ),
   monthly_ai_budget_usd: z.coerce.number().min(0, "Cannot be negative").max(100_000),
   generate_illustrations: checkbox,
+  auto_select_stories: checkbox,
   brand_tagline: optionalText(200),
   brand_primary_color: hexColor,
   brand_remove_logo: checkbox,
@@ -172,6 +174,25 @@ export const categorySchema = z.object({
     .regex(/^([a-z0-9]+(-[a-z0-9]+)*)?$/, "Lowercase letters, numbers and single hyphens only")
     .default(""),
   description: optionalText(300),
+});
+
+export const nicheCategorySchema = categorySchema.extend({
+  language: z.enum(["en", "ar"]),
+  slug: z
+    .string()
+    .trim()
+    .min(1, "An ASCII slug is required")
+    .max(60)
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Lowercase letters, numbers and single hyphens only"),
+  sort_order: z.coerce.number().int().min(-2147483648).max(2147483647),
+  archived: checkbox,
+});
+
+export const strictDraftChecksSchema = z.object({
+  strict_draft_checks: z
+    .array(z.enum(DRAFT_CHECKS.map((check) => check.key)))
+    .max(DRAFT_CHECKS.length)
+    .transform((keys) => [...new Set(keys)]),
 });
 
 /** Preference order from the brief: owned, licensed, official press assets, then AI illustrations. */

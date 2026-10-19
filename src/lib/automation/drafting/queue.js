@@ -1,5 +1,7 @@
 import "server-only";
 import { automationBlockReason } from "../policy";
+import { storyRows } from "../story-history";
+import { autoSelectStories } from "./auto-select";
 
 const MAX_QUEUED_PER_RUN = 12;
 
@@ -24,19 +26,16 @@ async function draftsNeeded(db, website) {
 
 /** Selected stories of the website that have no draft job yet, newest first. */
 async function storiesWithoutJobs(db, website) {
-  const { data: existing, error: existingError } = await db
-    .from("jobs")
-    .select("story_id")
-    .eq("website_id", website.id);
-  if (existingError) throw new Error(existingError.message);
-  const { data: stories, error } = await db
-    .from("story_candidates")
-    .select("id")
-    .eq("website_id", website.id)
-    .eq("status", "selected")
-    .order("source_published_at", { ascending: false })
-    .limit(100);
-  if (error) throw new Error(error.message);
+  const existing = await storyRows(() => db.from("jobs").select("story_id").eq("website_id", website.id).order("id"));
+  const stories = await storyRows(() =>
+    db
+      .from("story_candidates")
+      .select("id")
+      .eq("website_id", website.id)
+      .eq("status", "selected")
+      .order("source_published_at", { ascending: false, nullsFirst: false })
+      .order("id"),
+  );
 
   const queuedStories = new Set(existing.map((job) => job.story_id));
   return stories.filter((story) => !queuedStories.has(story.id));
@@ -49,11 +48,19 @@ export async function queueSelectedStories(db) {
   const { data: websites, error } = await db.from("websites").select("*").is("archived_at", null).limit(100);
   if (error) throw new Error(error.message);
 
+  const spend = websites.some((website) => website.auto_select_stories)
+    ? await storyRows(() =>
+        db.from("website_ai_spend").select("website_id, estimated_cost_usd, reserved_cost_usd").order("website_id"),
+      )
+    : [];
+
   let queued = 0;
   for (const website of websites) {
     if (automationBlockReason(website, network) || website.daily_quota === 0) continue;
     const needed = await draftsNeeded(db, website);
     if (needed <= 0) continue;
+    if (website.auto_select_stories && !automationBlockReason(website, network, spend))
+      await autoSelectStories(db, website, needed);
 
     for (const story of (await storiesWithoutJobs(db, website)).slice(0, needed)) {
       const { data: jobId, error: queueError } = await db.rpc("queue_story_draft", {

@@ -9,23 +9,26 @@ import { SOURCE_KINDS } from "@/lib/validation";
 import { SourceForm } from "../websites/[websiteId]/settings/settings-forms";
 import { AddNicheForm } from "./add-niche-form";
 import { NicheGuideForm } from "./niche-guide-form";
+import { NicheCategories } from "./niche-categories";
 
 export const metadata = { title: "Niches" };
 
 export default async function NichesPage() {
   await requireAdmin();
   const supabase = await createClient();
-  const [{ data: niches, error }, { data: sources }, { data: websites }] = await Promise.all([
-    supabase.from("niches").select("*").order("sort_order"),
-    supabase.from("niche_sources").select("*").order("name"),
-    supabase.from("websites").select("id, name, language, niche_id").not("niche_id", "is", null).order("name"),
-  ]);
+  const [{ data: niches, error }, { data: sources }, { data: websites }, { data: categories, error: categoryError }] =
+    await Promise.all([
+      supabase.from("niches").select("*").order("sort_order"),
+      supabase.from("niche_sources").select("*").order("name"),
+      supabase.from("websites").select("id, name, language, niche_id").not("niche_id", "is", null).order("name"),
+      supabase.from("niche_categories").select("*").order("sort_order").order("name"),
+    ]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <PageHeader
         title="Niches"
-        description="Each niche has one source group and writing guides, shared by its English and Arabic websites. Changes apply to every website in the niche."
+        description="Shared sources, writing guides and starting categories for English and Arabic websites."
       />
       {error ? (
         <Alert tone="error">Niches are unavailable. Apply migration 29 before using this page.</Alert>
@@ -33,8 +36,8 @@ export default async function NichesPage() {
         <>
           <div className="space-y-3">
             {niches.map((niche) => {
-              const group = sources.filter((source) => source.niche_id === niche.id);
-              const sites = websites.filter((website) => website.niche_id === niche.id);
+              const group = (sources ?? []).filter((source) => source.niche_id === niche.id);
+              const sites = (websites ?? []).filter((website) => website.niche_id === niche.id);
               return (
                 <details key={niche.id} className="group rounded-xl border bg-card shadow-xs">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 sm:px-6">
@@ -123,6 +126,14 @@ export default async function NichesPage() {
                       </p>
                     )}
                     <SourceForm saveSource={addNicheSource.bind(null, niche.id)} />
+                    {categoryError ? (
+                      <Alert tone="error">Categories are unavailable. Apply migration 38_niche_categories.sql.</Alert>
+                    ) : (
+                      <NicheCategories
+                        nicheId={niche.id}
+                        categories={(categories ?? []).filter((category) => category.niche_id === niche.id)}
+                      />
+                    )}
                     {"guide_en" in niche ? (
                       <NicheGuideForm niche={niche} />
                     ) : (

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Alert, Card, PageHeader, formatDateTime } from "@/components/ui";
 import { AlertEmailsForm } from "./alerts-form";
 import { NetworkSettingsForm, ModelPriceForm } from "./settings-form";
+import { StrictChecksForm } from "./strict-checks-form";
 
 export const metadata = { title: "Network settings" };
 export default async function NetworkPage() {
@@ -27,6 +28,13 @@ export default async function NetworkPage() {
         <>
           <Card title="AI controls">
             <NetworkSettingsForm settings={settings} />
+          </Card>
+          <Card title="Draft checks">
+            {settings.strict_draft_checks === undefined ? (
+              <Alert tone="warning">Apply migration 40_strict_draft_checks.sql to configure blocking checks.</Alert>
+            ) : (
+              <StrictChecksForm checks={settings.strict_draft_checks} />
+            )}
           </Card>
           <Card
             title="Alerts"

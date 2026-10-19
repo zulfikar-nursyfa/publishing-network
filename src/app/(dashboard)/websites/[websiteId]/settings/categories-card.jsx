@@ -64,7 +64,7 @@ export function CategoriesCard({ websiteId, categories, isAdmin }) {
       icon={Tags}
       className="mb-6"
       title="Categories"
-      description="Editors and the AI choose from active categories. Each one is linked to a WordPress category of the same slug. Auto-publish is off for every category until allowed here, and only applies in Automatic mode."
+      description="Editors and the AI choose from active categories. After applying niche categories, click Sync with WordPress to create them there by slug. Auto-publish is off until allowed here, and only applies in Automatic mode."
     >
       {categories.length > 0 ? (
         <ul className="mb-5 divide-y rounded-lg border">

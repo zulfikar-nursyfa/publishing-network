@@ -181,7 +181,7 @@ export default async function ArticlePage({ params, searchParams }) {
         </Alert>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">
         <div className="min-w-0 space-y-4">
           {draftJob ? (
             <Alert tone="info" title="AI draft requires editorial fact checking">

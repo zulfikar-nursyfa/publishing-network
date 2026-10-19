@@ -70,7 +70,7 @@ export default async function UsersPage({ searchParams }) {
         title="No team members"
         empty="Invite a user using the form above."
       >
-        <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
+        <ul className="divide-y overflow-hidden rounded-lg bg-card">
           {(profiles ?? []).map((profile) => {
             const assigned = websitesByUser.get(profile.id) ?? new Set();
             const isSelf = profile.id === currentUser.id;

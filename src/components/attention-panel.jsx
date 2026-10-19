@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Alert, Card } from "./ui";
 import { allRows } from "@/lib/lists";
+import { DraftJobState } from "./draft-job-state";
 
 export async function AttentionPanel({ db }) {
   const definitions = [
@@ -44,17 +45,28 @@ export async function AttentionPanel({ db }) {
     ],
   ];
   const results = await Promise.all(definitions.map(([, , query]) => query));
+  const {
+    data: waiting = [],
+    error: waitingError,
+    count: waitingCount,
+  } = await db
+    .from("job_list")
+    .select("*", { count: "exact" })
+    .eq("status", "queued")
+    .not("waiting_kind", "is", null)
+    .order("waiting_since")
+    .limit(3);
   const slots = await allRows(() => db.from("slot_attention").select("website_id, total").order("website_id")).catch(
     () => null,
   );
   return (
-    <Card title="Needs attention" description="Open a filtered list to review each problem." className="mb-8">
-      {results.some((result) => result.error) || !slots ? (
+    <Card title="Needs attention" className="mb-6">
+      {results.some((result) => result.error) || !slots || waitingError ? (
         <Alert tone="warning">
           Some attention counts are unavailable. Apply pending dashboard migrations or retry.
         </Alert>
       ) : null}
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,18rem),1fr))] gap-2">
         {definitions.map(([label, href], index) =>
           results[index].count > 0 ? (
             <Link
@@ -73,12 +85,36 @@ export async function AttentionPanel({ db }) {
             href={`/websites/${slot.website_id}?section=schedule&period=today&status=problems`}
             className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm hover:bg-muted"
           >
-            <span>Skipped / failed slots today · view website</span>
-            <strong>{slot.total}</strong>
+            <span>Publishing slot problems today</span>
+            <strong className="tabular-nums">{slot.total}</strong>
           </Link>
         ))}
       </div>
-      {results.every((result) => !result.error && result.count === 0) && slots?.length === 0 ? (
+      {waiting?.length ? (
+        <div className="mt-4 space-y-3 border-t pt-4">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <h3 className="font-medium">Waiting drafts · {waitingCount}</h3>
+            <Link href="/jobs?status=queued&website=all" className="underline underline-offset-4">
+              View draft jobs
+            </Link>
+          </div>
+          {waiting.map((job) => (
+            <div key={job.id} className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <Link href={`/jobs/${job.id}`} className="text-sm font-medium hover:underline" dir="auto">
+                  {job.story_title}
+                </Link>
+                <p className="text-xs text-muted-foreground">{job.website_name}</p>
+              </div>
+              <DraftJobState job={job} timezone={job.timezone} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {results.every((result) => !result.error && result.count === 0) &&
+      slots?.length === 0 &&
+      !waitingCount &&
+      !waitingError ? (
         <p className="text-sm text-muted-foreground">All clear. There are no outstanding problems.</p>
       ) : null}
     </Card>

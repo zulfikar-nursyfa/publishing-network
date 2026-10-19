@@ -4,3 +4,6 @@ supabase
 docs
 package-lock.json
 *.md
+.agents
+.taste-skill
+tmp

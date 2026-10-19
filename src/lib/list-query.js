@@ -20,7 +20,10 @@ export function applyListQuery(query, state, timezone = "UTC") {
         : query.or(searchOr(config.search, state.q));
   for (const [key, filter] of Object.entries(config.filters ?? {})) {
     if (!filter.column || state[key] === "all") continue;
-    query = query.eq(filter.column, state[key] === "yes" ? true : state[key] === "no" ? false : state[key]);
+    const group = filter.groups?.[state[key]];
+    query = group
+      ? query.in(filter.column, group)
+      : query.eq(filter.column, state[key] === "yes" ? true : state[key] === "no" ? false : state[key]);
   }
   if (config.dateColumn) {
     const bounds = dateBounds(state, timezone);

@@ -60,7 +60,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
               required
               defaultValue={website?.domain}
               className={inputClass}
-              placeholder="example.com"
+              placeholder="publisher.example"
             />
           </Field>
           <Field
@@ -153,7 +153,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
               required
               defaultValue={website?.wp_base_url}
               className={inputClass}
-              placeholder="https://example.com"
+              placeholder="https://publisher.example"
             />
           </Field>
           <Field label="WordPress username" htmlFor="wp_username" error={errors.wp_username}>
@@ -210,7 +210,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
             label="Search Console property"
             htmlFor="search_console_site"
             error={errors.search_console_site}
-            hint="sc-domain:example.com for a domain property, or https://example.com/ for a URL prefix."
+            hint="sc-domain:publisher.example for a domain property, or https://publisher.example/ for a URL prefix."
           >
             <input
               id="search_console_site"
@@ -218,7 +218,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
               dir="ltr"
               defaultValue={website?.search_console_site ?? ""}
               className={`${inputClass} font-mono`}
-              placeholder="sc-domain:example.com"
+              placeholder="sc-domain:publisher.example"
             />
           </Field>
         </div>
@@ -347,7 +347,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
         )}
       </Card>
 
-      <div className="sticky bottom-0 z-10 -mx-4 flex justify-end border-t bg-background/85 px-4 py-3 backdrop-blur-lg sm:mx-0 sm:rounded-xl sm:border sm:px-4">
+      <div className="sticky bottom-0 z-10 -mx-4 flex justify-end border-t bg-background px-4 py-3 sm:mx-0 sm:rounded-lg sm:border sm:px-4">
         <SubmitButton className="w-full sm:w-auto" pendingLabel={isNew ? "Adding website…" : "Saving…"}>
           {isNew ? "Add website and test connection" : "Save settings"}
         </SubmitButton>

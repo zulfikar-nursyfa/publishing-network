@@ -54,3 +54,6 @@ supabase/.temp
 # generated SQL bundle (source of truth is supabase/migrations)
 supabase/_full_schema.sql
 supabase/_update_from_*.sql
+
+#local agents file
+/.agents

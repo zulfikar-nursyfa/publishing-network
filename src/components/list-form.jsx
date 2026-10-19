@@ -30,6 +30,13 @@ export function ListForm({ path, website, children, className }) {
         event.preventDefault();
         // Snapshot before the cookie action can refresh/remount this form.
         const params = new URLSearchParams(new FormData(event.currentTarget));
+        const ordering = params.get("ordering");
+        if (ordering) {
+          const [sort, direction] = ordering.split(":");
+          params.set("sort", sort);
+          params.set("direction", direction);
+          params.delete("ordering");
+        }
         params.delete("page");
         startTransition(async () => {
           const selected = params.get("website");
@@ -60,9 +67,15 @@ export function DateFilters({ period, from, to }) {
     <>
       <label className="min-w-0 space-y-1 text-xs font-medium">
         Date range
-        <select name="period" value={value} onChange={(event) => setValue(event.target.value)} className={inputClass}>
+        <select
+          name="period"
+          aria-label="Date range"
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          className={inputClass}
+        >
           {[
-            ["all", "All dates"],
+            ["all", "Any date"],
             ["today", "Today"],
             ["48h", "Last 48 hours"],
             ["7d", "Last 7 days"],

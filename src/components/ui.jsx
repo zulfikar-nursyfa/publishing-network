@@ -4,6 +4,7 @@ import { cva } from "class-variance-authority";
 import { clsx } from "clsx";
 import { ArrowLeft, CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { twMerge } from "tailwind-merge";
+import { humanLabel } from "@/lib/list-labels";
 
 export function cn(...classes) {
   return twMerge(clsx(classes));
@@ -11,7 +12,7 @@ export function cn(...classes) {
 
 export function PageHeader({ title, description, actions, back }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-6 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0 break-words">
         {back ? (
           <Link
@@ -22,7 +23,9 @@ export function PageHeader({ title, description, actions, back }) {
             {back.label}
           </Link>
         ) : null}
-        <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-[1.75rem]">{title}</h1>
+        <h1 dir="auto" className="text-2xl font-semibold tracking-tight text-balance">
+          {title}
+        </h1>
         {description ? <div className="mt-1.5 text-sm text-muted-foreground">{description}</div> : null}
       </div>
       {actions ? (
@@ -34,17 +37,12 @@ export function PageHeader({ title, description, actions, back }) {
 
 export function Card({ title, description, children, className, actions, icon: Icon }) {
   return (
-    <section
-      className={cn(
-        "min-w-0 max-w-full rounded-xl border bg-card p-4 text-card-foreground shadow-xs sm:p-6",
-        className,
-      )}
-    >
+    <section className={cn("min-w-0 max-w-full rounded-lg bg-card p-4 text-card-foreground sm:p-5", className)}>
       {title ? (
         <div className="mb-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
           <div className="flex min-w-0 items-start gap-3">
             {Icon ? (
-              <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+              <div className="mt-1 flex shrink-0 items-center justify-center text-muted-foreground">
                 <Icon className="size-4" />
               </div>
             ) : null}
@@ -73,38 +71,11 @@ export function SectionHeading({ title, description, actions }) {
   );
 }
 
-const statTones = {
-  default: "bg-accent text-accent-foreground",
-  amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  blue: "bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  green: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  red: "bg-red-500/10 text-red-600 dark:text-red-400",
-  purple: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
-};
-
-export function Stat({ label, value, hint, href, icon: Icon, tone = "default", alert = false }) {
+export function Stat({ label, value, hint, href, alert = false }) {
   const body = (
-    <div
-      className={cn(
-        "group relative h-full overflow-hidden rounded-xl border bg-card p-4 shadow-xs transition-all sm:p-5",
-        href && "hover:-translate-y-px hover:border-primary/30 hover:shadow-md",
-        alert && "border-red-500/30",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-[0.8rem] font-medium text-muted-foreground">{label}</div>
-        {Icon ? (
-          <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", statTones[tone])}>
-            <Icon className="size-4" />
-          </div>
-        ) : null}
-      </div>
-      <div
-        className={cn(
-          "mt-2 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl",
-          alert && "text-red-600 dark:text-red-400",
-        )}
-      >
+    <div className="h-full min-w-0 bg-card p-4">
+      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+      <div className={cn("mt-2 text-2xl font-medium tracking-tight tabular-nums", alert && "text-destructive")}>
         {value}
       </div>
       {hint ? <div className="mt-1 text-xs text-muted-foreground">{hint}</div> : null}
@@ -113,7 +84,7 @@ export function Stat({ label, value, hint, href, icon: Icon, tone = "default", a
   return href ? (
     <Link
       href={href}
-      className="block h-full rounded-xl focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+      className="block h-full outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
       {body}
     </Link>
@@ -123,23 +94,22 @@ export function Stat({ label, value, hint, href, icon: Icon, tone = "default", a
 }
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all outline-none select-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors outline-none select-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-65 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 active:bg-primary/85",
-        secondary: "border bg-card text-foreground shadow-xs hover:bg-muted active:bg-muted/80",
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/85",
+        secondary: "border bg-card text-foreground hover:bg-muted active:bg-muted/80",
         ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
-        danger:
-          "bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/30",
-        "danger-outline": "border border-destructive/30 bg-card text-destructive shadow-xs hover:bg-destructive/10",
-        success: "bg-success text-success-foreground shadow-xs hover:bg-success/90 focus-visible:ring-success/30",
+        danger: "bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/30",
+        "danger-outline": "border border-destructive/30 bg-card text-destructive hover:bg-destructive/10",
+        success: "bg-success text-success-foreground hover:bg-success/90 focus-visible:ring-success/30",
       },
       size: {
-        default: "h-9 px-4",
-        sm: "h-8 gap-1.5 rounded-md px-3 text-[0.8rem]",
+        default: "h-11 px-4 sm:h-9",
+        sm: "h-11 gap-1.5 sm:h-8 rounded-md px-3 text-[0.8rem]",
         lg: "h-10 px-5",
-        icon: "size-9",
+        icon: "size-11 sm:size-9",
       },
     },
     defaultVariants: { variant: "primary", size: "default" },
@@ -155,9 +125,18 @@ export function ButtonLink({ variant = "primary", size = "default", className, .
 }
 
 export const inputClass =
-  "block w-full max-w-full min-w-0 min-h-10 sm:min-h-9 rounded-md border border-input bg-card px-3 py-1.5 text-base sm:text-sm shadow-xs outline-none transition-[color,box-shadow,border-color] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted/60 disabled:opacity-80";
+  "block w-full max-w-full min-w-0 min-h-11 sm:min-h-9 rounded-md border border-input bg-card px-3 py-1.5 text-base sm:text-sm outline-none transition-[color,box-shadow,border-color] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted/60 disabled:opacity-80";
 
-export const checkboxClass = "size-4 shrink-0 rounded border-input";
+export const checkboxClass =
+  "size-4 shrink-0 rounded border-input outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card";
+
+export function RowCheckbox(props) {
+  return (
+    <label className="inline-flex size-11 cursor-pointer items-center justify-center sm:size-6">
+      <input {...props} type="checkbox" className={checkboxClass} />
+    </label>
+  );
+}
 
 export function Field({ label, htmlFor, hint, error, children, className }) {
   return (
@@ -224,7 +203,7 @@ const badgeTones = {
   amber: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   green: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   red: "border-red-500/20 bg-red-500/10 text-red-700 dark:text-red-300",
-  purple: "border-violet-500/20 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  purple: "border-border bg-muted text-muted-foreground",
 };
 
 const dotTones = {
@@ -233,20 +212,20 @@ const dotTones = {
   amber: "bg-amber-500",
   green: "bg-emerald-500",
   red: "bg-red-500",
-  purple: "bg-violet-500",
+  purple: "bg-muted-foreground",
 };
 
 export function Badge({ tone = "gray", dot = false, children, className }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium capitalize leading-5",
+        "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium leading-5",
         badgeTones[tone],
         className,
       )}
     >
       {dot ? <span className={cn("size-1.5 rounded-full", dotTones[tone])} /> : null}
-      {children}
+      {typeof children === "string" ? humanLabel(children) : children}
     </span>
   );
 }
@@ -297,13 +276,10 @@ export function ConnectionBadge({ status }) {
 export function EmptyState({ icon: Icon, title, children, action, className }) {
   return (
     <div
-      className={cn(
-        "flex flex-col items-center justify-center rounded-xl border border-dashed bg-card/50 px-6 py-12 text-center",
-        className,
-      )}
+      className={cn("flex flex-col items-center justify-center rounded-lg bg-card px-5 py-8 text-center", className)}
     >
       {Icon ? (
-        <div className="mb-4 flex size-11 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <div className="mb-3 flex items-center justify-center text-muted-foreground">
           <Icon className="size-5" />
         </div>
       ) : null}
@@ -318,8 +294,8 @@ export function EmptyState({ icon: Icon, title, children, action, className }) {
 
 export function Table({ children, className }) {
   return (
-    <div className={cn("min-w-0 max-w-full overflow-x-auto rounded-xl border bg-card shadow-xs", className)}>
-      <table className="min-w-full text-sm [&_tbody_tr]:border-t [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-muted/40">
+    <div className={cn("data-table min-w-0 max-w-full overflow-x-auto rounded-lg bg-card", className)}>
+      <table className="min-w-full text-sm tabular-nums [&_tbody_tr]:border-t [&_tbody_tr]:border-border/60 [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-muted/30 [&_tbody_tr:has(input:checked)]:bg-muted">
         {children}
       </table>
     </div>
@@ -332,7 +308,7 @@ export function Th({ children, className, ...props }) {
       scope="col"
       {...props}
       className={cn(
-        "h-10 whitespace-nowrap bg-muted/40 px-4 text-left align-middle text-xs font-medium text-muted-foreground",
+        "h-10 whitespace-nowrap bg-card px-4 text-left align-middle text-xs font-medium text-muted-foreground",
         className,
       )}
     >
@@ -350,21 +326,19 @@ export const linkClass = "font-medium text-foreground underline-offset-4 hover:t
 
 export function FilterTabs({ items, active }) {
   return (
-    <div className="mb-4 min-w-0 max-w-full">
-      <nav className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-lg border bg-muted/50 p-1">
+    <div className="mb-4 min-w-0 max-w-full overflow-x-auto">
+      <nav className="flex w-max min-w-full items-center gap-4 border-b">
         {items.map((item) => (
           <ListLink
             key={item.key}
             href={item.href}
             aria-current={active === item.key ? "page" : undefined}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium transition-all sm:px-3 sm:py-1.5 sm:text-sm",
-              active === item.key
-                ? "bg-card text-foreground shadow-xs ring-1 ring-border"
-                : "text-muted-foreground hover:text-foreground",
+              "inline-flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-1 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              active === item.key ? "border-foreground text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            {item.label}
+            {humanLabel(item.label)}
             {item.count !== undefined ? (
               <span
                 className={cn(
@@ -387,10 +361,10 @@ export function DescriptionList({ items, className }) {
     <dl className={cn("divide-y text-sm", className)}>
       {items.map((item) => (
         <div
-          key={item.label}
+          key={humanLabel(item.label)}
           className="flex flex-col gap-0.5 py-2.5 first:pt-0 last:pb-0 sm:flex-row sm:justify-between sm:gap-4"
         >
-          <dt className="shrink-0 text-muted-foreground">{item.label}</dt>
+          <dt className="shrink-0 text-muted-foreground">{humanLabel(item.label)}</dt>
           <dd className="min-w-0 break-words sm:text-right">{item.value}</dd>
         </div>
       ))}
@@ -411,7 +385,7 @@ export function Avatar({ name, className }) {
     <span
       aria-hidden
       className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/80 to-violet-500/80 text-xs font-semibold text-white",
+        "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground",
         className,
       )}
     >

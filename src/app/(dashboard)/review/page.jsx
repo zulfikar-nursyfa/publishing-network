@@ -25,10 +25,7 @@ export default async function ReviewPage({ searchParams }) {
   );
   return (
     <>
-      <PageHeader
-        title="Review queue"
-        description={`Review the oldest articles first. Hover over waiting times for the exact date. Date filters use ${timezone}.`}
-      />
+      <PageHeader title="Review queue" description={`Articles in review and ready to publish · ${timezone}`} />
       <ListToolbar
         path="/review"
         state={state}

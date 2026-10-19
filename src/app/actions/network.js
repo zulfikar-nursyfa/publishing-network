@@ -73,8 +73,12 @@ export async function updateNetworkSettings(_prev, formData) {
 
 export async function updateAlertEmails(_prev, formData) {
   const user = await requireAdmin();
-  const parsed = alertEmailsSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
+  const parsed = alertEmailsSchema.safeParse({ alert_emails: formData.get("alert_emails") });
+  if (!parsed.success)
+    return {
+      error: parsed.error.issues[0]?.message ?? "Check the recipients",
+      fieldErrors: fieldErrorsFrom(parsed.error),
+    };
   const db = await createClient();
   const { error } = await db
     .from("network_settings")
@@ -88,7 +92,7 @@ export async function updateAlertEmails(_prev, formData) {
     details: { recipients: parsed.data.alert_emails.length },
   });
   revalidatePath("/network");
-  return { ok: true, message: "Alert recipients saved." };
+  return { ok: true, message: "Alert recipients saved.", emails: parsed.data.alert_emails };
 }
 
 export async function sendTestAlert() {

@@ -1,6 +1,6 @@
 import { ChartLine, RefreshCw } from "lucide-react";
 import { syncWebsiteTraffic } from "@/app/actions/websites";
-import { SubmitButton } from "@/components/form-controls";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, formatDateTime } from "@/components/ui";
 import { trafficSince, trafficTotals } from "@/lib/traffic/totals";
 
@@ -30,12 +30,12 @@ export async function TrafficCard({ supabase, website, isAdmin }) {
       className="mb-8"
       actions={
         connected && isAdmin ? (
-          <form action={syncWebsiteTraffic.bind(null, website.id)}>
+          <ActionForm action={syncWebsiteTraffic.bind(null, website.id)}>
             <SubmitButton variant="secondary" size="sm" pendingLabel="Updating…">
               <RefreshCw />
               Update now
             </SubmitButton>
-          </form>
+          </ActionForm>
         ) : null
       }
     >

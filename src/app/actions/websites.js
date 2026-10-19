@@ -7,6 +7,7 @@ import { requireAdmin, requireWebsite } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { syncNicheWebsite } from "@/lib/niche-sync";
 import { prepareLogo, uploadLogo, removeLogo, LogoUploadError } from "@/lib/storage/logos";
 import { assertAllowedWordPressUrl, testConnection } from "@/lib/wordpress/connection";
 import { normaliseBaseUrl } from "@/lib/wordpress/client";
@@ -30,6 +31,7 @@ function websiteColumns(input, branding = {}) {
     ai_model: input.ai_model,
     monthly_ai_budget_usd: input.monthly_ai_budget_usd,
     generate_illustrations: input.generate_illustrations,
+    auto_select_stories: input.auto_select_stories,
     branding: {
       ...branding,
       tagline: input.brand_tagline,
@@ -44,10 +46,17 @@ function websiteColumns(input, branding = {}) {
 
 /** Admin only: pulls Google Analytics and Search Console now instead of waiting for the daily run. */
 export async function syncWebsiteTraffic(websiteId) {
-  await requireAdmin();
+  const user = await requireAdmin();
   await requireWebsite(websiteId);
   try {
     await syncTraffic({ websiteId });
+    await recordAudit({
+      action: "website.traffic_synced",
+      entityType: "website",
+      entityId: websiteId,
+      websiteId,
+      actorId: user.id,
+    });
   } catch (error) {
     await createAdminClient()
       .from("websites")
@@ -56,8 +65,11 @@ export async function syncWebsiteTraffic(websiteId) {
         traffic_error: String(error.message ?? error).slice(0, 500),
       })
       .eq("id", websiteId);
+    revalidatePath(`/websites/${websiteId}`);
+    return { error: String(error.message ?? error) };
   }
   revalidatePath(`/websites/${websiteId}`);
+  return { ok: true, message: "Traffic snapshot updated." };
 }
 
 /** Stores the encrypted application password. Returns an error message, or null. */
@@ -152,7 +164,7 @@ export async function createWebsite(_prev, formData) {
       .insert(editorIds.map((userId) => ({ website_id: website.id, user_id: userId })));
   }
 
-  await supabase.rpc("sync_niche_sources", { target_website: website.id });
+  const nicheSyncError = await syncNicheWebsite(supabase, website.id);
 
   await recordAudit({
     action: "website.created",
@@ -166,11 +178,13 @@ export async function createWebsite(_prev, formData) {
       language: website.language,
       editors: editorIds.length,
       logo_uploaded: Boolean(storedLogo),
+      auto_select_stories: website.auto_select_stories,
+      niche_sync_error: nicheSyncError,
     },
   });
 
   await testConnection(website);
-  redirect(`/websites/${website.id}/settings?created=1`);
+  redirect(`/websites/${website.id}/settings?created=1${nicheSyncError ? "&niche_sync=failed" : ""}`);
 }
 
 export async function updateWebsite(websiteId, _prev, formData) {
@@ -252,13 +266,14 @@ export async function updateWebsite(websiteId, _prev, formData) {
       daily_quota: website.daily_quota,
       publish_times: website.publish_times,
       automation_mode: website.automation_mode,
+      auto_select_stories: website.auto_select_stories,
       monthly_ai_budget_usd: website.monthly_ai_budget_usd,
     },
   });
 
-  if (website.niche_id !== previous.niche_id) {
-    const { error: syncError } = await supabase.rpc("sync_niche_sources", { target_website: websiteId });
-    if (syncError) return { error: `Settings saved, but the niche sources could not be updated: ${syncError.message}` };
+  if (website.niche_id !== previous.niche_id || website.language !== previous.language) {
+    const syncError = await syncNicheWebsite(supabase, websiteId);
+    if (syncError) return { error: `Settings saved, but niche sources/categories could not be updated: ${syncError}` };
   }
   if (credentialsChanged) await testConnection(website);
   revalidatePath(`/websites/${websiteId}`, "layout");
@@ -266,7 +281,7 @@ export async function updateWebsite(websiteId, _prev, formData) {
     ok: true,
     branding: website.branding,
     message: logoCleanupSucceeded
-      ? "Settings saved."
+      ? "Settings saved. If niche categories were added, click Categories → Sync with WordPress."
       : "Settings saved. The previous logo file could not be removed from storage.",
   };
 }
@@ -290,8 +305,10 @@ export async function testWebsiteConnection(websiteId, _prev) {
 
 export async function setAutomationPaused(websiteId, paused) {
   const user = await requireAdmin();
+  await requireWebsite(websiteId);
   const supabase = await createClient();
-  await supabase.from("websites").update({ automation_paused: paused }).eq("id", websiteId);
+  const { error } = await supabase.from("websites").update({ automation_paused: paused }).eq("id", websiteId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: paused ? "website.automation_paused" : "website.automation_resumed",
     entityType: "website",
@@ -300,18 +317,21 @@ export async function setAutomationPaused(websiteId, paused) {
     actorId: user.id,
   });
   revalidatePath(`/websites/${websiteId}`, "layout");
+  return { ok: true, message: paused ? "Website automation paused." : "Website automation resumed." };
 }
 
 export async function setWebsiteArchived(websiteId, archived) {
   const user = await requireAdmin();
+  await requireWebsite(websiteId);
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("websites")
     .update({
       archived_at: archived ? new Date().toISOString() : null,
       ...(archived ? { automation_paused: true } : {}),
     })
     .eq("id", websiteId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: archived ? "website.archived" : "website.restored",
     entityType: "website",
@@ -321,4 +341,5 @@ export async function setWebsiteArchived(websiteId, archived) {
   });
   revalidatePath("/websites");
   revalidatePath(`/websites/${websiteId}`, "layout");
+  return { ok: true, message: archived ? "Website archived." : "Website restored." };
 }

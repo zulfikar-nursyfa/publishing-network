@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
@@ -44,8 +45,11 @@ export async function inviteUser(_prev, formData) {
 
 export async function setUserRole(userId, role) {
   const admin = await requireAdmin();
-  if (userId === admin.id && role !== "admin") return; // Administrators cannot demote themselves.
-  await createAdminClient().from("profiles").update({ role }).eq("id", userId);
+  if (!z.object({ userId: z.uuid(), role: z.enum(["admin", "editor"]) }).safeParse({ userId, role }).success)
+    return { error: "Invalid user or role" };
+  if (userId === admin.id && role !== "admin") return { error: "You cannot remove your own administrator access" }; // Administrators cannot demote themselves.
+  const { error } = await createAdminClient().from("profiles").update({ role }).eq("id", userId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: "user.role_changed",
     entityType: "user",
@@ -59,15 +63,26 @@ export async function setUserRole(userId, role) {
 export async function setUserWebsites(userId, formData) {
   const admin = await requireAdmin();
   const db = createAdminClient();
-  const wanted = new Set(formData.getAll("website_ids").filter((value) => typeof value === "string" && value !== ""));
+  const parsed = z
+    .object({ userId: z.uuid(), ids: z.array(z.uuid()).max(1000) })
+    .safeParse({ userId, ids: formData.getAll("website_ids") });
+  if (!parsed.success) return { error: "Choose valid websites" };
+  const wanted = new Set(parsed.data.ids);
   const { data: existing } = await db.from("website_members").select("website_id").eq("user_id", userId);
   const current = new Set((existing ?? []).map((row) => row.website_id));
   const toRemove = [...current].filter((id) => !wanted.has(id));
   const toAdd = [...wanted].filter((id) => !current.has(id));
 
-  if (toRemove.length > 0) await db.from("website_members").delete().eq("user_id", userId).in("website_id", toRemove);
-  if (toAdd.length > 0)
-    await db.from("website_members").insert(toAdd.map((websiteId) => ({ website_id: websiteId, user_id: userId })));
+  if (toRemove.length > 0) {
+    const { error } = await db.from("website_members").delete().eq("user_id", userId).in("website_id", toRemove);
+    if (error) return { error: error.message };
+  }
+  if (toAdd.length > 0) {
+    const { error } = await db
+      .from("website_members")
+      .insert(toAdd.map((websiteId) => ({ website_id: websiteId, user_id: userId })));
+    if (error) return { error: error.message };
+  }
 
   await recordAudit({
     action: "user.websites_changed",

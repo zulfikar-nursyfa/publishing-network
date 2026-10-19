@@ -1,155 +1,188 @@
-import { Check, ExternalLink, Rss, Undo2, X } from "lucide-react";
 import { setStoryStatus } from "@/app/actions/stories";
-import { SubmitButton } from "@/components/form-controls";
-import { Badge, EmptyState, FilterTabs, PageHeader, formatDateTime } from "@/components/ui";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
+import { Badge, FilterTabs, PageHeader, Table, Td, Th, checkboxClass } from "@/components/ui";
+import { BulkStoryActions } from "@/components/bulk-story-actions";
+import { ListToolbar, SortTh } from "@/components/list-controls";
+import { ListResults } from "@/components/list-results";
+import { RelativeTime } from "@/components/relative-time";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { allRows, listContext, readList } from "@/lib/lists";
+import { listHref } from "@/lib/list-params";
+import { storyList } from "@/lib/list-configs";
 import { QueueDraftForm } from "../jobs/job-controls";
 
 export const metadata = { title: "Story inbox" };
-
-const STATUSES = [
-  { key: "new", label: "New" },
-  { key: "selected", label: "Selected" },
-  { key: "skipped", label: "Skipped" },
-];
-
 export default async function StoriesPage({ searchParams }) {
   await requireUser();
-  const params = await searchParams;
-  const status = STATUSES.find((item) => item.key === params.status)?.key ?? "new";
-  const supabase = await createClient();
-
-  const { data: websites } = await supabase
-    .from("websites")
-    .select("id, name, timezone, language")
-    .is("archived_at", null)
-    .order("name");
-  const website = websites?.find((site) => site.id === params.website) ?? null;
-  const siteById = new Map((websites ?? []).map((site) => [site.id, site]));
-
-  let query = supabase
-    .from("story_candidates")
-    .select(
-      "id, website_id, url, title, summary, image_url, source_published_at, created_at, content_sources(name, kind)",
-    )
-    .eq("status", status)
-    .order("source_published_at", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (website) query = query.eq("website_id", website.id);
-  const { data: stories } = await query;
-
-  const href = ({ status: nextStatus = status, website: nextWebsite = website?.id ?? "all" }) => {
-    const search = new URLSearchParams({ status: nextStatus });
-    if (nextWebsite !== "all") search.set("website", nextWebsite);
-    return `/stories?${search}`;
-  };
-
+  const db = await createClient();
+  const { state, websites, timezone } = await listContext(db, await searchParams, storyList);
+  const sources = await allRows(() => {
+    let query = db.from("content_sources").select("id, name, website_id").order("name").order("id");
+    if (state.website !== "all") query = query.eq("website_id", state.website);
+    return query;
+  });
+  const result = await readList(
+    () => {
+      let query = db.from("story_list").select("*", { count: "exact" });
+      if (state.kind === "official") query = query.in("source_kind", ["newsroom", "government"]);
+      else if (state.kind !== "all") query = query.eq("source_kind", state.kind);
+      return query;
+    },
+    state,
+    timezone,
+  );
+  const path = "/stories";
   return (
     <>
       <PageHeader
         title="Story inbox"
-        description="New stories found in each website's approved source feeds, checked every 30 minutes. Select the ones worth covering."
+        description={`Choose stories from approved feeds. Dates use ${timezone}. Select or skip a page of stories together.`}
       />
-
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <FilterTabs active={status} items={STATUSES.map((item) => ({ ...item, href: href({ status: item.key }) }))} />
-        {websites && websites.length > 1 ? (
-          <FilterTabs
-            active={website?.id ?? "all"}
-            items={[
-              { key: "all", label: "All websites" },
-              ...websites.map((site) => ({ key: site.id, label: site.name })),
-            ].map((item) => ({
-              ...item,
-              href: href({ website: item.key }),
-            }))}
-          />
-        ) : null}
-      </div>
-
-      {stories && stories.length > 0 ? (
-        <ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
-          {stories.map((story) => {
-            const site = siteById.get(story.website_id);
-            const primary = ["newsroom", "government"].includes(story.content_sources?.kind);
-            return (
-              <li key={story.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
-                {story.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- remote feed images, shown as-is
-                  <img
-                    src={story.image_url}
-                    alt=""
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    className="aspect-video w-full shrink-0 rounded-lg border bg-muted object-cover sm:w-40"
-                  />
-                ) : null}
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                    <Badge tone="purple">
-                      {site ? `${site.name} · ${site.language.toUpperCase()}` : "Archived website"}
-                    </Badge>
-                    <span className="font-medium text-foreground">
-                      {story.content_sources?.name ?? "Removed source"}
-                    </span>
-                    {primary ? <Badge tone="blue">primary</Badge> : null}
-                    <span>·</span>
-                    <span>{formatDateTime(story.source_published_at ?? story.created_at, site?.timezone)}</span>
-                  </div>
+      <FilterTabs
+        active={state.status}
+        items={["new", "selected", "skipped", "used", "all"].map((key) => ({
+          key,
+          label: key,
+          href: listHref(path, state, { status: key }),
+        }))}
+      />
+      <ListToolbar
+        path={path}
+        state={state}
+        websites={websites}
+        searchLabel="Search story titles"
+        choices={{
+          source: [
+            { value: "all", label: "All sources" },
+            ...sources.map((source) => ({ value: source.id, label: source.name })),
+          ],
+        }}
+      />
+      <ListResults
+        result={result}
+        path={path}
+        state={state}
+        title="No stories yet"
+        empty="Add active source feeds in website settings. Discovery will bring their stories here."
+      >
+        <BulkStoryActions />
+        <Table className="story-inbox-table">
+          <thead>
+            <tr>
+              <Th>
+                <span className="sr-only">Choose story</span>
+              </Th>
+              <Th>Story</Th>
+              <Th>Website</Th>
+              <SortTh path={path} state={state} column="source">
+                Source
+              </SortTh>
+              <SortTh path={path} state={state} column="published">
+                Published
+              </SortTh>
+              <SortTh path={path} state={state} column="discovered">
+                Discovered
+              </SortTh>
+              <Th>Actions</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {result.data.map((story) => (
+              <tr key={story.id}>
+                <Td>
+                  {story.status !== "used" ? (
+                    <input
+                      aria-label={`Choose ${story.title}`}
+                      type="checkbox"
+                      name="story_ids"
+                      value={story.id}
+                      form="bulk-stories"
+                      className={checkboxClass}
+                    />
+                  ) : null}
+                </Td>
+                <Td className="min-w-56 max-w-md">
                   <a
                     href={story.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="group inline-flex items-start gap-1.5 font-medium underline-offset-4 hover:text-primary hover:underline"
+                    dir="auto"
+                    className="font-medium hover:underline"
                   >
-                    <span dir="auto">{story.title}</span>
-                    <ExternalLink className="mt-1 size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
+                    {story.title}
                   </a>
-                  {story.summary ? (
-                    <p dir="auto" className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {story.summary}
-                    </p>
+                  <p dir="auto" className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {story.summary}
+                  </p>
+                  <div className="mt-1 flex gap-1">
+                    <Badge>{story.status}</Badge>
+                    {story.selected_automatically ? <Badge tone="green">Auto-selected</Badge> : null}
+                  </div>
+                  {story.status === "selected" ? <QueueDraftForm storyId={story.id} /> : null}
+                </Td>
+                <Td>
+                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Website</span>
+                  {story.website_name}
+                </Td>
+                <Td>
+                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Source</span>
+                  {story.source_name ?? "Removed source"}
+                  <div className="mt-1">
+                    <Badge tone={["newsroom", "government"].includes(story.source_kind) ? "blue" : "gray"}>
+                      {story.source_kind ?? "unknown"}
+                    </Badge>
+                  </div>
+                </Td>
+                <Td className="whitespace-nowrap">
+                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Published</span>
+                  <RelativeTime value={story.source_published_at} timezone={story.timezone} />
+                </Td>
+                <Td className="whitespace-nowrap">
+                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">Discovered</span>
+                  <RelativeTime value={story.created_at} timezone={story.timezone} />
+                </Td>
+                <Td>
+                  {story.status !== "used" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {story.status !== "selected" ? (
+                        <ActionForm action={setStoryStatus.bind(null, story.id, "selected")}>
+                          <SubmitButton size="sm">Select</SubmitButton>
+                        </ActionForm>
+                      ) : (
+                        <ActionForm action={setStoryStatus.bind(null, story.id, "new")}>
+                          <SubmitButton
+                            size="sm"
+                            variant="secondary"
+                            confirm="Unselect this story and cancel any queued or running draft?"
+                            confirmLabel="Unselect"
+                          >
+                            Unselect
+                          </SubmitButton>
+                        </ActionForm>
+                      )}
+                      {story.status !== "skipped" ? (
+                        <ActionForm action={setStoryStatus.bind(null, story.id, "skipped")}>
+                          <SubmitButton
+                            size="sm"
+                            variant="secondary"
+                            confirm={
+                              story.status === "selected" ? "Skip this story and cancel its draft job?" : undefined
+                            }
+                            confirmLabel="Skip"
+                          >
+                            Skip
+                          </SubmitButton>
+                        </ActionForm>
+                      ) : null}
+                    </div>
                   ) : null}
-                  {status === "selected" ? <QueueDraftForm storyId={story.id} /> : null}
-                </div>
-                <div className="flex shrink-0 gap-2 sm:flex-col">
-                  {status === "new" ? (
-                    <>
-                      <form action={setStoryStatus.bind(null, story.id, "selected")}>
-                        <SubmitButton size="sm" className="w-full">
-                          <Check />
-                          Select
-                        </SubmitButton>
-                      </form>
-                      <form action={setStoryStatus.bind(null, story.id, "skipped")}>
-                        <SubmitButton size="sm" variant="secondary" className="w-full">
-                          <X />
-                          Skip
-                        </SubmitButton>
-                      </form>
-                    </>
-                  ) : (
-                    <form action={setStoryStatus.bind(null, story.id, "new")}>
-                      <SubmitButton size="sm" variant="ghost" className="w-full">
-                        <Undo2 />
-                        Back to new
-                      </SubmitButton>
-                    </form>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <EmptyState icon={Rss} title={status === "new" ? "No new stories" : `No ${status} stories`}>
-          {status === "new"
-            ? "New stories appear here once a website has active sources with a feed URL."
-            : "Stories you mark appear here."}
-        </EmptyState>
-      )}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </ListResults>
     </>
   );
 }

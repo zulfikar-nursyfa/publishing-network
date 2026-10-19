@@ -14,9 +14,9 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 
 - **Login and permissions:** invitation-only Supabase Auth with administrators and editors; editors only see their assigned websites. Enforced in server code *and* in row level security.
 - **Websites:** WordPress connection and test, branding, publishing times (Cairo by default), automation mode, AI spending limit, niche, editors, categories synced with WordPress.
-- **Niches and sources:** 15 niches, each with a source group shared by its English and Arabic sites; websites can disable niche sources and add their own.
-- **Story inbox:** new stories from source feeds every 30 minutes; editors select the ones worth covering.
-- **AI drafting:** selected stories run through web search, page collection (robots.txt and paywalls respected), research that prefers the official source, Gemini drafting, originality/language/source checks, AI verification and images, into the human review queue. Every AI draft needs approval.
+- **Niches and sources:** 15 niches, each with shared sources, writing guides and category templates per language. Categories copy without overwriting website edits; websites can disable niche sources and add their own.
+- **Story inbox:** new stories from source feeds every 30 minutes; editors select the ones worth covering, with optional automatic selection (off by default). URL and English/Arabic title matching suppress duplicate coverage across feeds.
+- **AI drafting:** selected stories run through web search, page collection (robots.txt and paywalls respected), research that prefers the official source, Gemini drafting, originality/language/source checks, AI verification and images, into the human review queue. Network settings can promote individual reviewer warnings into blocking draft checks (all off by default). Drafts wait for review unless an explicitly allowed auto-publish category passes every safeguard.
 - **Images:** featured image per article with source and rights; AI illustrations (always labelled) and, where permitted, the source's own image.
 - **Articles and publishing:** manual articles, review workflow, scheduling, automatic publishing slots, and retry-safe publishing to WordPress (lock, existing-post check, read-back confirmation).
 - **Spending controls:** per-site and network AI limits, worst-case reservation before every AI call, estimated cost per call, AI spend per site (by step and per drafted article) and per article.

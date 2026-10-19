@@ -20,6 +20,7 @@ export async function TodaySchedule({ website }) {
           .select("slot_at, status, note, article_id")
           .eq("website_id", website.id)
           .gte("slot_at", slots[0].toISOString())
+          .lt("slot_at", new Date(slots.at(-1).getTime() + 1).toISOString())
       : Promise.resolve({ data: [] }),
     supabase
       .from("articles")
@@ -88,6 +89,12 @@ export async function TodaySchedule({ website }) {
         title="Scheduled articles"
         description="Approved articles set to publish at a chosen time."
       >
+        <Link
+          href={`/websites/${website.id}?section=articles&scheduled=yes&status=approved`}
+          className="mb-3 inline-block text-sm font-medium text-primary"
+        >
+          View all scheduled articles
+        </Link>
         {scheduled && scheduled.length > 0 ? (
           <ul className="divide-y text-sm">
             {scheduled.map((article) => (

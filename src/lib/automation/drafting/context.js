@@ -39,7 +39,7 @@ export async function loadJobContext(db, job, worker) {
   if (reason) throw new DeferredJob(reason);
   if (story.status !== "selected") throw new PermanentJob("Story is no longer selected");
 
-  return { website, network, story, sources, categories };
+  return { website, network, story, sources, categories, strictChecks: network.strict_draft_checks ?? [] };
 }
 
 /** Saves the job's next state, but only while this worker still holds it. */

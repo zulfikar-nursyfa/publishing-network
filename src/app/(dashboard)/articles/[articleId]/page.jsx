@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ExternalLink, Eye, History, Info, Lock } from "lucide-react";
@@ -14,7 +15,7 @@ import {
   formatDateTime,
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { formatUsd, summariseUsage } from "@/lib/costs";
+import { formatUsd, summariseAggregatedUsage } from "@/lib/costs";
 import { ARTICLE_IMAGE_BUCKET } from "@/lib/storage/article-images";
 import { createClient } from "@/lib/supabase/server";
 import { nextFreeSlot, toLocalInput } from "@/lib/schedule";
@@ -58,6 +59,7 @@ async function scheduleFor(supabase, article, website) {
 
 export default async function ArticlePage({ params, searchParams }) {
   const { articleId } = await params;
+  if (!z.uuid().safeParse(articleId).success) notFound();
   const user = await requireUser();
   const warning = (await searchParams).warning;
   const supabase = await createClient();
@@ -110,10 +112,7 @@ export default async function ArticlePage({ params, searchParams }) {
   ]);
   if (!website) notFound();
   const { data: usage } = draftJob
-    ? await supabase
-        .from("ai_usage")
-        .select("operation, status, estimated_cost_usd, reserved_cost_usd, search_queries")
-        .eq("job_id", draftJob.id)
+    ? await supabase.rpc("job_usage_summary", { target_job: draftJob.id })
     : { data: null };
   const paths = (images ?? []).map((row) => row.storage_path).filter(Boolean);
   const { data: signed } = paths.length
@@ -323,7 +322,7 @@ export default async function ArticlePage({ params, searchParams }) {
                         label: "AI cost (est.)",
                         value: (
                           <Link href={`/jobs/${draftJob.id}`} className="hover:underline">
-                            {formatUsd(summariseUsage(usage).total)}
+                            {formatUsd(summariseAggregatedUsage(usage).total)}
                           </Link>
                         ),
                       },
@@ -345,6 +344,12 @@ export default async function ArticlePage({ params, searchParams }) {
           <ArticleTraffic supabase={supabase} article={article} website={website} />
 
           <Card icon={History} title="History">
+            <Link
+              href={`/activity?entity=${article.id}&website=${article.website_id}`}
+              className="mb-3 inline-block text-sm font-medium text-primary"
+            >
+              View all article activity
+            </Link>
             {history && history.length > 0 ? (
               <ol className="relative space-y-4 border-l pl-5">
                 {history.map((entry, index) => (

@@ -1,8 +1,11 @@
+import { RelativeTime } from "@/components/relative-time";
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { Alert, Card, PageHeader, formatDateTime } from "@/components/ui";
+import { Alert, Card, PageHeader } from "@/components/ui";
 import { AlertEmailsForm } from "./alerts-form";
 import { NetworkSettingsForm, ModelPriceForm } from "./settings-form";
+import { StrictChecksForm } from "./strict-checks-form";
 
 export const metadata = { title: "Network settings" };
 export default async function NetworkPage() {
@@ -28,6 +31,13 @@ export default async function NetworkPage() {
           <Card title="AI controls">
             <NetworkSettingsForm settings={settings} />
           </Card>
+          <Card title="Draft checks">
+            {settings.strict_draft_checks === undefined ? (
+              <Alert tone="warning">Apply migration 40_strict_draft_checks.sql to configure blocking checks.</Alert>
+            ) : (
+              <StrictChecksForm checks={settings.strict_draft_checks} />
+            )}
+          </Card>
           <Card
             title="Alerts"
             description="Checked every 15 minutes. One email per new problem: AI spend at 80% and 100% of a monthly limit, skipped or failed publishing slots, articles that failed to publish twice, and failed AI drafts."
@@ -37,12 +47,20 @@ export default async function NetworkPage() {
             ) : (
               <AlertEmailsForm emails={settings.alert_emails} />
             )}
+            <Link
+              href="/network/alerts?website=all"
+              className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+            >
+              View all alerts
+            </Link>
             {alerts?.length ? (
               <ul className="mt-6 space-y-2 border-t pt-4 text-sm">
                 <li className="font-medium">Recently sent</li>
                 {alerts.map((alert) => (
                   <li key={alert.id}>
-                    <span className="text-muted-foreground">{formatDateTime(alert.created_at, "Africa/Cairo")}</span>{" "}
+                    <span className="text-muted-foreground">
+                      <RelativeTime value={alert.created_at} timezone="UTC" />
+                    </span>{" "}
                     {alert.message}
                   </li>
                 ))}

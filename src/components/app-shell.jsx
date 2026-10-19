@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { useTheme } from "next-themes";
 import {
@@ -32,14 +32,17 @@ import { Avatar, Badge, cn } from "@/components/ui";
 
 const NAV = [
   {
-    label: "Workspace",
+    label: "Daily work",
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard, exact: true },
       { href: "/stories", label: "Story inbox", icon: Rss },
       { href: "/review", label: "Review queue", icon: ClipboardCheck },
       { href: "/jobs", label: "Draft jobs", icon: ListChecks },
-      { href: "/websites", label: "Websites", icon: Globe, match: ["/websites", "/articles"] },
     ],
+  },
+  {
+    label: "Sites",
+    items: [{ href: "/websites", label: "Websites", icon: Globe, match: ["/websites", "/articles", "/sources"] }],
   },
   {
     label: "Administration",
@@ -82,7 +85,7 @@ function Brand({ appEnv }) {
   );
 }
 
-function Nav({ isAdmin, onNavigate }) {
+function Nav({ isAdmin, onNavigate, attention = {} }) {
   const pathname = usePathname();
   return (
     <nav className="space-y-6">
@@ -92,7 +95,7 @@ function Nav({ isAdmin, onNavigate }) {
         return (
           <div key={section.label}>
             <div className="mb-1.5 px-3 text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground/80">
-              {section.label}
+              {section.label === "Administration" && !isAdmin ? "History" : section.label}
             </div>
             <ul className="space-y-0.5">
               {items.map((item) => {
@@ -118,6 +121,14 @@ function Nav({ isAdmin, onNavigate }) {
                         )}
                       />
                       {item.label}
+                      {attention[item.href] > 0 ? (
+                        <span
+                          className="ml-auto rounded-full bg-accent px-2 py-0.5 text-xs tabular-nums text-accent-foreground"
+                          aria-label={`${attention[item.href]} ${item.href === "/jobs" ? "failed jobs" : "waiting for review"}`}
+                        >
+                          {attention[item.href]}
+                        </span>
+                      ) : null}
                     </Link>
                   </li>
                 );
@@ -220,14 +231,14 @@ function UserMenu({ user, side = "top", align = "start", compact = false }) {
   );
 }
 
-function SidebarBody({ user, appEnv, onNavigate }) {
+function SidebarBody({ user, appEnv, onNavigate, attention }) {
   return (
     <div className="flex h-full flex-col">
       <div className="px-4 pt-5 pb-6">
         <Brand appEnv={appEnv} />
       </div>
       <div className="flex-1 overflow-y-auto px-3">
-        <Nav isAdmin={user.isAdmin} onNavigate={onNavigate} />
+        <Nav isAdmin={user.isAdmin} onNavigate={onNavigate} attention={attention} />
       </div>
       <div className="border-t border-sidebar-border p-2">
         <UserMenu user={user} />
@@ -236,32 +247,57 @@ function SidebarBody({ user, appEnv, onNavigate }) {
   );
 }
 
-export function AppShell({ user, appEnv, children }) {
+function ActionNotice() {
+  const [message, setMessage] = useState("");
+  useEffect(() => {
+    const show = (event) => setMessage(String(event.detail));
+    window.addEventListener("pn-notice", show);
+    return () => window.removeEventListener("pn-notice", show);
+  }, []);
+  return message ? (
+    <div
+      role="status"
+      className="fixed right-4 bottom-4 left-4 z-50 flex items-center justify-between gap-3 rounded-lg border bg-card p-4 text-sm shadow-lg sm:left-auto sm:max-w-sm"
+    >
+      <span className="min-w-0 break-words">{message}</span>
+      <button
+        aria-label="Dismiss notification"
+        className="rounded p-1 focus-visible:outline-2 focus-visible:outline-ring"
+        onClick={() => setMessage("")}
+      >
+        <X className="size-4" />
+      </button>
+    </div>
+  ) : null;
+}
+
+export function AppShell({ user, appEnv, children, attention }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="min-h-screen">
+      <ActionNotice />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar lg:block">
-        <SidebarBody user={user} appEnv={appEnv} />
+        <SidebarBody user={user} appEnv={appEnv} attention={attention} />
       </aside>
 
       {/* Mobile top bar + drawer */}
       <Dialog.Root open={open} onOpenChange={setOpen}>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur-lg supports-backdrop-filter:bg-background/70 lg:hidden">
           <Dialog.Trigger
-            className="-ml-1.5 flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            className="-ml-1.5 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
             aria-label="Open navigation"
           >
             <Menu className="size-5" />
           </Dialog.Trigger>
-          <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-            <span className="flex size-7 items-center justify-center rounded-md bg-gradient-to-br from-primary to-violet-500 text-white">
+          <Link href="/" className="flex min-w-0 items-center gap-2 text-sm font-semibold tracking-tight">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-primary to-violet-500 text-white">
               <Newspaper className="size-3.5" />
             </span>
-            Publishing Network
+            <span className="truncate">Publishing Network</span>
           </Link>
-          <div className="ml-auto">
+          <div className="ml-auto shrink-0">
             <UserMenu user={user} side="bottom" align="end" compact />
           </div>
         </header>
@@ -276,12 +312,18 @@ export function AppShell({ user, appEnv, children }) {
             >
               <X className="size-4" />
             </Dialog.Close>
-            <SidebarBody user={user} appEnv={appEnv} onNavigate={() => setOpen(false)} />
+            <SidebarBody user={user} appEnv={appEnv} attention={attention} onNavigate={() => setOpen(false)} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
 
-      <main className="lg:pl-64">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-card focus:p-3 focus:text-primary"
+      >
+        Skip to content
+      </a>
+      <main id="main-content" className="min-w-0 lg:pl-64">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">{children}</div>
       </main>
     </div>

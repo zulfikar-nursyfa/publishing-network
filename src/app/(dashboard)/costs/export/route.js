@@ -1,3 +1,4 @@
+import { allRows } from "@/lib/lists";
 import { requireAdmin } from "@/lib/auth";
 import { buildCostReport, monthParam } from "@/lib/cost-report";
 import { toCsv } from "@/lib/csv";
@@ -8,9 +9,13 @@ const round = (value) => (value === null ? null : Number(value.toFixed(4)));
 async function costRows(db, month) {
   const [{ data: websites, error }, { data: monthCosts, error: costError }, { data: entries, error: entryError }] =
     await Promise.all([
-      db.from("websites").select("id, name, archived_at").order("name"),
-      db.rpc("website_month_costs", { target_month: `${month}-01` }),
-      db.from("cost_entries").select("website_id, amount_usd").eq("month", `${month}-01`),
+      allRows(() => db.from("websites").select("id, name, archived_at").order("id")).then((data) => ({ data })),
+      allRows(() => db.rpc("website_month_costs", { target_month: `${month}-01` }).order("website_id")).then(
+        (data) => ({ data }),
+      ),
+      allRows(() => db.rpc("month_other_costs", { target_month: `${month}-01` }).order("website_id")).then((data) => ({
+        data,
+      })),
     ]);
   const failure = error ?? costError ?? entryError;
   if (failure) throw new Error(failure.message);

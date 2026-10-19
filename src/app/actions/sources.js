@@ -64,7 +64,12 @@ export async function updateContentSource(websiteId, sourceId, _prev, formData) 
 export async function setContentSourceActive(websiteId, sourceId, active) {
   const user = await requireAdmin();
   const supabase = await createClient();
-  await supabase.from("content_sources").update({ active }).eq("id", sourceId).eq("website_id", websiteId);
+  const { error } = await supabase
+    .from("content_sources")
+    .update({ active })
+    .eq("id", sourceId)
+    .eq("website_id", websiteId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: active ? "source.enabled" : "source.disabled",
     entityType: "content_source",
@@ -79,12 +84,13 @@ export async function deleteContentSource(websiteId, sourceId) {
   const user = await requireAdmin();
   const supabase = await createClient();
   // Niche sources are removed from the niche; a site can only disable its copy.
-  await supabase
+  const { error } = await supabase
     .from("content_sources")
     .delete()
     .eq("id", sourceId)
     .eq("website_id", websiteId)
     .is("niche_source_id", null);
+  if (error) return { error: error.message };
   await recordAudit({
     action: "source.removed",
     entityType: "content_source",

@@ -5,19 +5,50 @@ import { recordAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { emailConfigured, sendEmail } from "@/lib/alerts/email";
-import { alertEmailsSchema, fieldErrorsFrom, modelPriceSchema, networkSettingsSchema } from "@/lib/validation";
+import {
+  alertEmailsSchema,
+  fieldErrorsFrom,
+  modelPriceSchema,
+  networkSettingsSchema,
+  strictDraftChecksSchema,
+} from "@/lib/validation";
+
+export async function updateStrictDraftChecks(_prev, formData) {
+  const user = await requireAdmin();
+  const parsed = strictDraftChecksSchema.safeParse({ strict_draft_checks: formData.getAll("strict_draft_checks") });
+  if (!parsed.success) return { error: "Choose known draft checks", fieldErrors: fieldErrorsFrom(parsed.error) };
+  const db = await createClient();
+  const { error } = await db
+    .from("network_settings")
+    .update({ ...parsed.data, updated_by: user.id })
+    .eq("id", true);
+  if (error) return { error: error.message };
+  await recordAudit({
+    action: "network.strict_draft_checks_updated",
+    entityType: "network",
+    actorId: user.id,
+    details: parsed.data,
+  });
+  revalidatePath("/network");
+  return { ok: true, message: "Draft checks saved. They apply from the next draft job step." };
+}
 
 /** Network kill switch: stops automation on every website. Manual and scheduled publishing continue. */
 export async function setNetworkPaused(paused) {
   const user = await requireAdmin();
   const supabase = await createClient();
-  await supabase.from("network_settings").update({ automation_paused: paused, updated_by: user.id }).eq("id", true);
+  const { error } = await supabase
+    .from("network_settings")
+    .update({ automation_paused: paused, updated_by: user.id })
+    .eq("id", true);
+  if (error) return { error: error.message };
   await recordAudit({
     action: paused ? "network.automation_paused" : "network.automation_resumed",
     entityType: "network",
     actorId: user.id,
   });
   revalidatePath("/", "layout");
+  return { ok: true, message: paused ? "Network automation paused." : "Network automation resumed." };
 }
 
 export async function updateNetworkSettings(_prev, formData) {

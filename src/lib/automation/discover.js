@@ -1,13 +1,15 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseFeed, storyFingerprint } from "./feed";
+import { storyRows } from "./story-history";
+import { RECENT_STORY_DAYS, sameStory, titleFingerprint } from "./titles";
 
 const MAX_AGE_MS = 3 * 86_400_000;
 const MAX_ITEMS_PER_SOURCE = 30;
 const BATCH_SIZE = 5;
 
-async function fetchFeed(url) {
-  const response = await fetch(url, {
+async function fetchFeed(url, fetchImpl) {
+  const response = await fetchImpl(url, {
     headers: {
       "user-agent": "Mozilla/5.0 (compatible; PublishingNetworkBot/1.0)",
       accept: "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
@@ -30,32 +32,55 @@ function toRow(source, item) {
       image_url: item.imageUrl,
       source_published_at: item.publishedAt,
       fingerprint: storyFingerprint(item.url),
+      title_fingerprint: titleFingerprint(item.title),
+      reporting_source_ids: [source.id],
     };
   } catch {
     return null;
   }
 }
 
-async function checkSource(db, source) {
+async function checkSource(db, source, history, fetchImpl) {
   const cutoff = Date.now() - MAX_AGE_MS;
   try {
-    const rows = parseFeed(await fetchFeed(source.feed_url))
+    const rows = parseFeed(await fetchFeed(source.feed_url, fetchImpl))
       .filter((item) => !item.publishedAt || Date.parse(item.publishedAt) >= cutoff)
       .slice(0, MAX_ITEMS_PER_SOURCE)
       .map((item) => toRow(source, item))
       .filter(Boolean);
-    const { data, error } = rows.length
-      ? await db
-          .from("story_candidates")
-          .upsert(rows, { onConflict: "website_id,fingerprint", ignoreDuplicates: true })
-          .select("id")
-      : { data: [], error: null };
-    if (error) throw new Error(error.message);
+    let inserted = 0;
+    for (const row of rows) {
+      const duplicate = history.find((other) => sameStory(row, other));
+      if (duplicate) {
+        if (duplicate.reporting_source_ids && !duplicate.reporting_source_ids.includes(source.id)) {
+          const reporting = [
+            ...new Set([duplicate.source_id, ...duplicate.reporting_source_ids, source.id].filter(Boolean)),
+          ];
+          const { error } = await db
+            .from("story_candidates")
+            .update({ reporting_source_ids: reporting })
+            .eq("website_id", source.website_id)
+            .eq("id", duplicate.id);
+          if (error) throw new Error(error.message);
+          duplicate.reporting_source_ids = reporting;
+        }
+        continue;
+      }
+      const { data, error } = await db
+        .from("story_candidates")
+        .upsert(row, { onConflict: "website_id,fingerprint", ignoreDuplicates: true })
+        .select("id");
+      if (error) throw new Error(error.message);
+      if (data.length) {
+        history.push({ ...row, id: data[0].id });
+        inserted++;
+      }
+    }
     await db
       .from("content_sources")
       .update({ last_checked_at: new Date().toISOString(), last_error: null })
       .eq("id", source.id);
-    return data.length;
+    return inserted;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await db
@@ -67,8 +92,7 @@ async function checkSource(db, source) {
 }
 
 /** Reads every active source feed of every active website and stores stories not seen before. */
-export async function discoverStories() {
-  const db = createAdminClient();
+export async function discoverStories({ db = createAdminClient(), fetchImpl = fetch } = {}) {
   const { data: sources, error } = await db
     .from("content_sources")
     .select("id, website_id, feed_url, websites!inner(archived_at)")
@@ -78,8 +102,35 @@ export async function discoverStories() {
   if (error) throw new Error(`Could not load sources: ${error.message}`);
 
   const results = [];
-  for (let i = 0; i < sources.length; i += BATCH_SIZE) {
-    results.push(...(await Promise.all(sources.slice(i, i + BATCH_SIZE).map((source) => checkSource(db, source)))));
+  const websiteIds = [...new Set(sources.map((source) => source.website_id))];
+  const since = new Date(Date.now() - RECENT_STORY_DAYS * 86_400_000).toISOString();
+  const checkWebsite = async (websiteId) => {
+    const [stories, articles] = await Promise.all([
+      storyRows(() =>
+        db
+          .from("story_candidates")
+          .select("id, source_id, title, fingerprint, title_fingerprint, reporting_source_ids")
+          .eq("website_id", websiteId)
+          .gte("created_at", since)
+          .order("id"),
+      ),
+      storyRows(() =>
+        db
+          .from("articles")
+          .select("title, story_fingerprint")
+          .eq("website_id", websiteId)
+          .eq("origin", "automated")
+          .gte("created_at", since)
+          .order("id"),
+      ),
+    ]);
+    const history = [...stories, ...articles];
+    // Sources for a website share one history and run in order, including matches in this run.
+    for (const source of sources.filter((source) => source.website_id === websiteId))
+      results.push(await checkSource(db, source, history, fetchImpl));
+  };
+  for (let i = 0; i < websiteIds.length; i += BATCH_SIZE) {
+    await Promise.all(websiteIds.slice(i, i + BATCH_SIZE).map(checkWebsite));
   }
   return {
     sources: sources.length,

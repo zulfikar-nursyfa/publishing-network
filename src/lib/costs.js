@@ -17,6 +17,19 @@ export function summariseUsage(rows) {
   return { total, searches, calls: rows.length, byOperation };
 }
 
+/** SQL has already grouped every underlying call; these few rows are never a capped raw-call list. */
+export function summariseAggregatedUsage(rows) {
+  return rows.reduce(
+    (summary, row) => ({
+      total: summary.total + Number(row.cost_usd),
+      searches: summary.searches + Number(row.searches),
+      calls: summary.calls + Number(row.calls),
+      byOperation: { ...summary.byOperation, [row.operation]: Number(row.cost_usd) },
+    }),
+    { total: 0, searches: 0, calls: 0, byOperation: {} },
+  );
+}
+
 /** Start of the current UTC month, the period the AI budgets use. */
 export function monthStartUtc(now = new Date()) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();

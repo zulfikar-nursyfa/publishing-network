@@ -35,6 +35,10 @@ export async function TopContentCard({ supabase, website }) {
       description="Pages matched to an article link to it. Searches are what people typed in Google before seeing the site."
       className="mb-8"
     >
+      <div className="mb-4 flex flex-wrap gap-4 text-sm font-medium text-primary">
+        <Link href={`/websites/${website.id}/traffic?type=pages`}>View all pages</Link>
+        <Link href={`/websites/${website.id}/traffic?type=searches`}>View all searches</Link>
+      </div>
       <div className="grid gap-6 xl:grid-cols-2">
         <Table>
           <thead>

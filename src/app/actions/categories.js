@@ -169,11 +169,12 @@ export async function syncCategories(websiteId, _prev) {
 export async function setCategoryAutoPublish(websiteId, categoryId, allowed) {
   const user = await requireAdmin();
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("categories")
     .update({ auto_publish_allowed: allowed })
     .eq("id", categoryId)
     .eq("website_id", websiteId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: allowed ? "category.auto_publish_on" : "category.auto_publish_off",
     entityType: "category",
@@ -188,11 +189,12 @@ export async function setCategoryAutoPublish(websiteId, categoryId, allowed) {
 export async function setCategoryArchived(websiteId, categoryId, archived) {
   const user = await requireAdmin();
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("categories")
     .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq("id", categoryId)
     .eq("website_id", websiteId);
+  if (error) return { error: error.message };
   await recordAudit({
     action: archived ? "category.archived" : "category.restored",
     entityType: "category",

@@ -1,6 +1,6 @@
 import { Tags } from "lucide-react";
 import { setCategoryArchived, setCategoryAutoPublish } from "@/app/actions/categories";
-import { SubmitButton } from "@/components/form-controls";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { Badge, Card } from "@/components/ui";
 import { CategoryForm, SyncCategoriesButton } from "./settings-forms";
 
@@ -23,7 +23,9 @@ function CategoryItem({ category, websiteId, isAdmin }) {
         {isAdmin ? (
           <div className="flex shrink-0 gap-2">
             {!category.archived_at ? (
-              <form action={setCategoryAutoPublish.bind(null, websiteId, category.id, !category.auto_publish_allowed)}>
+              <ActionForm
+                action={setCategoryAutoPublish.bind(null, websiteId, category.id, !category.auto_publish_allowed)}
+              >
                 <SubmitButton
                   variant="secondary"
                   size="sm"
@@ -36,13 +38,22 @@ function CategoryItem({ category, websiteId, isAdmin }) {
                 >
                   {category.auto_publish_allowed ? "Require review" : "Allow auto-publish"}
                 </SubmitButton>
-              </form>
+              </ActionForm>
             ) : null}
-            <form action={setCategoryArchived.bind(null, websiteId, category.id, !category.archived_at)}>
-              <SubmitButton variant="secondary" size="sm">
+            <ActionForm action={setCategoryArchived.bind(null, websiteId, category.id, !category.archived_at)}>
+              <SubmitButton
+                variant="secondary"
+                size="sm"
+                confirm={
+                  category.archived_at
+                    ? undefined
+                    : "Archive this category? Existing articles keep it, but it will no longer be offered for new articles."
+                }
+                confirmLabel="Archive"
+              >
                 {category.archived_at ? "Restore" : "Archive"}
               </SubmitButton>
-            </form>
+            </ActionForm>
           </div>
         ) : null}
       </div>
@@ -58,13 +69,13 @@ function CategoryItem({ category, websiteId, isAdmin }) {
   );
 }
 
-export function CategoriesCard({ websiteId, categories, isAdmin }) {
+export function CategoriesCard({ websiteId, categories, isAdmin, filtered = false }) {
   return (
     <Card
       icon={Tags}
       className="mb-6"
       title="Categories"
-      description="Editors and the AI choose from active categories. Each one is linked to a WordPress category of the same slug. Auto-publish is off for every category until allowed here, and only applies in Automatic mode."
+      description="Editors and the AI choose from active categories. After applying niche categories, click Sync with WordPress to create them there by slug. Auto-publish is off until allowed here, and only applies in Automatic mode."
     >
       {categories.length > 0 ? (
         <ul className="mb-5 divide-y rounded-lg border">
@@ -74,7 +85,7 @@ export function CategoriesCard({ websiteId, categories, isAdmin }) {
         </ul>
       ) : (
         <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          No categories yet. Add them here or sync to import the WordPress site&apos;s categories.
+          {filtered ? "No categories match these filters." : "No categories yet. Add one or sync with WordPress."}
         </p>
       )}
       {isAdmin ? (

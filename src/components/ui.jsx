@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ListLink } from "./list-link";
 import { cva } from "class-variance-authority";
 import { clsx } from "clsx";
 import { ArrowLeft, CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
@@ -11,7 +12,7 @@ export function cn(...classes) {
 export function PageHeader({ title, description, actions, back }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
-      <div className="min-w-0">
+      <div className="min-w-0 break-words">
         {back ? (
           <Link
             href={back.href}
@@ -24,16 +25,23 @@ export function PageHeader({ title, description, actions, back }) {
         <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-[1.75rem]">{title}</h1>
         {description ? <div className="mt-1.5 text-sm text-muted-foreground">{description}</div> : null}
       </div>
-      {actions ? <div className="flex flex-wrap gap-2 sm:shrink-0">{actions}</div> : null}
+      {actions ? (
+        <div className="flex min-w-0 max-w-full flex-wrap gap-2 sm:max-w-1/2 sm:justify-end">{actions}</div>
+      ) : null}
     </div>
   );
 }
 
 export function Card({ title, description, children, className, actions, icon: Icon }) {
   return (
-    <section className={cn("rounded-xl border bg-card p-5 text-card-foreground shadow-xs sm:p-6", className)}>
+    <section
+      className={cn(
+        "min-w-0 max-w-full rounded-xl border bg-card p-4 text-card-foreground shadow-xs sm:p-6",
+        className,
+      )}
+    >
       {title ? (
-        <div className="mb-5 flex items-start justify-between gap-4">
+        <div className="mb-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
           <div className="flex min-w-0 items-start gap-3">
             {Icon ? (
               <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
@@ -45,7 +53,7 @@ export function Card({ title, description, children, className, actions, icon: I
               {description ? <p className="mt-0.5 text-sm text-muted-foreground">{description}</p> : null}
             </div>
           </div>
-          {actions ? <div className="shrink-0">{actions}</div> : null}
+          {actions ? <div className="flex max-w-full flex-wrap gap-2">{actions}</div> : null}
         </div>
       ) : null}
       {children}
@@ -55,7 +63,7 @@ export function Card({ title, description, children, className, actions, icon: I
 
 export function SectionHeading({ title, description, actions }) {
   return (
-    <div className="mb-3 flex items-end justify-between gap-4">
+    <div className="mb-3 flex min-w-0 flex-wrap items-end justify-between gap-3">
       <div>
         <h2 className="text-base font-semibold">{title}</h2>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
@@ -147,7 +155,7 @@ export function ButtonLink({ variant = "primary", size = "default", className, .
 }
 
 export const inputClass =
-  "block w-full min-w-0 min-h-9 rounded-md border border-input bg-card px-3 py-1.5 text-sm shadow-xs outline-none transition-[color,box-shadow,border-color] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted/60 disabled:opacity-80";
+  "block w-full max-w-full min-w-0 min-h-10 sm:min-h-9 rounded-md border border-input bg-card px-3 py-1.5 text-base sm:text-sm shadow-xs outline-none transition-[color,box-shadow,border-color] placeholder:text-muted-foreground/70 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted/60 disabled:opacity-80";
 
 export const checkboxClass = "size-4 shrink-0 rounded border-input";
 
@@ -310,7 +318,7 @@ export function EmptyState({ icon: Icon, title, children, action, className }) {
 
 export function Table({ children, className }) {
   return (
-    <div className={cn("overflow-x-auto rounded-xl border bg-card shadow-xs", className)}>
+    <div className={cn("min-w-0 max-w-full overflow-x-auto rounded-xl border bg-card shadow-xs", className)}>
       <table className="min-w-full text-sm [&_tbody_tr]:border-t [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-muted/40">
         {children}
       </table>
@@ -318,9 +326,11 @@ export function Table({ children, className }) {
   );
 }
 
-export function Th({ children, className }) {
+export function Th({ children, className, ...props }) {
   return (
     <th
+      scope="col"
+      {...props}
       className={cn(
         "h-10 whitespace-nowrap bg-muted/40 px-4 text-left align-middle text-xs font-medium text-muted-foreground",
         className,
@@ -340,15 +350,15 @@ export const linkClass = "font-medium text-foreground underline-offset-4 hover:t
 
 export function FilterTabs({ items, active }) {
   return (
-    <div className="-mx-4 mb-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      <nav className="inline-flex min-w-max items-center gap-1 rounded-lg border bg-muted/50 p-1">
+    <div className="mb-4 min-w-0 max-w-full">
+      <nav className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-lg border bg-muted/50 p-1">
         {items.map((item) => (
-          <Link
+          <ListLink
             key={item.key}
             href={item.href}
             aria-current={active === item.key ? "page" : undefined}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+              "inline-flex items-center gap-1.5 rounded-md px-2 py-2 text-xs font-medium transition-all sm:px-3 sm:py-1.5 sm:text-sm",
               active === item.key
                 ? "bg-card text-foreground shadow-xs ring-1 ring-border"
                 : "text-muted-foreground hover:text-foreground",
@@ -365,7 +375,7 @@ export function FilterTabs({ items, active }) {
                 {item.count}
               </span>
             ) : null}
-          </Link>
+          </ListLink>
         ))}
       </nav>
     </div>

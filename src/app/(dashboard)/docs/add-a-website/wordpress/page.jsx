@@ -75,8 +75,10 @@ export default function WordPressStepPage() {
             the dash).
           </Step>
           <Step title="Upload the plugin file">
-            Open <Code>mu-plugins</Code> and upload <Code>publishing-network.php</Code>. Do not put it inside another
-            folder.
+            Download{" "}
+            <a href="/docs/downloads/publishing-network" download="publishing-network.php" className="font-medium text-foreground underline underline-offset-4">
+              publishing-network.php
+            </a>, then open <Code>mu-plugins</Code> and upload the downloaded file. Do not put it inside another folder.
           </Step>
           <Step title="Check it is active">
             In WordPress, go to <Path>Plugins → Installed Plugins</Path>. A <strong>Must-Use</strong> tab should show{" "}

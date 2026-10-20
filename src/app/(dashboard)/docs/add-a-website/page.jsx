@@ -58,8 +58,10 @@ export default function AddWebsiteOverviewPage() {
             An <strong>administrator login</strong> for that WordPress site.
           </li>
           <li>
-            The <strong>connector plugin file</strong> <Code>publishing-network.php</Code>. Ask the technical team if
-            you do not have it.
+            The <strong>connector plugin file</strong>: download{" "}
+            <a href="/docs/downloads/publishing-network" download="publishing-network.php" className="font-medium text-foreground underline underline-offset-4">
+              publishing-network.php
+            </a>.
           </li>
           <li>
             Access to the <strong>Cosmos Google account</strong> that owns Google Analytics and Search Console.

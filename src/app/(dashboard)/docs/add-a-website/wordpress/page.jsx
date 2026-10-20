@@ -15,6 +15,47 @@ export default function WordPressStepPage() {
         Copy the theme, plugins and settings from the test site, never its posts.
       </Note>
 
+      <Section title="Before you start: get into WordPress">
+        <p>
+          You only need a SiteGround login. SiteGround shows whether WordPress is installed and logs you in to it.
+        </p>
+        <Steps>
+          <Step title="Open the site in SiteGround">
+            Log in to SiteGround, open <Path>Websites</Path> and click <Path>Site Tools</Path> next to the domain.
+          </Step>
+          <Step title="Check whether WordPress is installed">
+            Go to <Path>WordPress → Install &amp; Manage</Path> and look at the list at the bottom of the page.
+            <List>
+              <li>
+                <strong>The domain is listed:</strong> WordPress is installed. Click the <strong>⋮</strong> menu next to
+                it, then <strong>Log in to Admin Panel</strong>. You are now in WordPress as an administrator.
+              </li>
+              <li>
+                <strong>Nothing is listed:</strong> WordPress is not installed yet. If <Code>your-site.com/wp-admin</Code>{" "}
+                shows a SiteGround &quot;404 - Not found&quot; page, this is why. Continue with the next step.
+              </li>
+            </List>
+          </Step>
+          <Step title="Install WordPress (only if it is missing)">
+            On the same page, choose <strong>WordPress</strong>, pick the domain, leave the folder empty, and set an
+            administrator username, a strong password and the team email address. Click <strong>Install</strong>. Save
+            the login in the team password manager. It takes a few minutes.
+          </Step>
+          <Step title="Turn on HTTPS">
+            Go to <Path>Security → SSL Manager</Path> and check the domain has a Let&apos;s Encrypt certificate (add
+            one if not). Then in <Path>Security → HTTPS Enforce</Path>, switch it on. The dashboard needs https.
+          </Step>
+          <Step title="Log in">
+            Use <strong>Log in to Admin Panel</strong> from Install &amp; Manage, or go to{" "}
+            <Code>https://your-site.com/wp-admin</Code> and sign in with the administrator login.
+          </Step>
+        </Steps>
+        <Note title="Lost the administrator password?">
+          In <Path>WordPress → Install &amp; Manage</Path>, the <strong>Log in to Admin Panel</strong> option logs you
+          in without a password. Then change it under <Path>Users → Profile</Path>.
+        </Note>
+      </Section>
+
       <Section title="A. Install the connector plugin">
         <p>
           This small plugin lets the dashboard publish safely: it stops the same article from being posted twice and

@@ -1,17 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Card, Field, inputClass } from "@/components/ui";
 
 export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel, categories = [] }) {
-  const [state, formAction] = useActionState(action, {});
+  const [state, formAction] = useActionStateWithNotice(action, {});
   const errors = state.fieldErrors ?? {};
   const dir = rtl ? "rtl" : "ltr";
 
   return (
     <form action={formAction} className="space-y-4">
-      <FormAlert state={state} />
       {values?.version !== undefined ? <input type="hidden" name="version" value={values.version} /> : null}
       <Card>
         <fieldset disabled={readOnly} className="min-w-0 space-y-5">

@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { CalendarClock, ChartLine, Globe, Palette, Plug, Users } from "lucide-react";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Card, CheckboxLabel, Field, inputClass } from "@/components/ui";
 import { DEFAULT_PUBLISH_TIMES, DEFAULT_TIMEZONE } from "@/lib/schedule";
 import { BrandColourPicker, LogoUpload, PublishingTimesPicker } from "./website-inputs";
@@ -12,7 +12,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
   const [logoFile, setLogoFile] = useState(null);
   const [logoRemoved, setLogoRemoved] = useState(false);
   const [logoInputKey, setLogoInputKey] = useState(0);
-  const [state, formAction] = useActionState(async (previous, formData) => {
+  const [state, formAction] = useActionStateWithNotice(async (previous, formData) => {
     if (logoFile) formData.set("brand_logo", logoFile);
     else formData.delete("brand_logo");
     formData.set("brand_remove_logo", logoRemoved ? "on" : "");
@@ -32,8 +32,6 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
 
   return (
     <form action={formAction} className="space-y-6">
-      <FormAlert state={state} />
-
       <Card icon={Globe} title="Website" description="How the site is identified in the dashboard.">
         <div className="grid gap-5 md:grid-cols-2">
           <Field label="Name" htmlFor="name" error={errors.name}>

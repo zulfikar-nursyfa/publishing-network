@@ -12,7 +12,6 @@ export function RemoveDraftForm({ jobId, title }) {
   if (removed) return null;
   return (
     <ActionForm
-      inlineSuccess={false}
       action={async () => {
         const result = await removeFromDrafting(jobId);
         if (result.ok) setRemoved(true);
@@ -33,14 +32,7 @@ export function RemoveDraftForm({ jobId, title }) {
 
 export function BulkDraftRemoval({ selectionKey }) {
   return (
-    <SelectionActions
-      key={selectionKey}
-      id="bulk-jobs"
-      name="job_ids"
-      action={bulkRemoveFromDrafting}
-      clearOnSuccess
-      inlineSuccess={false}
-    >
+    <SelectionActions key={selectionKey} id="bulk-jobs" name="job_ids" action={bulkRemoveFromDrafting} clearOnSuccess>
       <SubmitButton size="sm" variant="danger-outline" confirm={confirmation} confirmLabel="Remove selected stories">
         Remove from drafting
       </SubmitButton>

@@ -1,18 +1,17 @@
 "use client";
 
-import { useActionState, useId } from "react";
+import { useId } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { addCategory, syncCategories, updateCategory } from "@/app/actions/categories";
 import { testWebsiteConnection } from "@/app/actions/websites";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { CheckboxLabel, Field, inputClass } from "@/components/ui";
 import { SOURCE_KINDS } from "@/lib/validation";
 
 export function TestConnectionButton({ websiteId }) {
-  const [state, action] = useActionState(testWebsiteConnection.bind(null, websiteId), {});
+  const [, action] = useActionStateWithNotice(testWebsiteConnection.bind(null, websiteId), {});
   return (
     <form action={action} className="space-y-3">
-      <FormAlert state={state} />
       <SubmitButton variant="secondary" pendingLabel="Testing…">
         <RefreshCw />
         Test connection
@@ -26,13 +25,12 @@ export function TestConnectionButton({ websiteId }) {
  * website's own sources or a niche's source group.
  */
 export function SourceForm({ saveSource, source }) {
-  const [state, action] = useActionState(saveSource, {});
+  const [state, action] = useActionStateWithNotice(saveSource, {});
   const errors = state.fieldErrors ?? {};
   const id = useId();
   return (
     <form action={action} className="space-y-4 rounded-lg bg-muted/40 p-4">
       {source ? null : <div className="text-sm font-medium">Add a source</div>}
-      <FormAlert state={state} />
       <div className="grid gap-4 md:grid-cols-[1fr_12rem]">
         <Field label="Name" htmlFor={`${id}-name`} error={errors.name}>
           <input id={`${id}-name`} name="name" required defaultValue={source?.name} className={inputClass} />
@@ -111,10 +109,9 @@ export function SourceForm({ saveSource, source }) {
 }
 
 export function SyncCategoriesButton({ websiteId }) {
-  const [state, action] = useActionState(syncCategories.bind(null, websiteId), {});
+  const [, action] = useActionStateWithNotice(syncCategories.bind(null, websiteId), {});
   return (
     <form action={action} className="space-y-3">
-      <FormAlert state={state} />
       <SubmitButton variant="secondary" size="sm" pendingLabel="Syncing…">
         <RefreshCw />
         Sync with WordPress
@@ -125,7 +122,7 @@ export function SyncCategoriesButton({ websiteId }) {
 
 /** Adds a category, or edits `category` when given. */
 export function CategoryForm({ websiteId, category }) {
-  const [state, action] = useActionState(
+  const [state, action] = useActionStateWithNotice(
     category ? updateCategory.bind(null, websiteId, category.id) : addCategory.bind(null, websiteId),
     {},
   );
@@ -134,7 +131,6 @@ export function CategoryForm({ websiteId, category }) {
   return (
     <form action={action} className="space-y-4 rounded-lg bg-muted/40 p-4">
       {category ? null : <div className="text-sm font-medium">Add a category</div>}
-      <FormAlert state={state} />
       <div className="grid gap-4 md:grid-cols-[1fr_14rem]">
         <Field label="Name" htmlFor={`${id}-name`} error={errors.name}>
           <input id={`${id}-name`} name="name" required defaultValue={category?.name} className={inputClass} />

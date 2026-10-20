@@ -1,9 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
 import { ImageIcon, Trash2 } from "lucide-react";
 import { chooseFeaturedImage, removeFeaturedImage, saveFeaturedImage } from "@/app/actions/images";
-import { ActionForm, FormAlert, SubmitButton } from "@/components/form-controls";
+import { ActionForm, useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Badge, Card, Field, inputClass } from "@/components/ui";
 import { IMAGE_SOURCE_KINDS } from "@/lib/validation";
 
@@ -11,7 +10,7 @@ const describe = (image) => `${IMAGE_SOURCE_KINDS[image.source_kind]}${image.cre
 
 export function FeaturedImage({ articleId, image, options = [], readOnly }) {
   const previewUrl = image?.previewUrl;
-  const [state, action] = useActionState(saveFeaturedImage.bind(null, articleId), {});
+  const [state, action] = useActionStateWithNotice(saveFeaturedImage.bind(null, articleId), {});
   const errors = state.fieldErrors ?? {};
 
   return (
@@ -63,7 +62,6 @@ export function FeaturedImage({ articleId, image, options = [], readOnly }) {
         )
       ) : (
         <form key={image ? `${image.id}-${image.updated_at}` : "new"} action={action} className="space-y-4">
-          <FormAlert state={state} />
           <Field
             label={image ? "Replace image" : "Image"}
             htmlFor="image-file"

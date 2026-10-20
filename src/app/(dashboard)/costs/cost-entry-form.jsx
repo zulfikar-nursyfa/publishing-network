@@ -1,15 +1,13 @@
 "use client";
-import { useActionState } from "react";
 import { addCostEntry } from "@/app/actions/costs";
 import { Field, inputClass } from "@/components/ui";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { COST_CATEGORIES } from "@/lib/cost-report";
 
 export function CostEntryForm({ month, websites }) {
-  const [state, action] = useActionState(addCostEntry, {});
+  const [state, action] = useActionStateWithNotice(addCostEntry, {});
   return (
     <form action={action} className="space-y-4">
-      <FormAlert state={state} />
       <input type="hidden" name="month" value={month} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Website" htmlFor="cost-website" error={state.fieldErrors?.website_id}>

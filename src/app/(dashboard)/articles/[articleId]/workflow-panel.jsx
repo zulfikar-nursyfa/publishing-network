@@ -1,6 +1,5 @@
 "use client";
 
-import { useActionState } from "react";
 import { CalendarClock, Check, CircleCheck, EyeOff, RotateCcw, Send, Undo2, Workflow, X } from "lucide-react";
 import {
   publishArticleAction,
@@ -9,7 +8,7 @@ import {
   transitionArticle,
   unpublishArticleAction,
 } from "@/app/actions/articles";
-import { ActionForm, FormAlert, SubmitButton } from "@/components/form-controls";
+import { ActionForm, useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, cn, inputClass } from "@/components/ui";
 
 const STEPS = [
@@ -47,10 +46,9 @@ function Stepper({ status }) {
 }
 
 function UnpublishForm({ articleId }) {
-  const [state, action] = useActionState(unpublishArticleAction.bind(null, articleId), {});
+  const [, action] = useActionStateWithNotice(unpublishArticleAction.bind(null, articleId), {});
   return (
     <form action={action} className="space-y-2 border-t pt-4">
-      <FormAlert state={state} />
       <textarea name="reason" rows={2} className={inputClass} placeholder="Reason for taking it down (optional)" />
       <SubmitButton
         variant="danger-outline"
@@ -67,10 +65,9 @@ function UnpublishForm({ articleId }) {
 }
 
 function ScheduleForm({ articleId, schedule }) {
-  const [state, action] = useActionState(scheduleArticle.bind(null, articleId), {});
+  const [, action] = useActionStateWithNotice(scheduleArticle.bind(null, articleId), {});
   return (
     <form action={action} className="space-y-2 rounded-lg border p-3">
-      <FormAlert state={state} />
       {schedule.label ? (
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm">
@@ -111,8 +108,8 @@ function ScheduleForm({ articleId, schedule }) {
 }
 
 export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, publication, schedule }) {
-  const [transitionState, transitionAction] = useActionState(transitionArticle.bind(null, articleId), {});
-  const [publishState, publishAction] = useActionState(publishArticleAction.bind(null, articleId), {});
+  const [, transitionAction] = useActionStateWithNotice(transitionArticle.bind(null, articleId), {});
+  const [, publishAction] = useActionStateWithNotice(publishArticleAction.bind(null, articleId), {});
   const exhausted =
     publication !== null && publication.status !== "succeeded" && publication.attemptCount >= publication.maxAttempts;
 
@@ -120,9 +117,6 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
     <Card icon={Workflow} title="Review and publish">
       <Stepper status={status} />
       <div className="space-y-4">
-        <FormAlert state={transitionState} />
-        <FormAlert state={publishState} />
-
         {status === "rejected" ? (
           <Alert tone="error">This article was rejected. Submit it for review again once it has been revised.</Alert>
         ) : null}

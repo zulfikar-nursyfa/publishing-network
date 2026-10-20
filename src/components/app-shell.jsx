@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { useTheme } from "next-themes";
 import {
@@ -247,36 +247,11 @@ function SidebarBody({ user, appEnv, onNavigate, attention }) {
   );
 }
 
-function ActionNotice() {
-  const [message, setMessage] = useState("");
-  useEffect(() => {
-    const show = (event) => setMessage(String(event.detail));
-    window.addEventListener("pn-notice", show);
-    return () => window.removeEventListener("pn-notice", show);
-  }, []);
-  return message ? (
-    <div
-      role="status"
-      className="fixed right-4 bottom-4 left-4 z-50 flex items-center justify-between gap-3 rounded-lg border bg-card p-4 text-sm shadow-lg sm:left-auto sm:max-w-sm"
-    >
-      <span className="min-w-0 break-words">{message}</span>
-      <button
-        aria-label="Dismiss notification"
-        className="rounded p-1 focus-visible:outline-2 focus-visible:outline-ring"
-        onClick={() => setMessage("")}
-      >
-        <X className="size-4" />
-      </button>
-    </div>
-  ) : null;
-}
-
 export function AppShell({ user, appEnv, children, attention }) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="min-h-screen">
-      <ActionNotice />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar xl:block">
         <SidebarBody user={user} appEnv={appEnv} attention={attention} />

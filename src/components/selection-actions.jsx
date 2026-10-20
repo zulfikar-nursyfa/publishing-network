@@ -1,14 +1,10 @@
 "use client";
-import { useActionState, useEffect, useRef, useState } from "react";
-import { FormAlert } from "./form-controls";
+import { useEffect, useRef, useState } from "react";
+import { useActionStateWithNotice } from "./form-controls";
 import { checkboxClass } from "./ui";
 
-export function SelectionActions({ id, name, action, children, clearOnSuccess = false, inlineSuccess = true }) {
-  const [state, submit] = useActionState(async (previous, data) => {
-    const result = await action(previous, data);
-    if (result.ok && result.message) window.dispatchEvent(new CustomEvent("pn-notice", { detail: result.message }));
-    return result;
-  }, {});
+export function SelectionActions({ id, name, action, children, clearOnSuccess = false }) {
+  const [state, submit] = useActionStateWithNotice(action, {});
   const [count, setCount] = useState(0);
   const all = useRef(null);
   useEffect(() => {
@@ -29,7 +25,6 @@ export function SelectionActions({ id, name, action, children, clearOnSuccess = 
   }, [id, name, state, clearOnSuccess]);
   return (
     <div className="mb-3 space-y-2">
-      {inlineSuccess || state.error ? <FormAlert state={state} /> : null}
       <form id={id} action={submit} className="flex min-h-11 flex-wrap items-center gap-3">
         <label className="inline-flex min-h-11 items-center gap-2 text-sm">
           <input

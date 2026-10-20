@@ -1,17 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
 import { applyNicheCategories, saveNicheCategory } from "@/app/actions/niche-categories";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Badge, CheckboxLabel, Field, inputClass } from "@/components/ui";
 
 function CategoryForm({ nicheId, language, category }) {
-  const [state, action] = useActionState(saveNicheCategory.bind(null, nicheId, category?.id ?? null), {});
+  const [state, action] = useActionStateWithNotice(saveNicheCategory.bind(null, nicheId, category?.id ?? null), {});
   const id = `${nicheId}-${language}-${category?.id ?? "new"}`;
   const errors = state.fieldErrors ?? {};
   return (
     <form action={action} className="space-y-3 rounded-lg bg-muted/40 p-4">
-      <FormAlert state={state} />
       <input type="hidden" name="language" value={language} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Name" htmlFor={`${id}-name`} error={errors.name}>
@@ -75,7 +73,7 @@ function CategoryForm({ nicheId, language, category }) {
 }
 
 export function NicheCategories({ nicheId, categories }) {
-  const [state, action] = useActionState(applyNicheCategories.bind(null, nicheId), {});
+  const [, action] = useActionStateWithNotice(applyNicheCategories.bind(null, nicheId), {});
   return (
     <section className="space-y-4 border-t pt-5">
       <div className="text-sm font-semibold">Starting categories</div>
@@ -84,7 +82,6 @@ export function NicheCategories({ nicheId, categories }) {
         with WordPress in each website&apos;s settings.
       </p>
       <form action={action} className="space-y-3">
-        <FormAlert state={state} />
         <SubmitButton size="sm" variant="secondary">
           Apply to websites
         </SubmitButton>

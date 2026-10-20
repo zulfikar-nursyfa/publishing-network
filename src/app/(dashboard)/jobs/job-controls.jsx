@@ -1,14 +1,12 @@
 "use client";
-import { useActionState } from "react";
 import { manageDraftJob, queueStoryDraft, reconcileAIUsage } from "@/app/actions/jobs";
 import { CheckboxLabel, Field, inputClass } from "@/components/ui";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 
 export function QueueDraftForm({ storyId }) {
-  const [state, action] = useActionState(queueStoryDraft.bind(null, storyId), {});
+  const [, action] = useActionStateWithNotice(queueStoryDraft.bind(null, storyId), {});
   return (
     <form action={action} className="mt-3 space-y-3">
-      <FormAlert state={state} />
       <Field
         label="Supporting evidence URLs"
         htmlFor={`evidence-${storyId}`}
@@ -30,10 +28,9 @@ export function QueueDraftForm({ storyId }) {
 }
 
 export function UsageReconciliationForm({ usageId }) {
-  const [state, action] = useActionState(reconcileAIUsage.bind(null, usageId), {});
+  const [state, action] = useActionStateWithNotice(reconcileAIUsage.bind(null, usageId), {});
   return (
     <form action={action} className="mt-2 space-y-3 rounded-lg border p-3">
-      <FormAlert state={state} />
       <Field
         label="Reviewed provider charge (USD)"
         htmlFor={`cost-${usageId}`}
@@ -73,13 +70,12 @@ export function UsageReconciliationForm({ usageId }) {
 }
 
 export function JobControls({ jobId, status }) {
-  const [retryState, retryAction] = useActionState(manageDraftJob.bind(null, jobId, "retry"), {});
-  const [cancelState, cancelAction] = useActionState(manageDraftJob.bind(null, jobId, "cancel"), {});
+  const [, retryAction] = useActionStateWithNotice(manageDraftJob.bind(null, jobId, "retry"), {});
+  const [, cancelAction] = useActionStateWithNotice(manageDraftJob.bind(null, jobId, "cancel"), {});
   return (
     <div className="space-y-4">
       {["failed", "cancelled"].includes(status) ? (
         <form action={retryAction} className="space-y-3">
-          <FormAlert state={retryState} />
           <Field
             label="Extra supporting URLs"
             htmlFor="retry-evidence"
@@ -93,7 +89,6 @@ export function JobControls({ jobId, status }) {
       ) : null}
       {["queued", "running", "failed"].includes(status) ? (
         <form action={cancelAction}>
-          <FormAlert state={cancelState} />
           <SubmitButton
             variant="danger-outline"
             confirm="Cancel this draft job? An AI request already in progress may still incur a charge, but its worker cannot create an article after cancellation."

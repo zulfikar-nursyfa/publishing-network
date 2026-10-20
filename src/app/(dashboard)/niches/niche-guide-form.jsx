@@ -1,18 +1,16 @@
 "use client";
 
-import { useActionState } from "react";
 import { updateNicheGuides } from "@/app/actions/niches";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Field, inputClass } from "@/components/ui";
 
 /** Editorial instructions added to the AI research and draft prompts of the niche's websites. */
 export function NicheGuideForm({ niche }) {
-  const [state, action] = useActionState(updateNicheGuides.bind(null, niche.id), {});
+  const [state, action] = useActionStateWithNotice(updateNicheGuides.bind(null, niche.id), {});
   const errors = state.fieldErrors ?? {};
   return (
     <form action={action} className="space-y-4 rounded-lg bg-muted/40 p-4">
       <div className="text-sm font-medium">Writing guides</div>
-      <FormAlert state={state} />
       <div className="grid gap-4 md:grid-cols-2">
         <Field
           label="English websites"

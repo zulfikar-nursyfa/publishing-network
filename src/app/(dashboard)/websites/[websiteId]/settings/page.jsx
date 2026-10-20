@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { RedirectNotice } from "@/components/action-notice";
 import { z } from "zod";
 import { updateWebsite } from "@/app/actions/websites";
 import { Alert, PageHeader, FilterTabs } from "@/components/ui";
@@ -78,18 +78,28 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
           .map((key) => ({ key, label: key === "website" ? "Edit website" : key, href: `${path}?section=${key}` }))}
       />
       {input.created === "1" ? (
-        <Alert tone="success" className="mb-6">
-          Website added. Check its connection, then open{" "}
-          <Link href={`${path}?section=categories`} className="underline">
-            Categories
-          </Link>{" "}
-          and Sync with WordPress.
-        </Alert>
-      ) : null}
-      {input.niche_sync === "failed" ? (
-        <Alert tone="error" className="mb-6">
-          Niche sources/categories could not be copied. Apply pending migrations, then use Niches → Apply to websites.
-        </Alert>
+        <RedirectNotice
+          params={["created", "niche_sync"]}
+          result={
+            input.niche_sync === "failed"
+              ? {
+                  error:
+                    "Website added, but niche sources/categories could not be copied. Apply pending migrations, then use Niches → Apply to websites.",
+                }
+              : {
+                  ok: true,
+                  message: "Website added. Check its connection, then open Categories and Sync with WordPress.",
+                }
+          }
+        />
+      ) : input.niche_sync === "failed" ? (
+        <RedirectNotice
+          params={["niche_sync"]}
+          result={{
+            error:
+              "Niche sources/categories could not be copied. Apply pending migrations, then use Niches → Apply to websites.",
+          }}
+        />
       ) : null}
       {section === "overview" ? (
         <div className="mb-6 grid gap-6 lg:grid-cols-2">

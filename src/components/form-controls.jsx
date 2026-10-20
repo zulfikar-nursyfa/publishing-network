@@ -5,7 +5,16 @@ import { useFormStatus } from "react-dom";
 import { AlertDialog } from "radix-ui";
 import { LoaderCircle } from "lucide-react";
 
-import { Alert, buttonClass } from "@/components/ui";
+import { buttonClass } from "@/components/ui";
+import { showActionNotice } from "./action-notice";
+
+export function useActionStateWithNotice(action, initialState) {
+  return useActionState(async (previous, data) => {
+    const result = await action(previous, data);
+    showActionNotice(result);
+    return result;
+  }, initialState);
+}
 
 export function SubmitButton({
   children,
@@ -85,21 +94,13 @@ export function SubmitButton({
   );
 }
 
-export function FormAlert({ state }) {
-  if (state.error) return <Alert tone="error">{state.error}</Alert>;
-  if (state.message) return <Alert tone={state.ok ? "success" : "info"}>{state.message}</Alert>;
-  return null;
-}
-
-export function ActionForm({ action, children, success = "Saved.", inlineSuccess = true, ...props }) {
-  const [state, formAction] = useActionState(async (_previous, data) => {
+export function ActionForm({ action, children, success = "Saved.", ...props }) {
+  const [, formAction] = useActionStateWithNotice(async (_previous, data) => {
     const result = (await action(data)) ?? { ok: true, message: success };
-    if (result.ok && result.message) window.dispatchEvent(new CustomEvent("pn-notice", { detail: result.message }));
     return result;
   }, {});
   return (
     <form action={formAction} {...props}>
-      {inlineSuccess || state.error ? <FormAlert state={state} /> : null}
       {children}
     </form>
   );

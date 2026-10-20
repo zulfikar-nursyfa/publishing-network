@@ -1,16 +1,14 @@
 "use client";
 
-import { useActionState } from "react";
 import { updateStrictDraftChecks } from "@/app/actions/network";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { CheckboxLabel } from "@/components/ui";
 import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
 
 export function StrictChecksForm({ checks }) {
-  const [state, action] = useActionState(updateStrictDraftChecks, {});
+  const [, action] = useActionStateWithNotice(updateStrictDraftChecks, {});
   return (
     <form action={action} className="space-y-4">
-      <FormAlert state={state} />
       <fieldset className="space-y-3">
         <legend className="mb-3 text-sm font-medium">Block drafts when…</legend>
         {DRAFT_CHECKS.map(({ key, description }) => (

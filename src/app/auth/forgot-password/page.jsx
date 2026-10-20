@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { requestPasswordReset } from "@/app/actions/auth";
 import { AuthShell } from "@/components/auth-shell";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Field, inputClass } from "@/components/ui";
 
 export default function ForgotPasswordPage() {
-  const [state, action] = useActionState(requestPasswordReset, {});
+  const [, action] = useActionStateWithNotice(requestPasswordReset, {});
   return (
     <AuthShell
       title="Reset your password"
@@ -25,7 +24,6 @@ export default function ForgotPasswordPage() {
       }
     >
       <form action={action} className="space-y-5">
-        <FormAlert state={state} />
         <Field label="Email" htmlFor="email">
           <input
             id="email"

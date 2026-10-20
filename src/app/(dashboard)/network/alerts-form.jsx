@@ -1,14 +1,14 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { X } from "lucide-react";
 import { sendTestAlert, updateAlertEmails } from "@/app/actions/network";
 import { alertRecipient, MAX_ALERT_RECIPIENTS } from "@/lib/alert-recipients";
 import { Field, inputClass, buttonClass } from "@/components/ui";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 
 export function AlertEmailsForm({ emails }) {
-  const [state, action] = useActionState(updateAlertEmails, {});
-  const [testState, testAction] = useActionState(sendTestAlert, {});
+  const [state, action] = useActionStateWithNotice(updateAlertEmails, {});
+  const [, testAction] = useActionStateWithNotice(sendTestAlert, {});
   const [recipients, setRecipients] = useState(emails);
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -83,7 +83,6 @@ export function AlertEmailsForm({ emails }) {
         ) : null}
         <form action={action} className="space-y-3">
           <input type="hidden" name="alert_emails" value={recipients.join("\n")} />
-          <FormAlert state={state} />
           <SubmitButton disabled={!dirty}>Save recipients</SubmitButton>
         </form>
       </div>
@@ -97,7 +96,6 @@ export function AlertEmailsForm({ emails }) {
               : "Add and save a recipient to send a test."}
         </p>
         <form action={testAction} className="space-y-3">
-          <FormAlert state={testState} />
           <SubmitButton variant="secondary" disabled={dirty || !saved.length}>
             Send test email
           </SubmitButton>

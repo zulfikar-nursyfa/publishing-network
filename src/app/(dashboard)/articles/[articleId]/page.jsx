@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ExternalLink, Eye, History, Info, Lock } from "lucide-react";
 import { saveArticle } from "@/app/actions/articles";
+import { RedirectNotice } from "@/components/action-notice";
 import {
   Alert,
   ArticleStatusBadge,
@@ -176,9 +177,10 @@ export default async function ArticlePage({ params, searchParams }) {
       />
 
       {warning === "sources" ? (
-        <Alert tone="warning" className="mb-6">
-          The article was created but its sources could not be saved. Add them again below.
-        </Alert>
+        <RedirectNotice
+          params={["warning"]}
+          result={{ error: "The article was created but its sources could not be saved. Add them again below." }}
+        />
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:gap-8">

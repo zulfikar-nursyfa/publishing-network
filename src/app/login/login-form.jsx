@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
 import { signIn } from "@/app/actions/auth";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
+import { RedirectNotice } from "@/components/action-notice";
 import { Field, inputClass } from "@/components/ui";
 
 export function LoginForm({ next, initialError }) {
-  const [state, action] = useActionState(signIn, { error: initialError });
+  const [, action] = useActionStateWithNotice(signIn, {});
   return (
     <form action={action} className="space-y-5">
       <input type="hidden" name="next" value={next} />
-      <FormAlert state={state} />
+      {initialError ? <RedirectNotice result={{ error: initialError }} params={["error"]} /> : null}
       <Field label="Email" htmlFor="email">
         <input
           id="email"

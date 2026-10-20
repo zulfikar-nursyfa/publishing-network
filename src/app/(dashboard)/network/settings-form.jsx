@@ -1,14 +1,12 @@
 "use client";
-import { useActionState } from "react";
 import { updateNetworkSettings, saveModelPrice } from "@/app/actions/network";
 import { Field, inputClass } from "@/components/ui";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 
 export function NetworkSettingsForm({ settings }) {
-  const [state, action] = useActionState(updateNetworkSettings, {});
+  const [state, action] = useActionStateWithNotice(updateNetworkSettings, {});
   return (
     <form action={action} className="space-y-4">
-      <FormAlert state={state} />
       <Field
         label="Default Gemini model"
         htmlFor="default-model"
@@ -59,11 +57,10 @@ const PRICE_FIELDS = [
 ];
 
 export function ModelPriceForm({ price }) {
-  const [state, action] = useActionState(saveModelPrice, {});
+  const [state, action] = useActionStateWithNotice(saveModelPrice, {});
   const id = price?.model ?? "new";
   return (
     <form action={action} className="space-y-3 rounded-lg border p-4">
-      <FormAlert state={state} />
       <Field
         label="Model ID"
         htmlFor={`model-${id}`}

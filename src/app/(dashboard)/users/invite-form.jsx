@@ -1,17 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
 import { Send } from "lucide-react";
 import { inviteUser } from "@/app/actions/users";
-import { FormAlert, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Field, checkboxClass, inputClass } from "@/components/ui";
 
 export function InviteForm({ websites }) {
-  const [state, action] = useActionState(inviteUser, {});
+  const [state, action] = useActionStateWithNotice(inviteUser, {});
   const errors = state.fieldErrors ?? {};
   return (
     <form action={action} className="space-y-5">
-      <FormAlert state={state} />
       <div className="grid gap-5 md:grid-cols-3">
         <Field label="Email" htmlFor="invite-email" error={errors.email}>
           <input

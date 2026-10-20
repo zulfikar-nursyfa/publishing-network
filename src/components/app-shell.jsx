@@ -7,6 +7,7 @@ import { Dialog, DropdownMenu } from "radix-ui";
 import { useTheme } from "next-themes";
 import {
   Activity,
+  BookOpen,
   ChevronsUpDown,
   ClipboardCheck,
   Globe,
@@ -53,6 +54,10 @@ const NAV = [
       { href: "/network", label: "Network settings", icon: Settings, adminOnly: true },
       { href: "/activity", label: "Activity", icon: Activity },
     ],
+  },
+  {
+    label: "Help",
+    items: [{ href: "/docs", label: "Guide", icon: BookOpen }],
   },
 ];
 

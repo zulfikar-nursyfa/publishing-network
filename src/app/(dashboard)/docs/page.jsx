@@ -30,10 +30,6 @@ export default function DocsIndexPage() {
             </ul>
           </Card>
         ))}
-        <p className="text-sm text-muted-foreground">
-          More topics are coming: how stories are chosen, reviewing and approving articles, publishing times, costs
-          and alerts.
-        </p>
       </div>
     </div>
   );

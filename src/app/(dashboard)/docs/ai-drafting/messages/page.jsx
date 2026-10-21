@@ -1,0 +1,128 @@
+import { DocLink, DocPage, List, Note, Section } from "../../doc-parts";
+
+export const metadata = { title: "Drafting failure messages" };
+
+const failures = [
+  [
+    "Draft contains a long copied passage",
+    "The message includes the matched source wording. One automatic rewrite is tried first. If the job has stopped, ask an administrator to review the sources and retry or restart the research. A manual retry restores the one-rewrite allowance.",
+  ],
+  [
+    "Draft is too similar to the collected source text",
+    "Too much wording overlaps with the sources, even without one long passage. Restart research for a fresh draft after checking that the story offers enough facts for an original article.",
+  ],
+  [
+    "None of the researched facts could be matched to the collected pages",
+    "The evidence does not support the research. Open Source evidence, then add readable supporting pages and restart.",
+  ],
+  [
+    "Sensitive or consequential story without a second independent source",
+    "Find a second independent website covering the facts. Add its page under Extra supporting URLs, then retry. This stops a job only when the corresponding strict check is on.",
+  ],
+  [
+    "No official source and only one outlet supports the story",
+    "Add the original official announcement or another independent report. The extra automatic search has already had its chance before this strict check stops the job.",
+  ],
+  [
+    "Draft language does not match the website",
+    "Check the website's Language setting and the niche writing guide. Ask an administrator to correct them if needed, then restart for a fresh draft.",
+  ],
+  [
+    "Draft is too short for editorial review",
+    "The body has fewer than 180 words in English or 130 in Arabic. The AI is asked for 250–650 words. Check that enough relevant evidence was collected, then restart; do not add unsupported detail just to reach a length.",
+  ],
+  [
+    "Draft body must be plain text; sources are attached separately",
+    "The AI-generated text included web addresses or HTML formatting in the body. Ordinary punctuation is allowed. Restart for a fresh draft; sources belong in the separate source list.",
+  ],
+  [
+    "This story or headline already has an article",
+    "Look for the existing article before spending on another attempt. Remove the unwanted draft job if the story is already covered.",
+  ],
+  [
+    "No readable coverage found",
+    "Expand the skipped-page reasons. Add accessible article pages rather than homepages, login pages or blocked reports. A temporary page error may retry automatically; a stopped job needs a person.",
+  ],
+  [
+    "AI response failed structured validation; review the job before retrying",
+    "The AI response could not be accepted as a complete article or research result. Ask an administrator to inspect the job and restart if appropriate.",
+  ],
+  [
+    "Configure model pricing before generating content",
+    "An administrator must add prices for the chosen AI model in Network settings before trying again.",
+  ],
+  [
+    "Story is no longer selected",
+    "The story was unselected or skipped. Leave the job stopped unless the team deliberately wants it again. Select the story before an administrator retries its job.",
+  ],
+];
+
+export default function DraftMessagesPage() {
+  return (
+    <DocPage
+      href="/docs/ai-drafting/messages"
+      title="Drafting failure messages"
+      description="Read the message on the job first. These are the fixed parts of messages; a phrase, page address or other detail may follow."
+    >
+      <Section title="Stopped drafts">
+        <List>
+          {failures.map(([message, advice]) => (
+            <li key={message}>
+              <strong>{message}</strong>: {advice}
+            </li>
+          ))}
+        </List>
+      </Section>
+      <Section title="Other strict-check messages">
+        <List>
+          <li>
+            <strong>researched facts were dropped because their quotes were not found on the pages</strong>: check the
+            evidence and replace weak supporting pages. The message starts with the number dropped.
+          </li>
+          <li>
+            <strong>Not confirmed by the sources (left out)</strong>: the listed details were not established. Keep them
+            out; seek better evidence if they are essential.
+          </li>
+          <li>
+            <strong>The draft cited pages that were not collected; they were removed</strong>: the AI named pages
+            outside its evidence. Restart using the pages the article needs.
+          </li>
+          <li>
+            <strong>The draft does not cite the official source</strong>: check that the official announcement supports
+            the story and is included in the article&apos;s sources.
+          </li>
+          <li>
+            <strong>Some researched facts are not covered by the draft&apos;s cited sources</strong>: check every
+            factual claim against the sources attached to the article.
+          </li>
+          <li>
+            <strong>AI verification did not pass</strong>, <strong>Verification:</strong> or{" "}
+            <strong>Unsupported claim:</strong>: read the listed issues and compare them with the original pages.
+            Correct or reject the article, or restart a stopped job with better evidence.
+          </li>
+        </List>
+        <p>
+          These are reviewer warnings when their strict switches are off. Turning a switch off does not fix the
+          underlying writing.
+        </p>
+      </Section>
+      <Section title="Waiting is different from failure">
+        <p>
+          <strong>Waiting for budget</strong> and <strong>Waiting: automation paused</strong> mean work is waiting for a
+          control to change. Budget messages can say <strong>Website AI budget would be exceeded</strong> or{" "}
+          <strong>Network AI budget would be exceeded</strong>, even before the current total reaches the limit: the
+          next call must fit too.
+        </p>
+        <p>
+          Ask an administrator to check the spending limit or resume automation. Waiting does not use a retry attempt.
+          Provider messages can vary; send the full message to the administrator rather than guessing.
+        </p>
+      </Section>
+      <Note title="Where to recover a job">
+        The administrator&apos;s <strong>Recovery</strong> card is explained in{" "}
+        <DocLink href="/docs/alerts-and-jobs">Alerts and failed jobs</DocLink>. An editor can inspect evidence and
+        remove an unwanted job, but cannot use the administrator&apos;s retry controls.
+      </Note>
+    </DocPage>
+  );
+}

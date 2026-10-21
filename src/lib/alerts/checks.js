@@ -38,7 +38,11 @@ export async function findAlerts(db, now = new Date()) {
   const since = new Date(now.getTime() - DAY).toISOString();
   const month = now.toISOString().slice(0, 7);
   const [sites, network, spend, slots, publications, jobs] = await Promise.all([
-    db.from("websites").select("id, name, timezone, monthly_ai_budget_usd").is("archived_at", null),
+    db
+      .from("websites")
+      .select("id, name, timezone, monthly_ai_budget_usd")
+      .is("archived_at", null)
+      .eq("alerts_muted", false),
     db.from("network_settings").select("monthly_ai_budget_usd").single(),
     db.from("website_ai_spend").select("website_id, estimated_cost_usd, reserved_cost_usd"),
     db
@@ -86,7 +90,8 @@ export async function findAlerts(db, now = new Date()) {
     );
   }
 
-  // Archived websites are left out of `sites`, so their problems are not emailed.
+  // Archived and muted websites are left out of `sites`, so their problems are not emailed.
+  // Alerts are recomputed each run: muted problems are emailed after unmuting only if they still exist.
   for (const slot of slots) {
     const site = siteById.get(slot.website_id);
     if (!site) continue;

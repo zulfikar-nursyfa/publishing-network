@@ -4,9 +4,11 @@ import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { emailConfigured, sendEmail } from "@/lib/alerts/email";
 import {
   alertEmailsSchema,
+  alertMutingSchema,
   fieldErrorsFrom,
   modelPriceSchema,
   networkSettingsSchema,
@@ -114,6 +116,23 @@ export async function sendTestAlert() {
   }
   await recordAudit({ action: "network.test_alert_sent", entityType: "network", actorId: user.id });
   return { ok: true, message: `Test email sent to ${data.alert_emails.join(", ")}.` };
+}
+
+export async function updateAlertMuting(_prev, formData) {
+  const user = await requireAdmin();
+  const parsed = alertMutingSchema.safeParse({ muted_website_ids: formData.getAll("muted_website_ids") });
+  if (!parsed.success) return { error: "Choose valid websites", fieldErrors: fieldErrorsFrom(parsed.error) };
+  const db = createAdminClient();
+  const { error } = await db.rpc("set_website_alert_muting", parsed.data);
+  if (error) return { error: error.message };
+  await recordAudit({
+    action: "network.alert_muting_updated",
+    entityType: "network",
+    actorId: user.id,
+    details: { ...parsed.data, count: parsed.data.muted_website_ids.length },
+  });
+  revalidatePath("/network");
+  return { ok: true, message: "Website alert settings saved.", mutedIds: parsed.data.muted_website_ids };
 }
 
 export async function saveModelPrice(_prev, formData) {

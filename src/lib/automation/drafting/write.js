@@ -4,6 +4,7 @@ import {
   checkDraft,
   checkResearch,
   checkVerification,
+  CopiedPassageError,
   draftSchema,
   researchSchema,
   verificationSchema,
@@ -51,6 +52,11 @@ export async function researchStep(db, job, worker, { state, data, context, mode
   return checked.warnings;
 }
 
+/** A copied passage gets one fresh draft on a later tick. */
+export function needsRedraft(state, error) {
+  return error instanceof CopiedPassageError && !state.redrafted;
+}
+
 /** The article itself, then a duplicate check against this website's automated articles. Returns warnings. */
 export async function draftStep(db, job, worker, { state, data, context, model, assertControls }) {
   const generated = await generateForJob(db, job, worker, {
@@ -61,6 +67,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
     prompt: draftPrompt(data, state.research, context.categories, {
       language: context.website.language,
       nicheGuide: nicheGuideFor(context.website),
+      copiedPhrase: state.copied_phrase,
     }),
   });
   const checked = checkDraft(
@@ -84,6 +91,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
 
   const duplicate = articles.some((article) => sameStory(context.story, article) || sameStory(state.draft, article));
   if (duplicate) throw new PermanentJob("This story or headline already has an article");
+  delete state.copied_phrase;
   return checked.warnings;
 }
 

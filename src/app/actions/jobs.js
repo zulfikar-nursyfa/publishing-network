@@ -118,6 +118,11 @@ export async function manageDraftJob(jobId, intent, _prev, formData) {
     const urls = supportingUrls(formData);
     if (!urls) return { error: URL_ERROR };
     const restart = urls.length > 0 || formData.get("restart") === "on";
+    const state = { ...job.state };
+    // A fresh redraft must not replay the cached rejected responses.
+    if (job.step === "draft" && state.redrafted) state.generation = randomUUID();
+    delete state.redrafted;
+    delete state.copied_phrase;
     patch = {
       status: "queued",
       locked_by: null,
@@ -128,7 +133,8 @@ export async function manageDraftJob(jobId, intent, _prev, formData) {
       waiting_since: null,
       attempt_count: 0,
       run_after: new Date().toISOString(),
-      ...(restart ? { step: "collect", state: { pending_urls: urls, generation: randomUUID() } } : {}),
+      state: restart ? { pending_urls: urls, generation: randomUUID() } : state,
+      ...(restart ? { step: "collect" } : {}),
     };
   }
   const { data: changed, error } = await db

@@ -9,7 +9,7 @@ import { collectStep, needsCorroboration, searchStep, startCorroboration } from 
 import { advance, budgetGuard, loadJobContext, textModelFor } from "./drafting/context";
 import { DeferredJob, LostLease, PermanentJob } from "./drafting/errors";
 import { illustrateStep } from "./drafting/illustrate";
-import { draftStep, promptData, researchStep, verifyStep } from "./drafting/write";
+import { draftStep, needsRedraft, promptData, researchStep, verifyStep } from "./drafting/write";
 import { EvidenceError } from "./evidence";
 import { waitingKind } from "./drafting/queue-policy";
 
@@ -93,15 +93,25 @@ async function runStep(db, job, worker) {
   if (!writing) throw new PermanentJob("Unknown drafting step");
   const state = structuredClone(job.state);
   const data = promptData(context, state.evidence ?? []);
-  const warnings = await writing.run(db, job, worker, { state, data, context, model, assertControls });
+  let warnings = [];
+  let redraft = false;
+  try {
+    warnings = await writing.run(db, job, worker, { state, data, context, model, assertControls });
+  } catch (error) {
+    if (job.step !== "draft" || !needsRedraft(state, error)) throw error;
+    state.copied_phrase = error.phrase;
+    state.redrafted = true;
+    redraft = true;
+  }
   // Without an official source or second outlet, research is redone after one more search,
   // so this pass's warnings are dropped. Otherwise warnings go into the review note.
   const corroborate = job.step === "research" && needsCorroboration(state);
   if (corroborate) startCorroboration(state);
-  else state.warnings = [...new Set([...(state.warnings ?? []), ...warnings])];
+  else if (!redraft) state.warnings = [...new Set([...(state.warnings ?? []), ...warnings])];
 
   await loadJobContext(db, job, worker);
-  return advance(db, job, worker, { state, step: corroborate ? "collect" : writing.next, ...queuedNow() });
+  const step = redraft ? "draft" : corroborate ? "collect" : writing.next;
+  return advance(db, job, worker, { state, step, ...queuedNow() });
 }
 
 /** Waits for budget or a paused site without using an attempt. */

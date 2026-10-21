@@ -7,7 +7,10 @@ import {
   corroboration,
   draftSchema,
   DraftCheckError,
+  CopiedPassageError,
 } from "@/lib/automation/draft-checks";
+import { needsRedraft } from "@/lib/automation/drafting/write";
+import { draftPrompt } from "@/lib/automation/drafting/prompts";
 import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
 import { strictDraftChecksSchema, nicheCategorySchema } from "@/lib/validation";
 import { readFileSync } from "node:fs";
@@ -132,6 +135,84 @@ test("drafts still reject copied passages, HTML and the wrong language", () => {
     /plain text/,
   );
   assert.throws(() => checkDraft(draft([official.url]), r, [official], [], "ar"), /language/);
+});
+
+test("drafts may repeat full formal titles using source casing", () => {
+  const title =
+    "His Highness Sheikh Mohammed bin Rashid Al Maktoum, Vice President and Prime Minister of the UAE and Ruler of Dubai";
+  const page = { ...official, text: title };
+  const article = draft([page.url]);
+  article.body += ` ${title.toLowerCase()}`;
+  assert.doesNotThrow(() => checkDraft(article, research([page.url]), [page], [], "en"));
+});
+
+test("official titles and dates do not count towards the five-word similarity limit", () => {
+  const titles = Array.from(
+    { length: 30 },
+    (_, i) => `Council${i} of the Regional${i} Energy${i} and Water${i} Authority${i} in October${i} 2026`,
+  );
+  const page = { ...official, text: titles.join(" announced ") };
+  const article = { ...draft([page.url]), body: titles.join(" reported ") };
+  assert.doesNotThrow(() => checkDraft(article, research([page.url]), [page], [], "en"));
+});
+
+test("ordinary copied sentences report the source phrase even if the draft capitalises it", () => {
+  const phrase = "Officials confirmed that the new regional service will start operating next month";
+  const page = { ...official, text: phrase };
+  const article = draft([page.url]);
+  article.body += ` ${phrase.toUpperCase()}`;
+  assert.throws(
+    () => checkDraft(article, research([page.url]), [page], [], "en"),
+    (error) =>
+      error instanceof CopiedPassageError &&
+      error instanceof DraftCheckError &&
+      error.phrase === phrase &&
+      error.message === `Draft contains a long copied passage ("${phrase}"); revise the sourcing and retry`,
+  );
+});
+
+test("ordinary five-word overlaps still count towards the similarity limit", () => {
+  const runs = Array.from({ length: 40 }, (_, i) => `officials confirmed the regional project${i} will open soon`);
+  const page = { ...official, text: runs.join(" yesterday ") };
+  const article = { ...draft([page.url]), body: runs.join(" today ") };
+  assert.throws(() => checkDraft(article, research([page.url]), [page], [], "en"), /too similar/);
+});
+
+test("Arabic copied passages still fail with their matched phrase", () => {
+  const phrase = "أكد المسؤولون أن المشروع الجديد سوف يدعم تطوير الخدمات المحلية خلال العام المقبل";
+  const page = { ...official, text: phrase };
+  const article = {
+    ...draft([page.url]),
+    body: `${"تقرير مستقل يناقش تطورات القطاع وأثرها على المجتمع المحلي. ".repeat(25)} ${phrase}`,
+  };
+  assert.throws(
+    () => checkDraft(article, research([page.url]), [page], [], "ar"),
+    (error) => error instanceof CopiedPassageError && error.phrase.startsWith("أكد المسؤولون"),
+  );
+});
+
+test("copied phrase diagnostics are capped at 200 characters", () => {
+  const error = new CopiedPassageError("word ".repeat(100));
+  assert.equal(error.phrase.length, 200);
+  assert.ok(error.message.includes(error.phrase));
+});
+
+test("only the first copied passage rejection requests a redraft", () => {
+  const error = new CopiedPassageError("source wording");
+  assert.equal(needsRedraft({}, error), true);
+  assert.equal(needsRedraft({ redrafted: true, copied_phrase: error.phrase }, error), false);
+  assert.equal(needsRedraft({}, new DraftCheckError("too similar")), false);
+  assert.equal(needsRedraft({}, new Error("provider failed")), false);
+});
+
+test("draft prompts preserve full titles and include copied wording only on a redraft", () => {
+  const options = { language: "en", nicheGuide: null };
+  const first = draftPrompt("{}", {}, [], options);
+  assert.ok(first.includes("Write people's names and official titles in full as the sources give them."));
+  assert.equal(first.includes("Your previous draft"), false);
+  const retry = draftPrompt("{}", {}, [], { ...options, copiedPhrase: "Some copied source wording" });
+  assert.ok(retry.includes('Your previous draft repeated this source wording: "Some copied source wording".'));
+  assert.ok(retry.includes("Rewrite that part in your own words."));
 });
 
 test("verification problems become warnings", () => {

@@ -298,6 +298,13 @@ export const alertEmailsSchema = z.object({
   alert_emails: alertRecipientList,
 });
 
+export const alertMutingSchema = z.object({
+  muted_website_ids: z
+    .array(z.uuid())
+    .max(1000)
+    .transform((ids) => [...new Set(ids)]),
+});
+
 export const costEntrySchema = z.object({
   month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Choose a month"),
   website_id: z.preprocess((value) => (value === "" ? null : value), z.uuid().nullable()),

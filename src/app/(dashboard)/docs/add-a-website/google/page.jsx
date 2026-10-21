@@ -2,8 +2,6 @@ import { Code, DocLink, DocPage, List, Note, Path, Section, Step, Steps } from "
 
 export const metadata = { title: "Google Analytics and Search Console" };
 
-const SERVICE_ACCOUNT = "business-and-investment@business-and-investment.iam.gserviceaccount.com";
-
 export default function GoogleStepPage() {
   return (
     <DocPage
@@ -22,8 +20,8 @@ export default function GoogleStepPage() {
           </li>
         </List>
         <p>
-          Every night the dashboard reads both and shows the last 28 days on the website&apos;s{" "}
-          <strong>Traffic</strong> tab and on each published article.
+          Each day the dashboard reads both and shows the last 28 days on the website&apos;s <strong>Traffic</strong>{" "}
+          tab and on each published article.
         </p>
       </Section>
 
@@ -88,12 +86,12 @@ export default function GoogleStepPage() {
 
       <Section title="C. Give the dashboard read access">
         <p>
-          The dashboard reads Google through its own Google robot account (a &quot;service account&quot;). The same
-          one is used for every website, so you only need to add its email address to each new site.
+          The dashboard reads Google through its own Google robot account (a &quot;service account&quot;). The same one
+          is used for every website, so you only need to add its email address to each new site.
         </p>
-        <p>The dashboard&apos;s email address is:</p>
         <p>
-          <Code>{SERVICE_ACCOUNT}</Code>
+          Ask an administrator for the email address of the Google account configured for the dashboard&apos;s reports.
+          Use that exact address below; it is separate from your own Google login.
         </p>
         <h3 className="font-semibold">In Google Analytics</h3>
         <Steps>
@@ -102,8 +100,9 @@ export default function GoogleStepPage() {
             <Path>Property access management</Path>.
           </Step>
           <Step title="Add the dashboard">
-            Click <strong>+</strong> → <strong>Add users</strong>. Paste the email address above, untick &quot;Notify
-            new users by email&quot;, choose the role <strong>Viewer</strong> and click <strong>Add</strong>.
+            Click <strong>+</strong> → <strong>Add users</strong>. Paste the confirmed dashboard email address, untick
+            &quot;Notify new users by email&quot;, choose the role <strong>Viewer</strong> and click{" "}
+            <strong>Add</strong>.
           </Step>
         </Steps>
         <h3 className="font-semibold">In Search Console</h3>
@@ -124,8 +123,8 @@ export default function GoogleStepPage() {
                 <Code>sc-domain:bussinessandinvesment.com</Code>.
               </li>
               <li>
-                If it shows a full address starting with https (a <strong>URL prefix</strong> property), you will
-                enter it exactly, ending with a slash: <Code>https://bussinessandinvesment.com/</Code>.
+                If it shows a full address starting with https (a <strong>URL prefix</strong> property), you will enter
+                it exactly, ending with a slash: <Code>https://bussinessandinvesment.com/</Code>.
               </li>
             </List>
           </Step>
@@ -144,7 +143,7 @@ export default function GoogleStepPage() {
           </Step>
           <Step title="Pull the numbers now">
             Open the website&apos;s <Path>Traffic</Path> tab and click <strong>Update now</strong>. You do not have to
-            wait for the nightly update.
+            wait for the daily update.
           </Step>
         </Steps>
         <Note title="Numbers start small">

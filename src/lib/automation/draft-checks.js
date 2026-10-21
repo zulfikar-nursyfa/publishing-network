@@ -2,6 +2,13 @@ import { z } from "zod";
 
 const sourceUrls = z.array(z.url()).min(1).max(4);
 export class DraftCheckError extends Error {}
+export class CopiedPassageError extends DraftCheckError {
+  constructor(phrase) {
+    const wording = phrase.slice(0, 200);
+    super(`Draft contains a long copied passage ("${wording}"); revise the sourcing and retry`);
+    this.phrase = wording;
+  }
+}
 export const researchSchema = z.object({
   angle: z.string().min(20).max(800),
   claims: z
@@ -53,6 +60,19 @@ export const verificationSchema = z.object({
 
 const normalise = (value) => value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
 const words = (value) => normalise(value).match(/[\p{L}\p{N}]+/gu) ?? [];
+const TITLE_CONNECTORS = new Set("of the and bin bint al el for at to from by on in".split(" "));
+
+/** Keep source casing for official titles; ordinary prose still counts as overlap. */
+function sourceShingles(text, length) {
+  const tokens = text.normalize("NFKC").match(/[\p{L}\p{N}]+/gu) ?? [];
+  const phrases = new Map();
+  for (let index = 0; index <= tokens.length - length; index++) {
+    const run = tokens.slice(index, index + length);
+    if (run.every((word) => /^\p{Lu}|\p{N}/u.test(word) || TITLE_CONNECTORS.has(word.toLowerCase()))) continue;
+    phrases.set(words(run.join(" ")).join(" "), run.join(" "));
+  }
+  return phrases;
+}
 
 const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
 const domainCount = (urls) => new Set(urls.map(hostOf)).size;
@@ -152,11 +172,12 @@ export function checkDraft(draft, research, evidence, categories, language, stri
     );
   const phrases = shingles(draftWords, 12);
   for (const page of evidence) {
-    if ([...shingles(words(page.text), 12)].some((phrase) => phrases.has(phrase)))
-      throw new DraftCheckError("Draft contains a long copied passage; revise the sourcing and retry");
+    for (const [phrase, wording] of sourceShingles(page.text, 12)) {
+      if (phrases.has(phrase)) throw new CopiedPassageError(wording);
+    }
   }
   const shortPhrases = shingles(draftWords, 5);
-  const sourcePhrases = new Set(evidence.flatMap((page) => [...shingles(words(page.text), 5)]));
+  const sourcePhrases = new Set(evidence.flatMap((page) => [...sourceShingles(page.text, 5).keys()]));
   if ([...shortPhrases].filter((phrase) => sourcePhrases.has(phrase)).length / Math.max(1, shortPhrases.size) > 0.35)
     throw new DraftCheckError("Draft is too similar to the collected source text");
 

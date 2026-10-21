@@ -53,10 +53,14 @@ DATA:
 ${data}`;
 }
 
-export function draftPrompt(data, research, categories, { language, nicheGuide }) {
+export function draftPrompt(data, research, categories, { language, nicheGuide, copiedPhrase }) {
+  const redraft = copiedPhrase
+    ? `Your previous draft repeated this source wording: ${JSON.stringify(copiedPhrase)}. Rewrite that part in your own words. Names and official titles may stay in full as written in the sources.\n`
+    : "";
   return `${RULES}
 ${styleGuide(language, nicheGuide)}
-Write an original article in the website's language, 250-650 words, using only the verified research. Leave out everything listed in research.unresolved; do not speculate about it. Plain text paragraphs, no HTML or inline URLs, no verbatim quotations. Include a concise title, ASCII slug, excerpt, a category ID from the supplied list or null, and the exact collected source URLs. For search engines add: seo_title (at most 60 characters, containing the focus keyphrase), meta_description (120-155 characters, factual, no clickbait), focus_keyword (the 2-4 word phrase readers would search for) and 3-6 short topic tags (companies, places, sectors). Avoid unsupported context or statistics.
+Write people's names and official titles in full as the sources give them.
+${redraft}Write an original article in the website's language, 250-650 words, using only the verified research. Leave out everything listed in research.unresolved; do not speculate about it. Plain text paragraphs, no HTML or inline URLs, no verbatim quotations. Include a concise title, ASCII slug, excerpt, a category ID from the supplied list or null, and the exact collected source URLs. For search engines add: seo_title (at most 60 characters, containing the focus keyphrase), meta_description (120-155 characters, factual, no clickbait), focus_keyword (the 2-4 word phrase readers would search for) and 3-6 short topic tags (companies, places, sectors). Avoid unsupported context or statistics.
 DATA:
 ${data}
 RESEARCH:

@@ -20,18 +20,21 @@ export default function AddWebsiteOverviewPage() {
             approved articles to WordPress at set times.
           </li>
           <li>
-            <strong>Google Analytics and Search Console</strong> count visitors and Google searches. The dashboard
-            reads their numbers every night and shows them on each website and article.
+            <strong>Google Analytics and Search Console</strong> count visitors and Google searches. The dashboard reads
+            their numbers daily and shows them on each website and article.
           </li>
         </List>
-        <p>Set them up in that order. Each step below has its own page.</p>
+        <p>
+          Each step below has its own page. Google reporting is optional and can be connected later; drafting and
+          publishing do not depend on it.
+        </p>
       </Section>
 
       <Section title="The four steps">
         <List>
           <li>
-            <DocLink href="/docs/add-a-website/wordpress">1. Prepare WordPress</DocLink>: install two plugins, create
-            a publishing user and an application password, set the basic settings.
+            <DocLink href="/docs/add-a-website/wordpress">1. Prepare WordPress</DocLink>: install two plugins, create a
+            publishing user and an application password, set the basic settings.
           </li>
           <li>
             <DocLink href="/docs/add-a-website/dashboard">2. Add it to the dashboard</DocLink>: fill in the website
@@ -51,17 +54,22 @@ export default function AddWebsiteOverviewPage() {
       <Section title="Before you start, have these ready">
         <List>
           <li>
-            The site&apos;s <strong>domain</strong> (for example <Code>bussinessandinvesment.com</Code>) with
-            WordPress installed on SiteGround.
+            The site&apos;s <strong>domain</strong> (for example <Code>bussinessandinvesment.com</Code>) with WordPress
+            installed on SiteGround.
           </li>
           <li>
             An <strong>administrator login</strong> for that WordPress site.
           </li>
           <li>
             The <strong>connector plugin file</strong>: download{" "}
-            <a href="/docs/downloads/publishing-network" download="publishing-network.php" className="font-medium text-foreground underline underline-offset-4">
+            <a
+              href="/docs/downloads/publishing-network"
+              download="publishing-network.php"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
               publishing-network.php
-            </a>.
+            </a>
+            .
           </li>
           <li>
             Access to the <strong>Cosmos Google account</strong> that owns Google Analytics and Search Console.
@@ -79,8 +87,8 @@ export default function AddWebsiteOverviewPage() {
 
       <Note title="Adding a website never needs a developer">
         Everything on these pages is done in WordPress, Google and this dashboard. Nothing in the code changes when a
-        site is added. The only one-time technical setup (the Google service account key) is already done for the
-        whole network.
+        site is added. Ask an administrator to confirm that the shared Google reporting connection is ready before
+        connecting a new site to its reports.
       </Note>
 
       <Section title="Quick checklist">

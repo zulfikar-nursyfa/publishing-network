@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/components/ui";
 import { DOC_TOPICS } from "./topics";
 
 export function DocsNav() {
   const pathname = usePathname();
-  return (
-    <nav aria-label="Guide topics" className="space-y-5 text-sm">
+  const mobileMenu = useRef(null);
+  const topics = (
+    <>
       <Link
         href="/docs"
         className={cn("block font-medium", pathname === "/docs" ? "text-foreground" : "text-muted-foreground")}
@@ -41,6 +43,27 @@ export function DocsNav() {
           </ul>
         </div>
       ))}
-    </nav>
+    </>
+  );
+  return (
+    <>
+      <details ref={mobileMenu} className="lg:hidden" key={pathname}>
+        <summary className="cursor-pointer rounded-md border bg-card px-3 py-2 text-sm font-medium">
+          Guide topics
+        </summary>
+        <nav
+          aria-label="Guide topics"
+          className="mt-4 space-y-5 text-sm"
+          onClick={(event) => {
+            if (event.target.closest("a")) mobileMenu.current.open = false;
+          }}
+        >
+          {topics}
+        </nav>
+      </details>
+      <nav aria-label="Guide topics" className="hidden space-y-5 text-sm lg:block">
+        {topics}
+      </nav>
+    </>
   );
 }

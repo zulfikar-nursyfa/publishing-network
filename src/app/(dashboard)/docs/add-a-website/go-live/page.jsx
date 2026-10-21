@@ -10,6 +10,10 @@ export default function GoLiveStepPage() {
       description="Try a few drafts, turn automation on, build up the first articles, then open the site to Google."
     >
       <Section title="A. Turn on automation">
+        <p>
+          First check that the WordPress connection works, Automation mode is Review and the Monthly AI spending limit
+          (USD) is above 0. A network pause or spending limit can also hold drafting.
+        </p>
         <Steps>
           <Step title="Resume automation">
             Open the website, then <Path>Settings → Overview</Path>. In the <strong>Automation</strong> card, click{" "}
@@ -54,9 +58,9 @@ export default function GoLiveStepPage() {
 
       <Section title="C. Build the launch library">
         <p>
-          Keep the site hidden from Google while it fills up. The plan is to have <strong>20 to 30 reviewed
-          articles</strong> live before the public launch. With three publishing times a day this takes about one to
-          two weeks.
+          Keep the site hidden from Google while it fills up. The plan is to have{" "}
+          <strong>20 to 30 reviewed articles</strong> live before the public launch. With three publishing times a day
+          this takes about one to two weeks.
         </p>
         <p>During this time, keep an eye on:</p>
         <List>
@@ -78,8 +82,8 @@ export default function GoLiveStepPage() {
           </Step>
           <Step title="Find the sitemap">
             The sitemap is the list of all article addresses that Google reads. With Yoast it is at{" "}
-            <Code>https://your-site.com/sitemap_index.xml</Code>. Open it in a private browser window to check it
-            loads. (Without Yoast, WordPress&apos;s own sitemap is at <Code>/wp-sitemap.xml</Code>.)
+            <Code>https://your-site.com/sitemap_index.xml</Code>. Open it in a private browser window to check it loads.
+            (Without Yoast, WordPress&apos;s own sitemap is at <Code>/wp-sitemap.xml</Code>.)
           </Step>
           <Step title="Submit it to Google">
             In <DocLink href="https://search.google.com/search-console">Search Console</DocLink>, pick the site, go to{" "}
@@ -90,7 +94,7 @@ export default function GoLiveStepPage() {
             submit it once: Google re-reads it automatically as new articles are published.
           </Step>
         </Steps>
-        <Note tone="warning" title="If the sitemap shows &quot;Couldn't fetch&quot;">
+        <Note tone="warning" title='If the sitemap shows "Couldn&apos;t fetch"'>
           Check that the sitemap opens in a private window and that &quot;Discourage search engines&quot; is unticked.
           Then submit it again.
         </Note>

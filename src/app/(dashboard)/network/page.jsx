@@ -2,8 +2,10 @@ import { RelativeTime } from "@/components/relative-time";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { allRows } from "@/lib/list-query";
 import { Alert, Badge, Card, PageHeader } from "@/components/ui";
 import { AlertEmailsForm } from "./alerts-form";
+import { MutedWebsitesForm } from "./muted-websites-form";
 import { NetworkSettingsForm, ModelPriceForm } from "./settings-form";
 import { StrictChecksForm } from "./strict-checks-form";
 
@@ -11,10 +13,21 @@ export const metadata = { title: "Network settings" };
 export default async function NetworkPage() {
   await requireAdmin();
   const db = await createClient();
-  const [{ data: settings, error }, { data: prices, error: priceError }, { data: alerts }] = await Promise.all([
+  const [
+    { data: settings, error },
+    { data: prices, error: priceError },
+    { data: alerts },
+    { data: websites, error: websiteError },
+  ] = await Promise.all([
     db.from("network_settings").select("*").single(),
     db.from("ai_model_prices").select("*").order("model"),
     db.from("alerts").select("id, kind, message, created_at").order("created_at", { ascending: false }).limit(3),
+    allRows(() =>
+      db.from("websites").select("id, name, alerts_muted").is("archived_at", null).order("name").order("id"),
+    ).then(
+      (data) => ({ data, error: null }),
+      (error) => ({ data: [], error }),
+    ),
   ]);
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -46,6 +59,13 @@ export default async function NetworkPage() {
               <Alert tone="warning">Apply migration 35_alerts.sql to set up alert emails.</Alert>
             ) : (
               <AlertEmailsForm key={settings.alert_emails.join(",")} emails={settings.alert_emails} />
+            )}
+            {websiteError ? (
+              <Alert tone="warning" className="mt-5">
+                Website alert settings are unavailable. Check that migration 43_website_alerts_muted.sql is applied.
+              </Alert>
+            ) : (
+              <MutedWebsitesForm key={JSON.stringify(websites)} websites={websites} />
             )}
             <Link
               href="/network/alerts?website=all"

@@ -45,8 +45,8 @@ export default function DashboardStepPage() {
 
         <h3 className="font-semibold">Branding</h3>
         <p>
-          Optional. A tagline, primary colour and logo, used on the site templates and AI illustrations. You can add
-          them later.
+          Optional. Store the site&apos;s tagline, primary colour and logo. You can add them later. Saving them here
+          does not by itself change the public WordPress theme or add a logo to an AI illustration.
         </p>
 
         <h3 className="font-semibold">WordPress connection</h3>
@@ -76,8 +76,8 @@ export default function DashboardStepPage() {
             <strong>Publishing timezone</strong>: the site&apos;s market, for example <Code>Africa/Cairo</Code>.
           </li>
           <li>
-            <strong>Publishing times</strong>: one automated article is published at each time. Three times (for
-            example 08:00, 14:00 and 20:00) means three articles a day.
+            <strong>Publishing times</strong>: one automated article is published at each time. Three times (for example
+            08:00, 14:00 and 20:00) means three articles a day.
           </li>
           <li>
             <strong>Monthly AI spending limit (USD)</strong>: drafting stops for the month when the estimated AI cost
@@ -128,8 +128,8 @@ export default function DashboardStepPage() {
         <Note tone="warning" title="If the test fails">
           <List>
             <li>
-              A login or password error: create a new application password in WordPress and paste it
-              under <Path>Settings → Edit website</Path>.
+              A login or password error: create a new application password in WordPress and paste it under{" "}
+              <Path>Settings → Edit website</Path>.
             </li>
             <li>
               Connector shows &quot;unknown&quot;: the plugin file is missing or in the wrong folder. It must be
@@ -181,9 +181,9 @@ export default function DashboardStepPage() {
       </Section>
 
       <Note tone="warning" title="Automation starts paused">
-        A new website does not draft anything yet. You will resume it in{" "}
-        <DocLink href="/docs/add-a-website/go-live">step 4</DocLink>, after Google is connected and a few test drafts
-        look right.
+        A new website does not draft anything yet. In <DocLink href="/docs/add-a-website/go-live">step 4</DocLink>,
+        check Review mode and a positive AI budget, resume automation, then prepare and review a few test drafts. Google
+        reporting can be connected separately; it is not required for drafting.
       </Note>
     </DocPage>
   );

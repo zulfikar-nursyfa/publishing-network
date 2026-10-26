@@ -9,7 +9,6 @@ import {
   dateBounds,
   startOfDay,
   sortRows,
-  websitePreference,
 } from "@/lib/list-params";
 import { storyList, websiteList, articleList, activityList, jobList } from "@/lib/list-configs";
 import { allRows, applyListQuery, readList } from "@/lib/list-query";
@@ -70,13 +69,6 @@ test("legacy archived links and article status links remain valid", () => {
   assert.equal(state({ archived: "1", status: "active" }, websiteList).status, "active");
   assert.equal(state({ status: "published" }, articleList).status, "published");
   assert.equal(state({ entity: website }, activityList).entity, website);
-});
-
-test("remembered website is a visible default and never overrides explicit URL choices", () => {
-  assert.equal(websitePreference({}, storyList, [{ id: website }], website).website, website);
-  assert.equal(websitePreference({}, storyList, [], website).website, "all");
-  assert.equal(websitePreference({ website: "all" }, storyList, [{ id: website }], website).website, "all");
-  assert.equal(websitePreference({ website: "bad" }, storyList, [{ id: website }], website).website, "bad");
 });
 
 test("search treats wildcards literally and safely quotes PostgREST OR values", () => {

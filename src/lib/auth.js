@@ -18,13 +18,20 @@ export const requireUser = cache(async () => {
     id: userId,
     email: profile.email,
     profile,
-    isAdmin: profile.role === "admin",
+    isAdmin: profile.role === "admin" || profile.role === "superadmin",
+    isSuperadmin: profile.role === "superadmin",
   };
 });
 
 export async function requireAdmin() {
   const user = await requireUser();
   if (!user.isAdmin) notFound();
+  return user;
+}
+
+export async function requireSuperadmin() {
+  const user = await requireUser();
+  if (!user.isSuperadmin) notFound();
   return user;
 }
 

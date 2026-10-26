@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { recordAudit } from "@/lib/audit";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireSuperadmin } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fieldErrorsFrom, inviteSchema } from "@/lib/validation";
@@ -43,11 +43,14 @@ export async function inviteUser(_prev, formData) {
   return { ok: true, message: `Invitation sent to ${parsed.data.email}.` };
 }
 
-export async function setUserRole(userId, role) {
-  const admin = await requireAdmin();
-  if (!z.object({ userId: z.uuid(), role: z.enum(["admin", "editor"]) }).safeParse({ userId, role }).success)
+export async function setUserRole(userId, formData) {
+  const admin = await requireSuperadmin();
+  const role = formData.get("role");
+  if (
+    !z.object({ userId: z.uuid(), role: z.enum(["superadmin", "admin", "editor"]) }).safeParse({ userId, role }).success
+  )
     return { error: "Invalid user or role" };
-  if (userId === admin.id && role !== "admin") return { error: "You cannot remove your own administrator access" }; // Administrators cannot demote themselves.
+  if (userId === admin.id) return { error: "You cannot change your own role" };
   const { error } = await createAdminClient().from("profiles").update({ role }).eq("id", userId);
   if (error) return { error: error.message };
   await recordAudit({
@@ -58,6 +61,27 @@ export async function setUserRole(userId, role) {
     details: { role },
   });
   revalidatePath("/users");
+}
+
+export async function removeUser(userId) {
+  const admin = await requireSuperadmin();
+  if (!z.uuid().safeParse(userId).success) return { error: "Invalid user" };
+  if (userId === admin.id) return { error: "You cannot remove yourself" };
+  const db = createAdminClient();
+  const { data: profile } = await db.from("profiles").select("email").eq("id", userId).maybeSingle();
+  if (!profile) return { error: "User not found" };
+  // Deleting the auth user cascades to the profile and memberships; authored rows keep a null author.
+  const { error } = await db.auth.admin.deleteUser(userId);
+  if (error) return { error: error.message };
+  await recordAudit({
+    action: "user.removed",
+    entityType: "user",
+    entityId: userId,
+    actorId: admin.id,
+    details: { email: profile.email },
+  });
+  revalidatePath("/users");
+  return { ok: true, message: `${profile.email} was removed.` };
 }
 
 export async function setUserWebsites(userId, formData) {

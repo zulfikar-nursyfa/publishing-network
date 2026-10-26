@@ -2,10 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { rememberWebsite } from "@/app/actions/list-preferences";
 import { inputClass } from "./ui";
 
-export function ListForm({ path, website, children, className }) {
+export function ListForm({ path, children, className }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   return (
@@ -28,7 +27,6 @@ export function ListForm({ path, website, children, className }) {
       }}
       onSubmit={(event) => {
         event.preventDefault();
-        // Snapshot before the cookie action can refresh/remount this form.
         const params = new URLSearchParams(new FormData(event.currentTarget));
         const ordering = params.get("ordering");
         if (ordering) {
@@ -38,17 +36,7 @@ export function ListForm({ path, website, children, className }) {
           params.delete("ordering");
         }
         params.delete("page");
-        startTransition(async () => {
-          const selected = params.get("website");
-          if (website !== undefined && selected && selected !== website) {
-            try {
-              await rememberWebsite(selected);
-            } catch {
-              // A preference failure must not block URL filtering; server permissions still apply.
-            }
-          }
-          startTransition(() => router.push(`${path}?${params}`, { scroll: false }));
-        });
+        startTransition(() => router.push(`${path}?${params}`, { scroll: false }));
       }}
     >
       <fieldset disabled={pending} className="min-w-0 space-y-3 disabled:opacity-60">

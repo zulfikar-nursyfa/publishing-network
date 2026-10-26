@@ -115,7 +115,7 @@ export const userList = {
   defaultDirection: "asc",
   search: ["full_name", "email"],
   filters: {
-    role: enumFilter("Role", ["all", "admin", "editor"], "role"),
+    role: enumFilter("Role", ["all", "superadmin", "admin", "editor"], "role"),
     website: uuidFilter("Assigned website", "website_members.website_id"),
   },
 };

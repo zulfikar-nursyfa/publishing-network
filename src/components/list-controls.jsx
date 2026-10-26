@@ -24,7 +24,7 @@ export function ListToolbar({ path, state, websites = [], choices = {}, searchLa
       : (choices[key] ?? filter.options ?? [{ value: "all", label: `All ${filter.label.toLowerCase()}s` }]);
   return (
     <div className="mb-4 space-y-2">
-      <ListForm key={listHref(path, state)} path={path} website={state.website}>
+      <ListForm key={listHref(path, state)} path={path}>
         <HiddenState
           state={state}
           except={["q", "sort", "direction", "period", "from", "to", ...fields.map(([key]) => key)]}

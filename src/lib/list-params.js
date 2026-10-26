@@ -152,10 +152,3 @@ export function sortRows(rows, state) {
     );
   });
 }
-
-/** URL choices win; a remembered website is used only while it is still visible to this user. */
-export function websitePreference(input, config, websites, remembered) {
-  if (Object.hasOwn(input, "website") || !config.filters?.website) return input;
-  const preferred = websites.some((site) => site.id === remembered) ? remembered : "all";
-  return { ...input, website: preferred };
-}

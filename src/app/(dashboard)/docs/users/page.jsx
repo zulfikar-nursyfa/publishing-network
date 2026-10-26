@@ -7,7 +7,7 @@ export default function UsersGuidePage() {
     <DocPage
       href="/docs/users"
       title="Users and permissions"
-      description="There are two dashboard roles: Administrator and Editor. Website assignments decide which sites an editor can work on."
+      description="There are three dashboard roles: Super administrator, Administrator and Editor. Website assignments decide which sites an editor can work on."
     >
       <Section title="What an editor can do">
         <List>
@@ -33,13 +33,24 @@ export default function UsersGuidePage() {
           <li>See and manage every website, regardless of assignments.</li>
           <li>Add or edit websites, connections, branding, sources, categories, niches and writing guides.</li>
           <li>Change automation, budgets, network settings, model prices, alert recipients and muted websites.</li>
-          <li>Invite people, change roles and assign websites.</li>
+          <li>Invite people and assign websites.</li>
           <li>
             Use the job&apos;s Recovery card to retry or cancel work, review uncertain AI charges, and reset exhausted
             publishing attempts.
           </li>
           <li>Enter other costs, open the network Costs report and its exports, or use Update now for traffic.</li>
         </List>
+      </Section>
+      <Section title="What only a super administrator can do">
+        <List>
+          <li>Everything an administrator can do.</li>
+          <li>Change anyone&apos;s role, including making other super administrators.</li>
+          <li>Remove a user. They lose access at once; articles and history they created stay.</li>
+        </List>
+        <p>
+          The first super administrator is set up with <Path>npm run create-admin</Path>. To invite a super administrator,
+          invite them as Administrator and then change their role.
+        </p>
       </Section>
       <Section title="Invite a team member">
         <Steps>
@@ -59,11 +70,12 @@ export default function UsersGuidePage() {
       </Section>
       <Section title="Change access later">
         <p>
-          On <DocLink href="/users">Users</DocLink>, change the person&apos;s role or website selections. Website
+          On <DocLink href="/users">Users</DocLink>, change the person&apos;s website selections. A super administrator
+          can also change their role or remove them. Website
           assignments can also be changed under <Path>Settings → Edit website → Editors</Path>.
         </p>
         <p>
-          An administrator cannot remove their own administrator access. The dashboard and database both enforce website
+          A super administrator cannot change their own role or remove themselves. The dashboard and database both enforce website
           access; knowing an article&apos;s address does not grant access to another site.
         </p>
       </Section>

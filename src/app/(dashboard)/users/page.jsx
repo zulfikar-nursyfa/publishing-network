@@ -3,9 +3,19 @@ import { ListResults } from "@/components/list-results";
 import { allRows, listContext, readList } from "@/lib/lists";
 import { userList } from "@/lib/list-configs";
 import { ShieldCheck, UserPlus } from "lucide-react";
-import { setUserRole, setUserWebsites } from "@/app/actions/users";
+import { removeUser, setUserRole, setUserWebsites } from "@/app/actions/users";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
-import { Avatar, Badge, Card, PageHeader, SectionHeading, checkboxClass, formatDateTime } from "@/components/ui";
+import {
+  Avatar,
+  Badge,
+  Card,
+  PageHeader,
+  SectionHeading,
+  checkboxClass,
+  cn,
+  formatDateTime,
+  inputClass,
+} from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { InviteForm } from "./invite-form";
@@ -49,7 +59,7 @@ export default async function UsersPage({ searchParams }) {
     <>
       <PageHeader
         title="Users"
-        description="Administrators manage every website. Editors only see the websites assigned to them."
+        description="Super administrators can also change roles and remove users. Administrators manage every website. Editors only see the websites assigned to them."
       />
 
       <Card
@@ -75,6 +85,7 @@ export default async function UsersPage({ searchParams }) {
             const assigned = websitesByUser.get(profile.id) ?? new Set();
             const isSelf = profile.id === currentUser.id;
             const name = profile.full_name || profile.email;
+            const isAdmin = profile.role === "admin" || profile.role === "superadmin";
             return (
               <li
                 key={profile.id}
@@ -91,37 +102,52 @@ export default async function UsersPage({ searchParams }) {
                       <div className="truncate text-sm text-muted-foreground">{profile.email}</div>
                     ) : null}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Badge tone={profile.role === "admin" ? "purple" : "gray"}>
-                        {profile.role === "admin" ? <ShieldCheck className="size-3" /> : null}
+                      <Badge tone={isAdmin ? "purple" : "gray"}>
+                        {isAdmin ? <ShieldCheck className="size-3" /> : null}
                         {profile.role}
                       </Badge>
                       <span className="text-xs text-muted-foreground">Joined {formatDateTime(profile.created_at)}</span>
                     </div>
-                    {!isSelf ? (
-                      <ActionForm
-                        action={setUserRole.bind(null, profile.id, profile.role === "admin" ? "editor" : "admin")}
-                        className="mt-3"
-                      >
-                        <SubmitButton
-                          variant="secondary"
-                          size="sm"
-                          confirm={
-                            profile.role === "admin"
-                              ? "Remove administrator access?"
-                              : "Make this user an administrator with access to every website?"
-                          }
-                          confirmLabel={profile.role === "admin" ? "Make editor" : "Make admin"}
-                        >
-                          {profile.role === "admin" ? "Make editor" : "Make admin"}
-                        </SubmitButton>
-                      </ActionForm>
+                    {currentUser.isSuperadmin && !isSelf ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <ActionForm action={setUserRole.bind(null, profile.id)} className="flex items-center gap-2">
+                          <select
+                            name="role"
+                            aria-label={`Role for ${name}`}
+                            defaultValue={profile.role}
+                            className={cn(inputClass, "w-36")}
+                          >
+                            <option value="editor">Editor</option>
+                            <option value="admin">Administrator</option>
+                            <option value="superadmin">Super administrator</option>
+                          </select>
+                          <SubmitButton
+                            variant="secondary"
+                            size="sm"
+                            confirm={`Change the role of ${name}?`}
+                            confirmLabel="Change role"
+                          >
+                            Save role
+                          </SubmitButton>
+                        </ActionForm>
+                        <ActionForm action={removeUser.bind(null, profile.id)}>
+                          <SubmitButton
+                            variant="danger-outline"
+                            size="sm"
+                            confirm={`Remove ${name}? They lose access immediately. This cannot be undone.`}
+                            confirmLabel="Remove user"
+                          >
+                            Remove
+                          </SubmitButton>
+                        </ActionForm>
+                      </div>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="min-w-0">
                   <div className="mb-2 text-xs font-medium text-muted-foreground">Websites</div>
-                  {profile.role === "admin" ? (
+                  {isAdmin ? (
                     <p className="text-sm text-muted-foreground">Administrators have access to all websites.</p>
                   ) : (websites ?? []).length === 0 ? (
                     <p className="text-sm text-muted-foreground">No websites yet.</p>

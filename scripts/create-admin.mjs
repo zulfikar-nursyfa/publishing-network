@@ -1,8 +1,9 @@
-// Bootstraps the first administrator for a Supabase project (staging or production).
+// Bootstraps the first (super) administrator for a Supabase project (staging or production).
 //
 //   node --env-file=.env.local scripts/create-admin.mjs someone@example.com "Full Name"
 //
-// Sends a Supabase invitation if the user does not exist yet, then grants the admin role.
+// Sends a Supabase invitation if the user does not exist yet, then grants the superadmin role.
+// Also promotes an existing user to superadmin.
 // After this, further users are invited from the dashboard's Users page.
 
 import { createClient } from "@supabase/supabase-js";
@@ -38,11 +39,14 @@ if (!profile) {
   console.log(`Invitation email sent to ${email}.`);
 }
 
-const { error } = await db
-  .from("profiles")
-  .upsert({ id: profile.id, email: email.toLowerCase(), role: "admin", ...(fullName ? { full_name: fullName } : {}) });
+const { error } = await db.from("profiles").upsert({
+  id: profile.id,
+  email: email.toLowerCase(),
+  role: "superadmin",
+  ...(fullName ? { full_name: fullName } : {}),
+});
 if (error) {
-  console.error(`Could not grant admin role: ${error.message}`);
+  console.error(`Could not grant superadmin role: ${error.message}`);
   process.exit(1);
 }
 
@@ -53,4 +57,4 @@ await db.from("audit_log").insert({
   details: { email: email.toLowerCase(), via: "scripts/create-admin.mjs" },
 });
 
-console.log(`${email} is now an administrator.`);
+console.log(`${email} is now a super administrator.`);

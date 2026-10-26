@@ -12,7 +12,7 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 
 ## What exists today
 
-- **Login and permissions:** invitation-only Supabase Auth with administrators and editors; editors only see their assigned websites. Enforced in server code *and* in row level security.
+- **Login and permissions:** invitation-only Supabase Auth with super administrators (who alone change roles and remove users), administrators and editors; editors only see their assigned websites. Enforced in server code *and* in row level security.
 - **Websites:** WordPress connection and test, branding, publishing times (Cairo by default), automation mode, AI spending limit, niche, editors, categories synced with WordPress.
 - **Niches and sources:** 15 niches, each with shared sources, writing guides and category templates per language. Categories copy without overwriting website edits; websites can disable niche sources and add their own.
 - **Story inbox:** new stories from source feeds every 30 minutes; editors select the ones worth covering, with optional automatic selection (off by default). URL and English/Arabic title matching suppress duplicate coverage across feeds.

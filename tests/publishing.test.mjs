@@ -7,7 +7,12 @@ import { automationBlockReason } from "@/lib/automation/policy";
 import { reviewReasons } from "@/lib/automation/auto-publish";
 import { slotsOn } from "@/lib/schedule";
 
-function setup({ status = "approved", existing = null, postStatus = "publish" } = {}) {
+function setup({
+  status = "approved",
+  existing = null,
+  postStatus = "publish",
+  category = { name: "News", wpTermId: 7 },
+} = {}) {
   const calls = { created: 0, updated: 0, confirmed: 0, unpublished: 0 };
   const post = { id: 42, status: postStatus, link: "https://example.test/post" };
   const context = {
@@ -15,6 +20,7 @@ function setup({ status = "approved", existing = null, postStatus = "publish" } 
     website: { id: "s", language: "en", archived: false },
     sources: [],
     connection: {},
+    category,
   };
   const store = {
     claim: async () => ({ id: "p", attemptCount: 1, maxAttempts: 5 }),
@@ -85,6 +91,12 @@ test("a published article without its WordPress post needs a person", async () =
 
 test("unapproved articles cannot publish", async () => {
   assert.equal((await setup({ status: "draft" }).publish()).outcome, "failed");
+});
+
+test("articles without a category never reach WordPress", async () => {
+  const { calls, publish } = setup({ category: null });
+  assert.equal((await publish()).outcome, "failed");
+  assert.equal(calls.created, 0);
 });
 
 test("the live check reports noindex, error pages and a foreign canonical", async () => {

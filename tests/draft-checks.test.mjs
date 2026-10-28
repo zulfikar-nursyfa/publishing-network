@@ -117,11 +117,15 @@ test("drafts: uncollected citations removed, missing official source warned", ()
   );
   assert.deepEqual(checked.draft.source_urls, [outletA.url]);
   assert.ok(checked.warnings.some((warning) => /official source/.test(warning)));
-  assert.equal(
-    checkDraft({ ...draft([official.url]), category_id: crypto.randomUUID() }, withPrimary, [official], [], "en").draft
-      .category_id,
-    null,
+  const uncategorised = checkDraft(
+    { ...draft([official.url]), category_id: crypto.randomUUID() },
+    withPrimary,
+    [official],
+    [],
+    "en",
   );
+  assert.equal(uncategorised.draft.category_id, null);
+  assert.ok(uncategorised.warnings.some((warning) => /no category/.test(warning)));
 });
 
 test("drafts still reject copied passages, HTML and the wrong language", () => {

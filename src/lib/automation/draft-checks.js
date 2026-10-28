@@ -195,6 +195,7 @@ export function checkDraft(draft, research, evidence, categories, language, stri
   if (research.claims.some((claim) => !claim.source_urls.some((url) => sourceUrls.includes(url))))
     warn("research_not_cited", "Some researched facts are not covered by the draft's cited sources");
   const categoryId = categories.some((category) => category.id === draft.category_id) ? draft.category_id : null;
+  if (!categoryId) warn("no_category", "The draft has no category; choose one before publishing");
   return {
     draft: {
       ...draft,

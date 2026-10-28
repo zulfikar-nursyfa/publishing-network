@@ -158,7 +158,9 @@ function checkControls(context) {
   if (!context.connection) return "Website has no WordPress credentials";
   if (!context.article.title.trim()) return "Article has no title";
   if (!context.article.body.trim()) return "Article has no body";
-  if (context.category && !context.category.wpTermId) {
+  // Without one WordPress files the post under its default "Uncategorized".
+  if (!context.category) return "Article has no category. Choose one, then retry.";
+  if (!context.category.wpTermId) {
     return `Category "${context.category.name}" is not linked to WordPress. Use "Sync with WordPress" in the website settings, then retry.`;
   }
   if (context.image && !context.image.wpMediaId && !context.image.storagePath)

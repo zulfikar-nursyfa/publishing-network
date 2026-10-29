@@ -44,21 +44,17 @@ export async function AttentionPanel({ db }) {
         .is("archived_at", null),
     ],
   ];
-  const results = await Promise.all(definitions.map(([, , query]) => query));
-  const {
-    data: waiting = [],
-    error: waitingError,
-    count: waitingCount,
-  } = await db
-    .from("job_list")
-    .select("*", { count: "exact" })
-    .eq("status", "queued")
-    .not("waiting_kind", "is", null)
-    .order("waiting_since")
-    .limit(3);
-  const slots = await allRows(() => db.from("slot_attention").select("website_id, total").order("website_id")).catch(
-    () => null,
-  );
+  const [results, { data: waiting = [], error: waitingError, count: waitingCount }, slots] = await Promise.all([
+    Promise.all(definitions.map(([, , query]) => query)),
+    db
+      .from("job_list")
+      .select("*", { count: "exact" })
+      .eq("status", "queued")
+      .not("waiting_kind", "is", null)
+      .order("waiting_since")
+      .limit(3),
+    allRows(() => db.from("slot_attention").select("website_id, total").order("website_id")).catch(() => null),
+  ]);
   return (
     <Card title="Needs attention" className="mb-6">
       {results.some((result) => result.error) || !slots || waitingError ? (

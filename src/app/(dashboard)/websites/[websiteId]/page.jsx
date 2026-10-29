@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { z } from "zod";
 import { ArticleTable } from "@/components/article-table";
 import { ListToolbar } from "@/components/list-controls";
@@ -11,6 +12,7 @@ import { CircleCheck, ClipboardCheck, ExternalLink, Plus, Send, Settings, Triang
 import {
   Badge,
   ButtonLink,
+  CardSkeleton,
   ConnectionBadge,
   FilterTabs,
   PageHeader,
@@ -53,7 +55,9 @@ export default async function WebsitePage({ params, searchParams }) {
           () => {
             let query = supabase
               .from(section === "schedule" ? "publish_slots" : "article_list")
-              .select(section === "schedule" ? "*" : ARTICLE_LIST_FIELDS, { count: "exact" })
+              .select(section === "schedule" ? "id, slot_at, status, article_id, note" : ARTICLE_LIST_FIELDS, {
+                count: "exact",
+              })
               .eq("website_id", websiteId);
             if (section === "schedule" && state.status !== "all")
               query =
@@ -73,9 +77,11 @@ export default async function WebsitePage({ params, searchParams }) {
     website.niche_id
       ? supabase.from("niches").select("name").eq("id", website.niche_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    allRows(() =>
-      supabase.from("categories").select("id, name").eq("website_id", websiteId).order("sort_order").order("id"),
-    ),
+    section === "articles"
+      ? allRows(() =>
+          supabase.from("categories").select("id, name").eq("website_id", websiteId).order("sort_order").order("id"),
+        )
+      : [],
   ]);
   const rtl = website.text_direction === "rtl";
 
@@ -95,13 +101,19 @@ export default async function WebsitePage({ params, searchParams }) {
               {website.domain}
               <ExternalLink className="size-3" />
             </a>
-            <span className="text-border">|</span>
+            <span aria-hidden="true" className="text-border">
+              |
+            </span>
             <span>{rtl ? "Arabic (RTL)" : "English"}</span>
-            <span className="text-border">|</span>
+            <span aria-hidden="true" className="text-border">
+              |
+            </span>
             {niche ? (
               <>
                 <span>{niche.name}</span>
-                <span className="text-border">|</span>
+                <span aria-hidden="true" className="text-border">
+                  |
+                </span>
               </>
             ) : null}
             <span>{website.timezone}</span>
@@ -149,14 +161,26 @@ export default async function WebsitePage({ params, searchParams }) {
         />
       </div>
 
-      {section === "overview" || section === "schedule" ? <TodaySchedule website={website} /> : null}
+      {section === "overview" || section === "schedule" ? (
+        <Suspense fallback={<CardSkeleton className="h-64" />}>
+          <TodaySchedule website={website} />
+        </Suspense>
+      ) : null}
       {section === "traffic" ? (
         <>
-          <TrafficCard supabase={supabase} website={website} isAdmin={user.isAdmin} />
-          <TopContentCard supabase={supabase} website={website} />
+          <Suspense fallback={<CardSkeleton className="h-52" />}>
+            <TrafficCard supabase={supabase} website={website} isAdmin={user.isAdmin} />
+          </Suspense>
+          <Suspense fallback={<CardSkeleton className="h-96" />}>
+            <TopContentCard supabase={supabase} website={website} />
+          </Suspense>
         </>
       ) : null}
-      {section === "costs" ? <AiUsageCard supabase={supabase} website={website} /> : null}
+      {section === "costs" ? (
+        <Suspense fallback={<CardSkeleton className="h-64" />}>
+          <AiUsageCard supabase={supabase} website={website} />
+        </Suspense>
+      ) : null}
       {section === "articles" ? (
         <>
           <FilterTabs

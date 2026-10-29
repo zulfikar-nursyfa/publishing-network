@@ -35,6 +35,18 @@ export function PageHeader({ title, description, actions, back }) {
   );
 }
 
+/** Placeholder for a card that streams in behind <Suspense>. */
+export function CardSkeleton({ className }) {
+  return (
+    <div
+      role="status"
+      aria-label="Loading"
+      aria-busy="true"
+      className={cn("mb-8 h-48 rounded-lg bg-muted/40 motion-safe:animate-pulse", className)}
+    />
+  );
+}
+
 export function Card({ title, description, children, className, actions, icon: Icon }) {
   return (
     <section className={cn("min-w-0 max-w-full rounded-lg bg-card p-4 text-card-foreground sm:p-5", className)}>

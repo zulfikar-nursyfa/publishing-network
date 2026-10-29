@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +10,7 @@ import {
   ArticleStatusBadge,
   Badge,
   Card,
+  CardSkeleton,
   DescriptionList,
   PageHeader,
   PublicationStatusBadge,
@@ -62,7 +64,7 @@ export default async function ArticlePage({ params, searchParams }) {
   const { articleId } = await params;
   if (!z.uuid().safeParse(articleId).success) notFound();
   const user = await requireUser();
-  const warning = (await searchParams).warning;
+  const { warning, from } = await searchParams;
   const supabase = await createClient();
 
   const { data: article } = await supabase.from("articles").select("*").eq("id", articleId).maybeSingle();
@@ -112,18 +114,7 @@ export default async function ArticlePage({ params, searchParams }) {
       .order("created_at"),
   ]);
   if (!website) notFound();
-  const { data: usage } = draftJob
-    ? await supabase.rpc("job_usage_summary", { target_job: draftJob.id })
-    : { data: null };
   const paths = (images ?? []).map((row) => row.storage_path).filter(Boolean);
-  const { data: signed } = paths.length
-    ? await supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600)
-    : { data: [] };
-  const withPreview = (images ?? []).map((row) => ({
-    ...row,
-    previewUrl: signed?.find((entry) => entry.path === row.storage_path)?.signedUrl ?? row.url,
-  }));
-
   const actorIds = [
     ...new Set(
       [article.created_by, article.approved_by, ...(history ?? []).map((entry) => entry.actor_id)].filter((id) =>
@@ -131,23 +122,34 @@ export default async function ArticlePage({ params, searchParams }) {
       ),
     ),
   ];
-  const { data: actors } = actorIds.length
-    ? await supabase.from("profiles").select("id, email, full_name").in("id", actorIds)
-    : { data: [] };
+  const [{ data: usage }, { data: signed }, { data: actors }, schedule] = await Promise.all([
+    draftJob ? supabase.rpc("job_usage_summary", { target_job: draftJob.id }) : { data: null },
+    paths.length ? supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600) : { data: [] },
+    actorIds.length ? supabase.from("profiles").select("id, email, full_name").in("id", actorIds) : { data: [] },
+    article.status === "approved" ? scheduleFor(supabase, article, website) : null,
+  ]);
+  const withPreview = (images ?? []).map((row) => ({
+    ...row,
+    previewUrl: signed?.find((entry) => entry.path === row.storage_path)?.signedUrl ?? row.url,
+  }));
+
   const actorName = (id) => {
     const actor = actors?.find((row) => row.id === id);
     return actor ? actor.full_name || actor.email : id ? "Unknown user" : "System";
   };
 
   const officialSource = sources?.find((source) => source.official);
-  const schedule = article.status === "approved" ? await scheduleFor(supabase, article, website) : null;
   const editable = ["draft", "in_review", "rejected"].includes(article.status);
   const rtl = website.text_direction === "rtl";
 
   return (
     <>
       <PageHeader
-        back={{ href: `/websites/${website.id}`, label: website.name }}
+        back={
+          from === "review"
+            ? { href: "/review", label: "Review queue" }
+            : { href: `/websites/${website.id}`, label: website.name }
+        }
         title={
           <span dir={rtl ? "rtl" : "ltr"} className="block">
             {article.title}
@@ -343,7 +345,9 @@ export default async function ArticlePage({ params, searchParams }) {
             ) : null}
           </Card>
 
-          <ArticleTraffic supabase={supabase} article={article} website={website} />
+          <Suspense fallback={<CardSkeleton className="mb-0 h-40" />}>
+            <ArticleTraffic supabase={supabase} article={article} website={website} />
+          </Suspense>
 
           <Card icon={History} title="History">
             <Link

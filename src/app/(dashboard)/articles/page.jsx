@@ -12,21 +12,23 @@ export default async function ArticlesPage({ searchParams }) {
   await requireUser();
   const db = await createClient();
   const { state, websites, timezone } = await listContext(db, await searchParams, globalArticleList);
-  const categories = await allRows(() => {
-    let query = db.from("categories").select("id, name").order("id");
-    if (state.website !== "all") query = query.eq("website_id", state.website);
-    return query;
-  });
-  const result = await readList(
-    () => {
-      let query = db.from("article_list").select(ARTICLE_LIST_FIELDS, { count: "exact" });
-      if (state.scheduled !== "all")
-        query = state.scheduled === "yes" ? query.not("scheduled_for", "is", null) : query.is("scheduled_for", null);
+  const [categories, result] = await Promise.all([
+    allRows(() => {
+      let query = db.from("categories").select("id, name").order("id");
+      if (state.website !== "all") query = query.eq("website_id", state.website);
       return query;
-    },
-    state,
-    timezone,
-  );
+    }),
+    readList(
+      () => {
+        let query = db.from("article_list").select(ARTICLE_LIST_FIELDS, { count: "exact" });
+        if (state.scheduled !== "all")
+          query = state.scheduled === "yes" ? query.not("scheduled_for", "is", null) : query.is("scheduled_for", null);
+        return query;
+      },
+      state,
+      timezone,
+    ),
+  ]);
   return (
     <>
       <PageHeader

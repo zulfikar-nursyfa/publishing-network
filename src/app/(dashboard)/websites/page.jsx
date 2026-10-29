@@ -18,15 +18,17 @@ export default async function WebsitesPage({ searchParams }) {
   const showArchived = state.status === "archived";
   const supabase = await createClient();
 
-  const niches = await allRows(() => supabase.from("niches").select("id, name").order("name").order("id"));
-  const result = await readList(() => {
-    let query = supabase.from("website_list").select("*", { count: "exact" });
-    if (state.status === "archived") query = query.not("archived_at", "is", null);
-    else if (state.status === "active") query = query.is("archived_at", null);
-    if (state.problem === "budget") query = query.eq("near_budget", true);
-    if (state.problem === "traffic") query = query.not("traffic_error", "is", null);
-    return query;
-  }, state);
+  const [niches, result] = await Promise.all([
+    allRows(() => supabase.from("niches").select("id, name").order("name").order("id")),
+    readList(() => {
+      let query = supabase.from("website_list").select("*", { count: "exact" });
+      if (state.status === "archived") query = query.not("archived_at", "is", null);
+      else if (state.status === "active") query = query.is("archived_at", null);
+      if (state.problem === "budget") query = query.eq("near_budget", true);
+      if (state.problem === "traffic") query = query.not("traffic_error", "is", null);
+      return query;
+    }, state),
+  ]);
   const websites = result.data;
 
   return (

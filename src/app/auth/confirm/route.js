@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeNext } from "@/lib/redirects";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -9,8 +10,7 @@ export async function GET(request) {
   const { searchParams } = request.nextUrl;
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
-  const nextParam = searchParams.get("next") ?? "/";
-  const next = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
+  const next = safeNext(searchParams.get("next"));
 
   if (tokenHash && type) {
     const supabase = await createClient();

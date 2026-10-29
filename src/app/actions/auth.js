@@ -5,13 +5,8 @@ import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
 import { requireUser } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
+import { safeNext } from "@/lib/redirects";
 import { createClient } from "@/lib/supabase/server";
-
-function safeNext(value) {
-  const next = typeof value === "string" ? value : "";
-  // Only allow same-site relative paths to avoid open redirects.
-  return next.startsWith("/") && !next.startsWith("//") ? next : "/";
-}
 
 export async function signIn(_prev, formData) {
   const parsed = z

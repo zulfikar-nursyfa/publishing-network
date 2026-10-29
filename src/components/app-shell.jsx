@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { Suspense, use, useRef, useState } from "react";
 import { Dialog, DropdownMenu } from "radix-ui";
 import { useTheme } from "next-themes";
 import {
@@ -90,7 +90,20 @@ function Brand({ appEnv }) {
   );
 }
 
-function Nav({ isAdmin, onNavigate, attention = {} }) {
+/** Sidebar count; `attention` is a promise so the counts never hold up the page. */
+function AttentionCount({ attention, href }) {
+  const count = use(attention)[href];
+  return count > 0 ? (
+    <span
+      className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-foreground"
+      aria-label={`${count} ${href === "/jobs" ? "failed jobs" : "waiting for review"}`}
+    >
+      {count}
+    </span>
+  ) : null;
+}
+
+function Nav({ isAdmin, onNavigate, attention }) {
   const pathname = usePathname();
   return (
     <nav className="space-y-6">
@@ -126,13 +139,10 @@ function Nav({ isAdmin, onNavigate, attention = {} }) {
                         )}
                       />
                       {item.label}
-                      {attention[item.href] > 0 ? (
-                        <span
-                          className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-foreground"
-                          aria-label={`${attention[item.href]} ${item.href === "/jobs" ? "failed jobs" : "waiting for review"}`}
-                        >
-                          {attention[item.href]}
-                        </span>
+                      {["/review", "/jobs"].includes(item.href) ? (
+                        <Suspense fallback={null}>
+                          <AttentionCount attention={attention} href={item.href} />
+                        </Suspense>
                       ) : null}
                     </Link>
                   </li>

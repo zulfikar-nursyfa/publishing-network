@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
+import { unstable_rethrow } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { AlertDialog } from "radix-ui";
 import { LoaderCircle } from "lucide-react";
@@ -10,7 +11,15 @@ import { showActionNotice } from "./action-notice";
 
 export function useActionStateWithNotice(action, initialState) {
   return useActionState(async (previous, data) => {
-    const result = await action(previous, data);
+    let result;
+    try {
+      result = await action(previous, data);
+    } catch (error) {
+      // A dropped request, a timeout or a tab older than the last deploy would otherwise replace the page.
+      unstable_rethrow(error);
+      console.error(error);
+      result = { error: "That did not go through. Reload the page to see the current state, then try again." };
+    }
     showActionNotice(result);
     return result;
   }, initialState);

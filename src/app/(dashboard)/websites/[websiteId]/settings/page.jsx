@@ -23,9 +23,6 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
   const section = z.enum(sections).catch("overview").parse(input.section);
   const db = await createClient();
   const path = `/websites/${websiteId}/settings`;
-  const { data: niche } = website.niche_id
-    ? await db.from("niches").select("id, name").eq("id", website.niche_id).maybeSingle()
-    : { data: null };
   const config = section === "categories" ? categoryList : sourceList;
   const state = parseListParams(input, {
     ...config,
@@ -39,30 +36,34 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
       },
     },
   });
-  const result = ["sources", "categories"].includes(section)
-    ? await readList(
-        () => {
-          let query = db
-            .from(section === "sources" ? "content_sources" : "categories")
-            .select("*", { count: "exact" })
-            .eq("website_id", websiteId);
-          if (section === "sources" && state.errors === "errors") query = query.not("last_error", "is", null);
-          if (section === "categories" && state.archived !== "all")
-            query = state.archived === "yes" ? query.not("archived_at", "is", null) : query.is("archived_at", null);
-          return query;
-        },
-        state,
-        website.timezone,
-      )
-    : { data: [], count: 0 };
-  const [editors, members, niches] =
+  const [result, { data: niche }, [editors, members, niches]] = await Promise.all([
+    ["sources", "categories"].includes(section)
+      ? readList(
+          () => {
+            let query = db
+              .from(section === "sources" ? "content_sources" : "categories")
+              .select("*", { count: "exact" })
+              .eq("website_id", websiteId);
+            if (section === "sources" && state.errors === "errors") query = query.not("last_error", "is", null);
+            if (section === "categories" && state.archived !== "all")
+              query = state.archived === "yes" ? query.not("archived_at", "is", null) : query.is("archived_at", null);
+            return query;
+          },
+          state,
+          website.timezone,
+        )
+      : { data: [], count: 0 },
+    section === "sources" && website.niche_id
+      ? db.from("niches").select("id, name").eq("id", website.niche_id).maybeSingle()
+      : { data: null },
     section === "website" && user.isAdmin
-      ? await Promise.all([
+      ? Promise.all([
           allRows(() => db.from("profiles").select("id, email, full_name").eq("role", "editor").order("id")),
           allRows(() => db.from("website_members").select("user_id").eq("website_id", websiteId).order("user_id")),
           allRows(() => db.from("niches").select("id, name").order("sort_order").order("id")),
         ])
-      : [[], [], []];
+      : [[], [], []],
+  ]);
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader

@@ -12,17 +12,19 @@ export default async function ReviewPage({ searchParams }) {
   await requireUser();
   const db = await createClient();
   const { state, websites, timezone } = await listContext(db, await searchParams, reviewList);
-  const categories = await allRows(() => {
-    let query = db.from("categories").select("id, name").order("name").order("id");
-    if (state.website !== "all") query = query.eq("website_id", state.website);
-    return query;
-  });
-  const result = await readList(
-    () =>
-      db.from("article_list").select(ARTICLE_LIST_FIELDS, { count: "exact" }).in("status", ["in_review", "approved"]),
-    state,
-    timezone,
-  );
+  const [categories, result] = await Promise.all([
+    allRows(() => {
+      let query = db.from("categories").select("id, name").order("name").order("id");
+      if (state.website !== "all") query = query.eq("website_id", state.website);
+      return query;
+    }),
+    readList(
+      () =>
+        db.from("article_list").select(ARTICLE_LIST_FIELDS, { count: "exact" }).in("status", ["in_review", "approved"]),
+      state,
+      timezone,
+    ),
+  ]);
   return (
     <>
       <PageHeader title="Review queue" description={`Articles in review and ready to publish · ${timezone}`} />

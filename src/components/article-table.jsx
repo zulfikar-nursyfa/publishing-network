@@ -31,7 +31,11 @@ export function ArticleTable({ articles, websites, path, state, review = false }
           return (
             <tr key={article.id}>
               <Td className="min-w-52 max-w-md">
-                <Link href={`/articles/${article.id}`} dir="auto" className={`${linkClass} line-clamp-2`}>
+                <Link
+                  href={`/articles/${article.id}${review ? "?from=review" : ""}`}
+                  dir="auto"
+                  className={`${linkClass} line-clamp-2`}
+                >
                   {article.title}
                 </Link>
                 <div className="mt-1 flex flex-wrap gap-1">

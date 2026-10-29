@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AttentionPanel } from "@/components/attention-panel";
 import { allRows } from "@/lib/lists";
 import Link from "next/link";
@@ -20,6 +21,7 @@ import {
   ArticleStatusBadge,
   Badge,
   ButtonLink,
+  CardSkeleton,
   ConnectionBadge,
   EmptyState,
   PageHeader,
@@ -124,7 +126,9 @@ export default async function OverviewPage() {
         }
       />
 
-      <AttentionPanel db={supabase} />
+      <Suspense fallback={<CardSkeleton className="mb-6 h-32" />}>
+        <AttentionPanel db={supabase} />
+      </Suspense>
       {network?.automation_paused ? (
         <Alert tone="warning" title="Automation is paused across the network" className="mb-8">
           Publishing slots do not run on any website. Manual and scheduled publishing continue.

@@ -13,16 +13,18 @@ export default async function ActivityPage({ searchParams }) {
   await requireUser();
   const db = await createClient();
   const { state, websites, timezone } = await listContext(db, await searchParams, activityList);
-  const actors = await allRows(() => db.from("profiles").select("id, email, full_name").order("id"));
-  const result = await readList(
-    () => {
-      let query = db.from("audit_log").select("*", { count: "exact" });
-      if (state.area !== "all") query = query.like("action", `${state.area}%`);
-      return query;
-    },
-    state,
-    timezone,
-  );
+  const [actors, result] = await Promise.all([
+    allRows(() => db.from("profiles").select("id, email, full_name").order("id")),
+    readList(
+      () => {
+        let query = db.from("audit_log").select("*", { count: "exact" });
+        if (state.area !== "all") query = query.like("action", `${state.area}%`);
+        return query;
+      },
+      state,
+      timezone,
+    ),
+  ]);
   const actorName = new Map(actors.map((actor) => [actor.id, actor.full_name || actor.email]));
   const websiteName = new Map(websites.map((site) => [site.id, site.name]));
   return (

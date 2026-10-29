@@ -20,21 +20,23 @@ export default async function StoriesPage({ searchParams }) {
   await requireUser();
   const db = await createClient();
   const { state, websites, timezone } = await listContext(db, await searchParams, storyList);
-  const sources = await allRows(() => {
-    let query = db.from("content_sources").select("id, name, website_id").order("name").order("id");
-    if (state.website !== "all") query = query.eq("website_id", state.website);
-    return query;
-  });
-  const result = await readList(
-    () => {
-      let query = db.from("story_list").select("*", { count: "exact" });
-      if (state.kind === "official") query = query.in("source_kind", ["newsroom", "government"]);
-      else if (state.kind !== "all") query = query.eq("source_kind", state.kind);
+  const [sources, result] = await Promise.all([
+    allRows(() => {
+      let query = db.from("content_sources").select("id, name, website_id").order("name").order("id");
+      if (state.website !== "all") query = query.eq("website_id", state.website);
       return query;
-    },
-    state,
-    timezone,
-  );
+    }),
+    readList(
+      () => {
+        let query = db.from("story_list").select("*", { count: "exact" });
+        if (state.kind === "official") query = query.in("source_kind", ["newsroom", "government"]);
+        else if (state.kind !== "all") query = query.eq("source_kind", state.kind);
+        return query;
+      },
+      state,
+      timezone,
+    ),
+  ]);
   const path = "/stories";
   const { data: jobs = [], error: jobsError } = result.data.length
     ? await db

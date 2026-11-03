@@ -9,6 +9,7 @@ import { collectStep, needsCorroboration, searchStep, startCorroboration } from 
 import { advance, budgetGuard, loadJobContext, textModelFor } from "./drafting/context";
 import { DeferredJob, LostLease, PermanentJob } from "./drafting/errors";
 import { illustrateStep } from "./drafting/illustrate";
+import { RECHECK_STEPS, syncReviewNote } from "./drafting/recheck";
 import { draftStep, needsRedraft, promptData, researchStep, verifyStep } from "./drafting/write";
 import { EvidenceError } from "./evidence";
 import { waitingKind } from "./drafting/queue-policy";
@@ -18,6 +19,7 @@ export { queueSelectedStories } from "./drafting/queue";
 /**
  * Draft job steps, in order:
  * collect (search, then read pages) → research → draft → verify → illustrate → create_article.
+ * A finished job can be re-checked after edits (see drafting/recheck.js).
  */
 const WRITING_STEPS = {
   research: { run: researchStep, next: "draft" },
@@ -89,6 +91,15 @@ async function runStep(db, job, worker) {
     return advance(db, job, worker, { state, step, ...queuedNow() });
   }
 
+  const recheck = RECHECK_STEPS[job.step];
+  if (recheck) {
+    const { state, next } = await recheck(db, job, worker, { context, model, assertControls });
+    await loadJobContext(db, job, worker);
+    if (next) return advance(db, job, worker, { state, step: next, ...queuedNow() });
+    await syncReviewNote(db, job, state.warnings);
+    return advance(db, job, worker, { state, step: "create_article", status: "succeeded", last_error: null });
+  }
+
   const writing = WRITING_STEPS[job.step];
   if (!writing) throw new PermanentJob("Unknown drafting step");
   const state = structuredClone(job.state);
@@ -135,6 +146,8 @@ function isPermanent(error) {
 async function handleFailure(db, job, worker, error) {
   const deferred = isDeferred(error);
   const failed = !deferred && (isPermanent(error) || job.attempt_count >= job.max_attempts);
+  // A failed re-check leaves the finished job as it was, with the reason as a reviewer warning.
+  const rechecking = Boolean(job.article_id);
   const message =
     error.name === "ZodError"
       ? "AI response failed structured validation; review the job before retrying"
@@ -143,7 +156,13 @@ async function handleFailure(db, job, worker, error) {
   const kind = deferred ? waitingKind(message) : null;
 
   await advance(db, job, worker, {
-    status: failed ? "failed" : "queued",
+    status: failed ? (rechecking ? "succeeded" : "failed") : "queued",
+    ...(failed && rechecking
+      ? {
+          step: "create_article",
+          state: { ...job.state, warnings: [...(job.state.warnings ?? []), `Re-check stopped: ${message}`] },
+        }
+      : {}),
     last_error: message.slice(0, 1000),
     waiting_kind: kind,
     waiting_reason: kind ? message.slice(0, 1000) : null,
@@ -156,7 +175,7 @@ async function handleFailure(db, job, worker, error) {
   });
   if (failed) {
     await recordAudit({
-      action: "automation.draft_failed",
+      action: rechecking ? "automation.recheck_failed" : "automation.draft_failed",
       entityType: "job",
       entityId: job.id,
       websiteId: job.website_id,

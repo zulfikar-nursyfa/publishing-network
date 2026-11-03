@@ -10,7 +10,7 @@ import { DeferredJob, LostLease } from "./errors";
 import { imagePrompt } from "./prompts";
 
 /** Errors that must stop the job rather than just skip the image. */
-function stopsJob(error) {
+export function stopsJob(error) {
   return (
     error instanceof LostLease ||
     /Automation is paused or off|Draft lease lost/.test(error.message) ||
@@ -32,7 +32,7 @@ async function sourceImage(db, article, story, source) {
   };
 }
 
-async function aiImage(db, job, worker, article, draft, assertControls) {
+export async function aiImage(db, job, worker, article, draft, assertControls) {
   const model = serverEnv().GEMINI_IMAGE_MODEL;
   const prompt = imagePrompt(draft);
   const generated = await generateForJob(db, job, worker, {

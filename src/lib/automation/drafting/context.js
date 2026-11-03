@@ -16,7 +16,7 @@ export const nicheGuideFor = (website) => website.niche?.[`guide_${website.langu
 
 /**
  * Loads everything a step needs and re-checks the controls: this worker still holds the job,
- * automation is running for the website, and the story is still selected.
+ * automation is running for the website, and the story is still selected (unless re-checking).
  */
 export async function loadJobContext(db, job, worker) {
   const results = await Promise.all([
@@ -37,7 +37,8 @@ export async function loadJobContext(db, job, worker) {
   }
   const reason = automationBlockReason(website, network);
   if (reason) throw new DeferredJob(reason);
-  if (story.status !== "selected") throw new PermanentJob("Story is no longer selected");
+  // A re-check runs on a finished job, whose story is already used.
+  if (story.status !== "selected" && !job.article_id) throw new PermanentJob("Story is no longer selected");
 
   return { website, network, story, sources, categories, strictChecks: network.strict_draft_checks ?? [] };
 }

@@ -66,6 +66,12 @@ export default function HowItWorksPage() {
           Work advances in short steps, with one job step handled each minute. Busy queues, extra source searches and
           retries can make a draft take longer. Refresh Draft jobs to see its current state.
         </p>
+        <p>
+          <strong>Re-check after edits</strong> sends a finished job through three more steps: <strong>recollect</strong>{" "}
+          (read the article&apos;s current sources), <strong>reverify</strong> (fact-check the saved article) and, when
+          the article has no image and AI illustrations are on, <strong>reillustrate</strong>. The usual pause and budget
+          controls apply.
+        </p>
       </Section>
       <Note title="Human review is the safe starting point">
         Review mode sends every completed AI article to a person. Automatic mode can skip review only for an allowed

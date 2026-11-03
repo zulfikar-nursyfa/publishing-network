@@ -2,9 +2,10 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, Eye, History, Info, Lock } from "lucide-react";
-import { saveArticle } from "@/app/actions/articles";
+import { ExternalLink, Eye, History, Info, Lock, RefreshCw } from "lucide-react";
+import { recheckArticle, saveArticle } from "@/app/actions/articles";
 import { RedirectNotice } from "@/components/action-notice";
+import { ActionForm, SubmitButton } from "@/components/form-controls";
 import {
   Alert,
   ArticleStatusBadge,
@@ -98,7 +99,7 @@ export default async function ArticlePage({ params, searchParams }) {
       .order("created_at", { ascending: false })
       .limit(20),
     article.origin === "automated"
-      ? supabase.from("jobs").select("id").eq("article_id", articleId).maybeSingle()
+      ? supabase.from("jobs").select("id, status").eq("article_id", articleId).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from("categories")
@@ -193,6 +194,26 @@ export default async function ArticlePage({ params, searchParams }) {
                 Review the collected source evidence and AI checks
               </Link>{" "}
               before approving this article.
+              {draftJob.status === "succeeded" ? (
+                editable ? (
+                  <ActionForm action={recheckArticle.bind(null, articleId)} className="mt-3">
+                    <SubmitButton
+                      variant="secondary"
+                      size="sm"
+                      pendingLabel="Queuing…"
+                      confirm="Fact-check the saved article again against its current sources? Save your edits first. This uses one AI call, plus an image if the article has none."
+                      confirmLabel="Re-check"
+                    >
+                      <RefreshCw />
+                      Re-check after edits
+                    </SubmitButton>
+                  </ActionForm>
+                ) : null
+              ) : (
+                <span className="mt-2 block font-medium">
+                  Re-check in progress. Reload in a few minutes to see the updated warnings.
+                </span>
+              )}
             </Alert>
           ) : null}
           {!editable ? (

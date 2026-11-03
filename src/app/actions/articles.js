@@ -218,6 +218,47 @@ export async function transitionArticle(articleId, _prev, formData) {
   return { ok: true, message: `Article is now ${transition.to.replace("_", " ")}.` };
 }
 
+/**
+ * Sends the article's finished draft job through the re-check steps (see drafting/recheck.js):
+ * its current sources are read again and the saved text is fact-checked, replacing the old
+ * verification warnings. Costs one AI call, plus an image when the article still has none.
+ */
+export async function recheckArticle(articleId) {
+  const { user, article } = await loadArticle(articleId);
+  if (!article) return { error: "Article not found" };
+  if (!EDITABLE.includes(article.status)) return { error: "Return the article to draft before re-checking it." };
+  const admin = createAdminClient();
+  const { data: job, error } = await admin
+    .from("jobs")
+    .update({
+      step: "recollect",
+      status: "queued",
+      attempt_count: 0,
+      last_error: null,
+      waiting_kind: null,
+      waiting_reason: null,
+      waiting_since: null,
+      run_after: new Date().toISOString(),
+    })
+    .eq("article_id", articleId)
+    .eq("website_id", article.website_id)
+    .eq("status", "succeeded")
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!job) return { error: "A re-check is already running, or this article has no AI draft job." };
+  await recordAudit({
+    action: "article.recheck_queued",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+    details: { job_id: job.id, version: article.version },
+  });
+  refresh(article);
+  return { ok: true, message: "Re-check queued. It usually finishes within a few minutes; reload to see the result." };
+}
+
 /** Admin only: clears the retry counter after the cause of repeated failures has been fixed. */
 export async function resetPublicationAttempts(articleId) {
   const user = await requireAdmin();

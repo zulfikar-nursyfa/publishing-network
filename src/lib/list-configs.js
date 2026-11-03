@@ -68,7 +68,22 @@ export const jobList = {
       ),
       groups: { active: ACTIVE_DRAFT_STATUSES },
     },
-    step: enumFilter("Step", ["all", "collect", "research", "draft", "verify", "illustrate", "create_article"], "step"),
+    step: enumFilter(
+      "Step",
+      [
+        "all",
+        "collect",
+        "research",
+        "draft",
+        "verify",
+        "illustrate",
+        "create_article",
+        "recollect",
+        "reverify",
+        "reillustrate",
+      ],
+      "step",
+    ),
     waiting: enumFilter("Waiting for", ["all", "budget", "paused"], "waiting_kind"),
   },
 };

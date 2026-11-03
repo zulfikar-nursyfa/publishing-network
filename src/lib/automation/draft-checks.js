@@ -62,13 +62,18 @@ const normalise = (value) => value.normalize("NFKC").toLowerCase().replace(/\s+/
 const words = (value) => normalise(value).match(/[\p{L}\p{N}]+/gu) ?? [];
 const TITLE_CONNECTORS = new Set("of the and bin bint al el for at to from by on in".split(" "));
 
-/** Keep source casing for official titles; ordinary prose still counts as overlap. */
+/**
+ * Keep source casing for official titles; ordinary prose still counts as overlap. A 12-word run may
+ * hold two ordinary words ("on behalf of His Highness…") because protocol titles alone fill it.
+ */
 function sourceShingles(text, length) {
   const tokens = text.normalize("NFKC").match(/[\p{L}\p{N}]+/gu) ?? [];
   const phrases = new Map();
+  const allowedProse = Math.floor(length / 6);
   for (let index = 0; index <= tokens.length - length; index++) {
     const run = tokens.slice(index, index + length);
-    if (run.every((word) => /^\p{Lu}|\p{N}/u.test(word) || TITLE_CONNECTORS.has(word.toLowerCase()))) continue;
+    const prose = run.filter((word) => !/^\p{Lu}|\p{N}/u.test(word) && !TITLE_CONNECTORS.has(word.toLowerCase()));
+    if (prose.length <= allowedProse) continue;
     phrases.set(words(run.join(" ")).join(" "), run.join(" "));
   }
   return phrases;

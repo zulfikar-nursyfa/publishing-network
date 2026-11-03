@@ -8,6 +8,18 @@ const RULES = [
   "Every resulting article requires human review.",
 ].join(" ");
 
+// The mistakes editors corrected most often in review.
+const ACCURACY_RULES = [
+  "Keep the scope of every fact: a UAE fact stays about the UAE, not the Gulf or the region.",
+  "Keep the meaning and certainty of statements: do not add words to a paraphrase, make a forecast or expectation sound certain, or present an opportunity as an achieved result. Attribute forecasts and expected returns to their speaker.",
+  "Do not add objectives, outcomes, context or classifications that the sources do not state.",
+  "Attribute each statement to whoever made it: do not present a journalist's explanation as a court's or official's statement, and say what occasion or report a quote comes from when combining sources.",
+  "Keep statistics exact, including who was surveyed and what was measured; expected attendance and preregistrations are different figures.",
+  "Do not infer an order or ranking (for example 'the 20th agreement') from a total.",
+  "Only describe an event in the past tense once the evidence shows it has happened, and give full calendar dates instead of relative ones such as 'today' or 'next week'.",
+  "Make conditions and legal requirements explicit in the excerpt and opening, not only later in the body.",
+].join("\n");
+
 const LANGUAGE_STYLE = {
   en: "Write in clear, neutral international English for a general news reader. Short paragraphs, active voice.",
   ar: [
@@ -59,6 +71,8 @@ export function draftPrompt(data, research, categories, { language, nicheGuide, 
     : "";
   return `${RULES}
 ${styleGuide(language, nicheGuide)}
+ACCURACY:
+${ACCURACY_RULES}
 Write people's names and official titles in full as the sources give them.
 ${redraft}Write an original article in the website's language, 250-650 words, using only the verified research. Leave out everything listed in research.unresolved; do not speculate about it. Plain text paragraphs, no HTML or inline URLs, no verbatim quotations. Include a concise title, ASCII slug, excerpt, a category ID from the supplied list or null, and the exact collected source URLs. For search engines add: seo_title (at most 60 characters, containing the focus keyphrase), meta_description (120-155 characters, factual, no clickbait), focus_keyword (the 2-4 word phrase readers would search for) and 3-6 short topic tags (companies, places, sectors). Avoid unsupported context or statistics.
 DATA:
@@ -71,7 +85,9 @@ ${JSON.stringify(categories)}`;
 
 export function verifyPrompt(data, draft) {
   return `${RULES}
-Independently check EVERY material factual assertion in this draft against the supplied evidence. Check figures, currencies, names, dates, attribution, headline and excerpt, misleading omissions, originality and language. Any unsupported assertion, relative date ambiguity, or material issue means passed=false. List each material claim and its supporting source URLs; do not simply repeat the research. Human approval is still required if passed=true.
+Independently check EVERY material factual assertion in this draft against the supplied evidence. Check figures, currencies, names, dates, attribution, headline and excerpt, misleading omissions, originality and language. Any unsupported assertion, relative date ambiguity, or material issue means passed=false. Also fail any breach of these accuracy rules:
+${ACCURACY_RULES}
+List each material claim and its supporting source URLs; do not simply repeat the research. Human approval is still required if passed=true.
 DATA:
 ${data}
 DRAFT:

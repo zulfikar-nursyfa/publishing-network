@@ -210,10 +210,11 @@ test("copied phrase diagnostics are capped at 200 characters", () => {
   assert.ok(error.message.includes(error.phrase));
 });
 
-test("only the first copied passage rejection requests a redraft", () => {
+test("copied passage rejections request at most two redrafts", () => {
   const error = new CopiedPassageError("source wording");
   assert.equal(needsRedraft({}, error), true);
-  assert.equal(needsRedraft({ redrafted: true, copied_phrase: error.phrase }, error), false);
+  assert.equal(needsRedraft({ copied_phrases: ["first"] }, error), true);
+  assert.equal(needsRedraft({ copied_phrases: ["first", "second"] }, error), false);
   assert.equal(needsRedraft({}, new DraftCheckError("too similar")), false);
   assert.equal(needsRedraft({}, new Error("provider failed")), false);
 });
@@ -223,9 +224,11 @@ test("draft prompts preserve full titles and include copied wording only on a re
   const first = draftPrompt("{}", {}, [], options);
   assert.ok(first.includes("Write people's names and official titles in full as the sources give them."));
   assert.equal(first.includes("Your previous draft"), false);
-  const retry = draftPrompt("{}", {}, [], { ...options, copiedPhrase: "Some copied source wording" });
-  assert.ok(retry.includes('Your previous draft repeated this source wording: "Some copied source wording".'));
-  assert.ok(retry.includes("Rewrite that part in your own words."));
+  const retry = draftPrompt("{}", {}, [], { ...options, copiedPhrases: ["First copied wording", "Second wording"] });
+  assert.ok(
+    retry.includes('Your previous drafts repeated this source wording: "First copied wording"; "Second wording".'),
+  );
+  assert.ok(retry.includes("Write the whole article in your own words and sentence structure"));
 });
 
 test("verification problems become warnings", () => {

@@ -5,7 +5,7 @@ export const metadata = { title: "Drafting failure messages" };
 const failures = [
   [
     "Draft contains a long copied passage",
-    "The message includes the matched source wording: twelve words in a row from a source, with at most two ordinary words around full names and official titles. One automatic rewrite is tried first. If the job has stopped, ask an administrator to review the sources and retry or restart the research. A manual retry restores the one-rewrite allowance.",
+    "The message includes the matched source wording: twelve words in a row from a source, with at most two ordinary words around full names and official titles. Up to two automatic rewrites are tried first, each told every phrase copied so far. If the job has stopped, ask an administrator to review the sources and retry or restart the research. A manual retry restores both rewrites.",
   ],
   [
     "Draft is too similar to the collected source text",

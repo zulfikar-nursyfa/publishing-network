@@ -85,7 +85,7 @@ export default function AlertsAndJobsGuidePage() {
           </li>
         </List>
         <p>
-          A copied-passage failure gets one automatic rewrite on a later run. A manual retry restores that allowance.
+          A copied-passage failure gets up to two automatic rewrites on later runs. A manual retry restores both.
           Repeatedly pressing Retry without improving the evidence or fixing the settings is not a solution.
         </p>
       </Section>

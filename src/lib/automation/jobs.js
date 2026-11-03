@@ -110,8 +110,7 @@ async function runStep(db, job, worker) {
     warnings = await writing.run(db, job, worker, { state, data, context, model, assertControls });
   } catch (error) {
     if (job.step !== "draft" || !needsRedraft(state, error)) throw error;
-    state.copied_phrase = error.phrase;
-    state.redrafted = true;
+    state.copied_phrases = [...(state.copied_phrases ?? []), error.phrase];
     redraft = true;
   }
   // Without an official source or second outlet, research is redone after one more search,

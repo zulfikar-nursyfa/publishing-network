@@ -71,8 +71,8 @@ export default function DraftingRulesPage() {
           <li>A similar automated article already exists for the story or headline.</li>
         </List>
         <p>
-          A copied 12-word passage gets one automatic rewrite on a later run, with the matched phrase explained to the
-          AI. A second rejection stops the job. The broader similarity failure does not get this special rewrite.
+          A copied 12-word passage gets up to two automatic rewrites on later runs, with every matched phrase so far
+          explained to the AI. A third rejection stops the job. The broader similarity failure does not get this special rewrite.
         </p>
       </Section>
       <Section title="Strict checks and reviewer warnings">

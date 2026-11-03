@@ -120,9 +120,8 @@ export async function manageDraftJob(jobId, intent, _prev, formData) {
     const restart = urls.length > 0 || formData.get("restart") === "on";
     const state = { ...job.state };
     // A fresh redraft must not replay the cached rejected responses.
-    if (job.step === "draft" && state.redrafted) state.generation = randomUUID();
-    delete state.redrafted;
-    delete state.copied_phrase;
+    if (job.step === "draft" && state.copied_phrases?.length) state.generation = randomUUID();
+    delete state.copied_phrases;
     patch = {
       status: "queued",
       locked_by: null,

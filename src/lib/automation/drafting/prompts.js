@@ -65,9 +65,9 @@ DATA:
 ${data}`;
 }
 
-export function draftPrompt(data, research, categories, { language, nicheGuide, copiedPhrase }) {
-  const redraft = copiedPhrase
-    ? `Your previous draft repeated this source wording: ${JSON.stringify(copiedPhrase)}. Rewrite that part in your own words. Names and official titles may stay in full as written in the sources.\n`
+export function draftPrompt(data, research, categories, { language, nicheGuide, copiedPhrases = [] }) {
+  const redraft = copiedPhrases.length
+    ? `Your previous drafts repeated this source wording: ${copiedPhrases.map((phrase) => JSON.stringify(phrase)).join("; ")}. Write the whole article in your own words and sentence structure, not only those parts: restate figures and lists in a different order and phrasing (for example "more than 1,000 speakers across 14 stages" rather than the source's sequence). Names and official titles may stay in full as written in the sources.\n`
     : "";
   return `${RULES}
 ${styleGuide(language, nicheGuide)}

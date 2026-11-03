@@ -52,9 +52,11 @@ export async function researchStep(db, job, worker, { state, data, context, mode
   return checked.warnings;
 }
 
-/** A copied passage gets one fresh draft on a later tick. */
+const MAX_REDRAFTS = 2;
+
+/** A copied passage gets up to two fresh drafts on later ticks, each told every phrase copied so far. */
 export function needsRedraft(state, error) {
-  return error instanceof CopiedPassageError && !state.redrafted;
+  return error instanceof CopiedPassageError && (state.copied_phrases?.length ?? 0) < MAX_REDRAFTS;
 }
 
 /** The article itself, then a duplicate check against this website's automated articles. Returns warnings. */
@@ -67,7 +69,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
     prompt: draftPrompt(data, state.research, context.categories, {
       language: context.website.language,
       nicheGuide: nicheGuideFor(context.website),
-      copiedPhrase: state.copied_phrase,
+      copiedPhrases: state.copied_phrases,
     }),
   });
   const checked = checkDraft(
@@ -91,7 +93,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
 
   const duplicate = articles.some((article) => sameStory(context.story, article) || sameStory(state.draft, article));
   if (duplicate) throw new PermanentJob("This story or headline already has an article");
-  delete state.copied_phrase;
+  delete state.copied_phrases;
   return checked.warnings;
 }
 

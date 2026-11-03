@@ -9,6 +9,7 @@ const previous = [
   "Verification: Relative date ambiguity",
   "Unsupported claim: Record exhibitors",
   "Re-check could not read https://old.example.test/page: HTTP 403",
+  "Figures not found in the sources (check each one): 33",
   "The draft has no category; choose one before publishing",
   "AI image not generated: Network AI budget would be exceeded",
 ];

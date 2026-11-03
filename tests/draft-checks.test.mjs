@@ -8,6 +8,8 @@ import {
   draftSchema,
   DraftCheckError,
   CopiedPassageError,
+  figureWarnings,
+  unsourcedFigures,
 } from "@/lib/automation/draft-checks";
 import { needsRedraft } from "@/lib/automation/drafting/write";
 import { draftPrompt } from "@/lib/automation/drafting/prompts";
@@ -308,4 +310,32 @@ test("Arabic niche category names require an explicit ASCII slug and integer ord
   assert.equal(nicheCategorySchema.safeParse({ ...input, slug: "أخبار" }).success, false);
   assert.equal(nicheCategorySchema.safeParse({ ...input, slug: "" }).success, false);
   assert.equal(nicheCategorySchema.safeParse({ ...input, sort_order: "1.5" }).success, false);
+});
+
+test("figures missing from every source become one reviewer warning", () => {
+  const page = {
+    ...official,
+    text: "The route calls at Shanghai, Ningbo and Mombasa. Around 8.5 million passengers used the station in 2025, and 1,000 speakers attended. COP28 followed.",
+  };
+  const article = {
+    title: "Seven ports on the new route",
+    excerpt: "About 8.5 million passengers used the station.",
+    body: "More than 1000 speakers and 33 million viewers in 2025, on 4 November, at COP28 with ١٠٠٠ guests and 12 new berths.",
+  };
+  assert.deepEqual(unsourcedFigures(article, [page]), ["33", "12"]);
+  assert.deepEqual(figureWarnings(article, [page]), ["Figures not found in the sources (check each one): 33, 12"]);
+  assert.deepEqual(figureWarnings({ title: "A", excerpt: "", body: "In 2025, 8.5 million." }, [page]), []);
+});
+
+test("checkDraft warns about figures the sources do not contain", () => {
+  const article = draft([official.url]);
+  article.body += " The route will add 450 weekly flights.";
+  const checked = checkDraft(
+    article,
+    research([official.url], { primary_source_url: official.url }),
+    [official],
+    [],
+    "en",
+  );
+  assert.ok(checked.warnings.some((warning) => warning.includes("450")));
 });

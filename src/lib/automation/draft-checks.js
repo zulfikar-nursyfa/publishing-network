@@ -79,6 +79,36 @@ function sourceShingles(text, length) {
   return phrases;
 }
 
+const ARABIC_DIGITS = /[\u0660-\u0669\u06F0-\u06F9]/g;
+/** Numbers as written, with Arabic digits and thousands separators normalised: "1,000" and "١٠٠٠" give "1000". */
+function figures(text) {
+  const latin = text
+    // Both Arabic digit blocks start at a code point ending in 0, so the low four bits are the digit.
+    .replace(ARABIC_DIGITS, (digit) => String(digit.charCodeAt(0) & 0xf))
+    .replace(/\u066B/g, ".")
+    .replace(/(\d)[,\u066C](?=\d{3}\b)/g, "$1");
+  // Digits inside a word (COP28, H1) are names, not figures.
+  return latin.match(/(?<![\p{L}\d.])\d+(?:\.\d+)?/gu) ?? [];
+}
+
+/**
+ * Figures in the article that appear in none of the evidence pages: invented, converted or
+ * calculated numbers. Single digits are skipped (often days of the month or spelled out in sources).
+ */
+export function unsourcedFigures(article, evidence) {
+  const known = new Set(evidence.flatMap((page) => figures(page.text)));
+  const used = figures(`${article.title} ${article.excerpt} ${article.body}`).filter((figure) => figure.length > 1);
+  return [...new Set(used.filter((figure) => !known.has(figure)))];
+}
+
+/** The reviewer warning for unsourced figures, or none. */
+export function figureWarnings(article, evidence) {
+  const missing = unsourcedFigures(article, evidence);
+  return missing.length
+    ? [`Figures not found in the sources (check each one): ${missing.slice(0, 10).join(", ")}`]
+    : [];
+}
+
 const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
 const domainCount = (urls) => new Set(urls.map(hostOf)).size;
 
@@ -201,6 +231,7 @@ export function checkDraft(draft, research, evidence, categories, language, stri
     warn("research_not_cited", "Some researched facts are not covered by the draft's cited sources");
   const categoryId = categories.some((category) => category.id === draft.category_id) ? draft.category_id : null;
   if (!categoryId) warn("no_category", "The draft has no category; choose one before publishing");
+  warnings.push(...figureWarnings(draft, evidence));
   return {
     draft: {
       ...draft,

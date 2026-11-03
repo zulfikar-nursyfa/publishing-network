@@ -17,6 +17,8 @@ import { draftPrompt, researchPrompt, verifyPrompt } from "./prompts";
 /** The story, website and evidence every writing prompt is based on. */
 export function promptData(context, evidence) {
   return JSON.stringify({
+    // Lets the AI tell whether an event in a pre-event report has happened yet.
+    today: new Date().toISOString().slice(0, 10),
     website: {
       language: context.website.language,
       topic: context.website.topic,

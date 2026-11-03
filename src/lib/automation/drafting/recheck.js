@@ -1,6 +1,6 @@
 import "server-only";
 import { generateForJob } from "@/lib/ai/usage";
-import { checkVerification, verificationSchema } from "../draft-checks";
+import { checkVerification, figureWarnings, verificationSchema } from "../draft-checks";
 import { collectEvidence } from "../evidence";
 import { PermanentJob } from "./errors";
 import { aiImage, stopsJob } from "./illustrate";
@@ -14,7 +14,7 @@ import { promptData } from "./write";
 
 const MAX_PAGES = 7;
 const EDITABLE = ["draft", "in_review", "rejected"];
-const REPLACED = /^(AI verification did not pass|Verification: |Unsupported claim: |Re-check )/;
+const REPLACED = /^(AI verification did not pass|Verification: |Unsupported claim: |Re-check |Figures not found)/;
 const IMAGE_WARNING = /^(AI image not generated|Source image not added): /;
 const NO_CATEGORY = "The draft has no category";
 
@@ -90,7 +90,11 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
   });
   state.warnings = recheckedWarnings(
     state.warnings,
-    [...(state.recheck_skipped ?? []), ...checkVerification(state.verification)],
+    [
+      ...(state.recheck_skipped ?? []),
+      ...checkVerification(state.verification),
+      ...figureWarnings(article, state.recheck_evidence),
+    ],
     { hasCategory: Boolean(article.category_id), hasImage: article.hasImage },
   );
   delete state.recheck_evidence;

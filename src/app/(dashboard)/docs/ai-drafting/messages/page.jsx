@@ -102,6 +102,12 @@ export default function DraftMessagesPage() {
             <strong>Re-check after edits</strong> on the article so the warnings describe the saved version.
           </li>
           <li>
+            <strong>Figures not found in the sources</strong>: these numbers appear in the article but on none of the
+            collected pages. They may be invented, converted, rounded or calculated (a total, a percentage, a currency
+            conversion). Check each against the original pages; numbers written as words in the source also show up
+            here.
+          </li>
+          <li>
             <strong>AI image not generated</strong>: often the AI budget could not cover the image. Upload an image, or
             use <strong>Re-check after edits</strong> once the budget allows; it adds an AI image when the article has
             none. <strong>Re-check stopped</strong> and <strong>Re-check could not read</strong> explain a re-check

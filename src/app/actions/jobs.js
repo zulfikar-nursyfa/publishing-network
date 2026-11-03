@@ -119,8 +119,8 @@ export async function manageDraftJob(jobId, intent, _prev, formData) {
     if (!urls) return { error: URL_ERROR };
     const restart = urls.length > 0 || formData.get("restart") === "on";
     const state = { ...job.state };
-    // A fresh redraft must not replay the cached rejected responses.
-    if (job.step === "draft" && state.copied_phrases?.length) state.generation = randomUUID();
+    // A retry must not replay the cached AI response that failed (a copied passage, too short, invalid).
+    state.generation = randomUUID();
     delete state.copied_phrases;
     patch = {
       status: "queued",

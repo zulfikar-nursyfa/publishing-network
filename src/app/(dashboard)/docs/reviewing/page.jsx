@@ -19,8 +19,9 @@ export default function ReviewingPage() {
             Check names, official titles, dates, figures, attribution and whether the headline fairly reflects the
             story. The mistakes the AI makes most often: giving an action to the wrong organisation, placing someone at
             a session the source does not mention, a figure for a wider or narrower group than the source (a whole
-            country vs one region), counting a repeated item twice in a total, stronger wording than the source, and
-            describing a planned event as finished. Follow the draft job link when you need its Source evidence, Research claims or AI verification.
+            country vs one region), counting a repeated item twice in a total, stronger wording than the source,
+            describing a planned event as finished, million for billion, a converted currency, a quotation the source
+            does not contain and a weekday that does not match the date. Follow the draft job link when you need its Source evidence, Research claims or AI verification.
           </Step>
           <Step title="Resolve warnings">
             Read the article&apos;s review note and <strong>Warnings for the reviewer</strong> on its job. Remove

@@ -1,6 +1,13 @@
 import { z } from "zod";
+import { textWarnings, words } from "./text-checks";
 
 const sourceUrls = z.array(z.url()).min(1).max(4);
+// Gemini does not enforce string lengths, so over-long notes are cut rather than failing the job.
+const clipped = (max, min = 0) =>
+  z
+    .string()
+    .min(min)
+    .overwrite((value) => value.slice(0, max));
 export class DraftCheckError extends Error {}
 export class CopiedPassageError extends DraftCheckError {
   constructor(phrase) {
@@ -10,14 +17,14 @@ export class CopiedPassageError extends DraftCheckError {
   }
 }
 export const researchSchema = z.object({
-  angle: z.string().min(20).max(800),
+  angle: clipped(800, 20),
   claims: z
     .array(
       z.object({
-        claim: z.string().min(10).max(700),
+        claim: clipped(700, 10),
         source_urls: sourceUrls,
         evidence: z
-          .array(z.object({ url: z.url(), quote: z.string().min(15).max(500) }))
+          .array(z.object({ url: z.url(), quote: clipped(500, 15) }))
           .min(1)
           .max(4),
       }),
@@ -29,14 +36,12 @@ export const researchSchema = z.object({
   sensitive: z.boolean(),
   needs_corroboration: z.boolean(),
   // Facts the pages do not confirm. The draft leaves them out and the job page shows them to the reviewer.
-  unresolved: z.array(z.string().max(500)).max(10),
+  unresolved: z.array(clipped(500)).max(10),
 });
 export const draftSchema = z.object({
   title: z.string().trim().min(15).max(200),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
-    .max(100),
+  // Made URL-safe in checkDraft: an Arabic or capitalised slug must not fail the draft.
+  slug: z.string().trim().default(""),
   excerpt: z.string().trim().min(50).max(500),
   body: z.string().trim().min(800).max(25000),
   category_id: z.uuid().nullable(),
@@ -51,15 +56,13 @@ export const draftSchema = z.object({
 export const verificationSchema = z.object({
   passed: z.boolean(),
   sensitive: z.boolean(),
-  issues: z.array(z.string().max(600)).max(20),
+  issues: z.array(clipped(600)).max(20),
   checked_claims: z
-    .array(z.object({ claim: z.string().max(700), supported: z.boolean(), source_urls: sourceUrls }))
+    .array(z.object({ claim: clipped(700), supported: z.boolean(), source_urls: sourceUrls }))
     .min(3)
     .max(30),
 });
 
-const normalise = (value) => value.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
-const words = (value) => normalise(value).match(/[\p{L}\p{N}]+/gu) ?? [];
 const TITLE_CONNECTORS = new Set("of the and bin bint al el for at to from by on in".split(" "));
 
 /**
@@ -77,36 +80,6 @@ function sourceShingles(text, length) {
     phrases.set(words(run.join(" ")).join(" "), run.join(" "));
   }
   return phrases;
-}
-
-const ARABIC_DIGITS = /[\u0660-\u0669\u06F0-\u06F9]/g;
-/** Numbers as written, with Arabic digits and thousands separators normalised: "1,000" and "١٠٠٠" give "1000". */
-function figures(text) {
-  const latin = text
-    // Both Arabic digit blocks start at a code point ending in 0, so the low four bits are the digit.
-    .replace(ARABIC_DIGITS, (digit) => String(digit.charCodeAt(0) & 0xf))
-    .replace(/\u066B/g, ".")
-    .replace(/(\d)[,\u066C](?=\d{3}\b)/g, "$1");
-  // Digits inside a word (COP28, H1) are names, not figures.
-  return latin.match(/(?<![\p{L}\d.])\d+(?:\.\d+)?/gu) ?? [];
-}
-
-/**
- * Figures in the article that appear in none of the evidence pages: invented, converted or
- * calculated numbers. Single digits are skipped (often days of the month or spelled out in sources).
- */
-export function unsourcedFigures(article, evidence) {
-  const known = new Set(evidence.flatMap((page) => figures(page.text)));
-  const used = figures(`${article.title} ${article.excerpt} ${article.body}`).filter((figure) => figure.length > 1);
-  return [...new Set(used.filter((figure) => !known.has(figure)))];
-}
-
-/** The reviewer warning for unsourced figures, or none. */
-export function figureWarnings(article, evidence) {
-  const missing = unsourcedFigures(article, evidence);
-  return missing.length
-    ? [`Figures not found in the sources (check each one): ${missing.slice(0, 10).join(", ")}`]
-    : [];
 }
 
 const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
@@ -186,6 +159,15 @@ export function checkResearch(research, evidence, strictChecks = []) {
   return { research: checked, warnings };
 }
 
+/** Lowercase ASCII words joined by hyphens; accents dropped, other scripts removed. */
+const slugify = (value) =>
+  value
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .slice(0, 100)
+    .replace(/^-+|-+$/g, "");
+
 export function checkDraft(draft, research, evidence, categories, language, strictChecks = []) {
   if (/<\/?[A-Za-z][^>]*>|https?:\/\/|javascript:/i.test(draft.body))
     throw new DraftCheckError("Draft body must be plain text; sources are attached separately");
@@ -231,10 +213,11 @@ export function checkDraft(draft, research, evidence, categories, language, stri
     warn("research_not_cited", "Some researched facts are not covered by the draft's cited sources");
   const categoryId = categories.some((category) => category.id === draft.category_id) ? draft.category_id : null;
   if (!categoryId) warn("no_category", "The draft has no category; choose one before publishing");
-  warnings.push(...figureWarnings(draft, evidence));
+  warnings.push(...textWarnings(draft, evidence, { language }));
   return {
     draft: {
       ...draft,
+      slug: slugify(draft.slug) || slugify(draft.focus_keyword) || null,
       source_urls: sourceUrls,
       category_id: categoryId,
       sensitive: draft.sensitive || research.sensitive || research.needs_corroboration,

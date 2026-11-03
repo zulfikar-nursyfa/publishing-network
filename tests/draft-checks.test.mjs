@@ -8,9 +8,8 @@ import {
   draftSchema,
   DraftCheckError,
   CopiedPassageError,
-  figureWarnings,
-  unsourcedFigures,
 } from "@/lib/automation/draft-checks";
+import { textWarnings, unsourcedFigures } from "@/lib/automation/text-checks";
 import { needsRedraft } from "@/lib/automation/drafting/write";
 import { draftPrompt } from "@/lib/automation/drafting/prompts";
 import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
@@ -323,8 +322,17 @@ test("figures missing from every source become one reviewer warning", () => {
     body: "More than 1000 speakers and 33 million viewers in 2025, on 4 November, at COP28 with ١٠٠٠ guests and 12 new berths.",
   };
   assert.deepEqual(unsourcedFigures(article, [page]), ["33", "12"]);
-  assert.deepEqual(figureWarnings(article, [page]), ["Figures not found in the sources (check each one): 33, 12"]);
-  assert.deepEqual(figureWarnings({ title: "A", excerpt: "", body: "In 2025, 8.5 million." }, [page]), []);
+  const figureWarnings = (value) => textWarnings(value, [page]).filter((warning) => warning.startsWith("Figures"));
+  assert.deepEqual(figureWarnings(article), ["Figures not found in the sources (check each one): 33, 12"]);
+  assert.deepEqual(figureWarnings({ title: "A", excerpt: "", body: "In 2025, 8.5 million." }), []);
+});
+
+test("checkDraft makes the slug URL-safe, falling back to the focus keyword", () => {
+  const slugFor = (fields) =>
+    checkDraft({ ...draft([official.url]), ...fields }, research([official.url]), [official], [], "en").draft.slug;
+  assert.equal(slugFor({ slug: "UAE & Bavaria: Trade—2026!" }), "uae-bavaria-trade-2026");
+  assert.equal(slugFor({ slug: "الإمارات", focus_keyword: "UAE trade" }), "uae-trade");
+  assert.equal(slugFor({ slug: "الإمارات", focus_keyword: "" }), null);
 });
 
 test("checkDraft warns about figures the sources do not contain", () => {

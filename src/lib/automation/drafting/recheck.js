@@ -1,7 +1,8 @@
 import "server-only";
 import { generateForJob } from "@/lib/ai/usage";
-import { checkVerification, figureWarnings, verificationSchema } from "../draft-checks";
+import { checkVerification, verificationSchema } from "../draft-checks";
 import { collectEvidence } from "../evidence";
+import { TEXT_WARNINGS, textWarnings } from "../text-checks";
 import { PermanentJob } from "./errors";
 import { aiImage, stopsJob } from "./illustrate";
 import { verifyPrompt } from "./prompts";
@@ -14,7 +15,13 @@ import { promptData } from "./write";
 
 const MAX_PAGES = 7;
 const EDITABLE = ["draft", "in_review", "rejected"];
-const REPLACED = /^(AI verification did not pass|Verification: |Unsupported claim: |Re-check |Figures not found)/;
+const REPLACED = [
+  "AI verification did not pass",
+  "Verification: ",
+  "Unsupported claim: ",
+  "Re-check ",
+  ...TEXT_WARNINGS,
+];
 const IMAGE_WARNING = /^(AI image not generated|Source image not added): /;
 const NO_CATEGORY = "The draft has no category";
 
@@ -22,7 +29,7 @@ const NO_CATEGORY = "The draft has no category";
 export function recheckedWarnings(previous, fresh, { hasCategory, hasImage }) {
   const kept = (previous ?? []).filter(
     (warning) =>
-      !REPLACED.test(warning) &&
+      !REPLACED.some((prefix) => warning.startsWith(prefix)) &&
       !(hasCategory && warning.startsWith(NO_CATEGORY)) &&
       !(hasImage && IMAGE_WARNING.test(warning)),
   );
@@ -39,7 +46,7 @@ async function loadArticle(db, job) {
   const [article, featured] = await Promise.all([
     db
       .from("articles")
-      .select("id, website_id, title, excerpt, body, category_id, status")
+      .select("id, website_id, title, excerpt, body, seo_title, meta_description, category_id, status")
       .eq("id", job.article_id)
       .eq("website_id", job.website_id)
       .single(),
@@ -86,6 +93,8 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
       title: article.title,
       excerpt: article.excerpt,
       body: article.body,
+      seo_title: article.seo_title,
+      meta_description: article.meta_description,
     }),
   });
   state.warnings = recheckedWarnings(
@@ -93,7 +102,7 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
     [
       ...(state.recheck_skipped ?? []),
       ...checkVerification(state.verification),
-      ...figureWarnings(article, state.recheck_evidence),
+      ...textWarnings(article, state.recheck_evidence, { language: context.website.language }),
     ],
     { hasCategory: Boolean(article.category_id), hasImage: article.hasImage },
   );

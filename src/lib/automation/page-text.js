@@ -5,7 +5,8 @@ const MAX_TEXT = 10_000;
 export function plainEvidence(html) {
   return (
     html
-      .replace(/<(script|style|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+      // Asides hold related stories and promotions, whose facts belong to other events.
+      .replace(/<(script|style|nav|header|footer|aside|noscript|svg|template)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/gi, " ")
       .replace(/&amp;/gi, "&")

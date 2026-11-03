@@ -25,9 +25,11 @@ const REDIRECT_STATUSES = [301, 302, 303, 307, 308];
 const MAX_REDIRECTS = 3;
 const MIN_TEXT_LENGTH = 300;
 
-/** The article part of a page: <article>, else <main>, else the whole body. */
+/** The article part of a page: the <article> with most text (others are teaser cards), else <main>, else the body. */
 function articleHtml(html) {
-  const article = html.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1];
+  const article = [...html.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/gi)]
+    .map((match) => match[1])
+    .sort((a, b) => plainEvidence(b).length - plainEvidence(a).length)[0];
   const main = html.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1];
   return article ?? main ?? html;
 }

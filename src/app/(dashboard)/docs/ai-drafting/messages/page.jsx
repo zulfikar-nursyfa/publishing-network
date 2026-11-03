@@ -45,7 +45,7 @@ const failures = [
   ],
   [
     "AI response failed structured validation; review the job before retrying",
-    "The AI response could not be accepted as a complete article or research result. Ask an administrator to inspect the job and restart if appropriate.",
+    "The AI response could not be accepted as a complete article or research result. Ask an administrator to retry the job: every retry asks the AI for a fresh response rather than reusing the one that failed.",
   ],
   [
     "Configure model pricing before generating content",
@@ -102,10 +102,31 @@ export default function DraftMessagesPage() {
             <strong>Re-check after edits</strong> on the article so the warnings describe the saved version.
           </li>
           <li>
-            <strong>Figures not found in the sources</strong>: these numbers appear in the article but on none of the
-            collected pages. They may be invented, converted, rounded or calculated (a total, a percentage, a currency
-            conversion). Check each against the original pages; numbers written as words in the source also show up
-            here.
+            <strong>Figures not found in the sources</strong>: these numbers appear in the article (including the SEO
+            title and meta description) but on none of the collected pages. They may be invented, converted, rounded or
+            calculated (a total, a percentage, a currency conversion). Check each against the original pages; numbers
+            written as words in the source also show up here.
+          </li>
+          <li>
+            <strong>Million/billion differs from the sources</strong>: the sources give this number with another scale.
+            <strong> Currency not used in the sources</strong>: the article names a currency no source uses, usually an
+            AI conversion. Use the source&apos;s own figure and currency.
+          </li>
+          <li>
+            <strong>Quotation not found in the sources</strong>: words in quotation marks that no page contains in that
+            order. Use the speaker&apos;s exact words or remove the quotation marks.
+          </li>
+          <li>
+            <strong>Names not found in the sources</strong> (English websites): capitalised words no source uses, such
+            as a misspelt name, an invented spokesperson or a wider place (&ldquo;Gulf&rdquo; for the UAE). Some are
+            harmless (&ldquo;Emirati&rdquo; for a UAE source); check each.
+          </li>
+          <li>
+            <strong>Relative dates</strong> and <strong>Weekday does not match the date</strong>: replace
+            &ldquo;yesterday&rdquo; or &ldquo;next week&rdquo; with the calendar date, and check a weekday against the
+            source. <strong>Claims of scale not found in the sources</strong>: words such as &ldquo;largest&rdquo; or
+            &ldquo;historic&rdquo; that no source uses. <strong>AI wording or placeholders left in the draft</strong>:
+            text such as &ldquo;the provided sources&rdquo; or &ldquo;[company name]&rdquo; that must not be published.
           </li>
           <li>
             <strong>AI image not generated</strong>: often the AI budget could not cover the image. Upload an image, or

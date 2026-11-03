@@ -14,6 +14,22 @@ import { PermanentJob } from "./errors";
 import { sameStory } from "../titles";
 import { draftPrompt, researchPrompt, verifyPrompt } from "./prompts";
 
+// About 12k tokens of English and more of Arabic, leaving room in the 32k input limit for the research.
+const MAX_EVIDENCE_CHARS = 40_000;
+
+/** Pages cut to share the character limit: short pages stay whole, long ones get an equal share of the rest. */
+export function fitEvidence(evidence, limit = MAX_EVIDENCE_CHARS) {
+  const lengths = evidence.map((page) => page.text.length).sort((a, b) => a - b);
+  let left = limit;
+  let share = limit;
+  for (const [index, length] of lengths.entries()) {
+    share = Math.floor(left / (lengths.length - index));
+    if (length > share) break;
+    left -= length;
+  }
+  return evidence.map((page) => (page.text.length > share ? { ...page, text: page.text.slice(0, share) } : page));
+}
+
 /** The story, website and evidence every writing prompt is based on. */
 export function promptData(context, evidence) {
   return JSON.stringify({
@@ -25,7 +41,7 @@ export function promptData(context, evidence) {
       audience: context.website.audience,
     },
     story: { title: context.story.title, published_at: storyTime(context.story) },
-    evidence: evidence.map(({ text, url, title, primary, publisher, published_at }) => ({
+    evidence: fitEvidence(evidence).map(({ text, url, title, primary, publisher, published_at }) => ({
       text,
       url,
       title,

@@ -18,6 +18,7 @@ async function draftsNeeded(db, website) {
       .from("jobs")
       .select("id", { count: "exact", head: true })
       .eq("website_id", website.id)
+      .is("article_id", null)
       .in("status", ["queued", "running"]),
   ]);
   if (articles.error || jobs.error) throw new Error("Could not count review buffer");

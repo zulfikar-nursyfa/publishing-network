@@ -150,6 +150,15 @@ test("drafts may repeat full formal titles using source casing", () => {
   assert.doesNotThrow(() => checkDraft(article, research([page.url]), [page], [], "en"));
 });
 
+test("protocol phrasing around a full title is not a copied passage", () => {
+  const sentence =
+    "Saeed Al Hajeri led the delegation on behalf of His Highness Sheikh Mohammed bin Rashid Al Maktoum, Vice President and Prime Minister of the UAE and Ruler of Dubai";
+  const page = { ...official, text: sentence };
+  const article = draft([page.url]);
+  article.body += ` attended on behalf of His Highness Sheikh Mohammed bin Rashid Al Maktoum, Vice President and Prime Minister of the UAE and Ruler of Dubai`;
+  assert.doesNotThrow(() => checkDraft(article, research([page.url]), [page], [], "en"));
+});
+
 test("official titles and dates do not count towards the five-word similarity limit", () => {
   const titles = Array.from(
     { length: 30 },

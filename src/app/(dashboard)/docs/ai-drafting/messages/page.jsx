@@ -5,7 +5,7 @@ export const metadata = { title: "Drafting failure messages" };
 const failures = [
   [
     "Draft contains a long copied passage",
-    "The message includes the matched source wording. One automatic rewrite is tried first. If the job has stopped, ask an administrator to review the sources and retry or restart the research. A manual retry restores the one-rewrite allowance.",
+    "The message includes the matched source wording: twelve words in a row from a source, with at most two ordinary words around full names and official titles. One automatic rewrite is tried first. If the job has stopped, ask an administrator to review the sources and retry or restart the research. A manual retry restores the one-rewrite allowance.",
   ],
   [
     "Draft is too similar to the collected source text",
@@ -98,7 +98,14 @@ export default function DraftMessagesPage() {
           <li>
             <strong>AI verification did not pass</strong>, <strong>Verification:</strong> or{" "}
             <strong>Unsupported claim:</strong>: read the listed issues and compare them with the original pages.
-            Correct or reject the article, or restart a stopped job with better evidence.
+            Correct or reject the article, or restart a stopped job with better evidence. After correcting, use{" "}
+            <strong>Re-check after edits</strong> on the article so the warnings describe the saved version.
+          </li>
+          <li>
+            <strong>AI image not generated</strong>: often the AI budget could not cover the image. Upload an image, or
+            use <strong>Re-check after edits</strong> once the budget allows; it adds an AI image when the article has
+            none. <strong>Re-check stopped</strong> and <strong>Re-check could not read</strong> explain a re-check
+            that did not finish or a source page it could not open.
           </li>
         </List>
         <p>

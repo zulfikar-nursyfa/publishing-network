@@ -66,7 +66,7 @@ export function createWordPressClient(connection, options = {}) {
       throw new WordPressError(
         timedOut
           ? `WordPress did not respond within ${timeoutMs / 1000}s`
-          : `Could not reach WordPress: ${error instanceof Error ? error.message : String(error)}`,
+          : `Could not reach WordPress: ${networkErrorDetail(error)}`,
         { retryable: true, code: timedOut ? "timeout" : "network_error" },
       );
     }
@@ -241,6 +241,15 @@ function describeError(status, error) {
     default:
       return `WordPress request failed with HTTP ${status}${error.code ? ` (${error.code})` : ""}${detail}`;
   }
+}
+
+// Node's fetch only says "fetch failed"; the real reason (DNS, refused, TLS) is on `cause`.
+function networkErrorDetail(error) {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause instanceof Error ? error.cause : null;
+  if (!cause) return error.message;
+  const code = /** @type {any} */ (cause).code;
+  return `${error.message} (${code ? `${code}: ` : ""}${cause.message})`;
 }
 
 function stripTags(value) {

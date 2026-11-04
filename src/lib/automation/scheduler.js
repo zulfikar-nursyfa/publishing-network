@@ -9,6 +9,8 @@ import { createWordPressClient } from "@/lib/wordpress/client";
 import { automationBlockReason } from "./policy";
 
 const SLOT_WINDOW_MS = 30 * 60_000;
+// Matches the lease claim_publish_slot sets; a released slot is re-claimed once it lapses.
+const SLOT_LEASE_MS = 10 * 60_000;
 const MAX_PER_RUN = 10;
 const RUN_BUDGET_MS = 210_000;
 
@@ -21,6 +23,11 @@ export function dueSlots(site, now) {
   return days
     .flatMap((day) => slotsOn(day, site.publish_times, site.timezone))
     .filter((slot) => slot <= now && now - slot <= SLOT_WINDOW_MS);
+}
+
+/** A temporary WordPress failure leaves the slot running so a later cron run retries it inside the window. */
+export function retrySlotLater(result, slotAt, now = Date.now()) {
+  return result.outcome === "failed" && result.retryable && now + SLOT_LEASE_MS < Date.parse(slotAt) + SLOT_WINDOW_MS;
 }
 
 /**
@@ -69,6 +76,7 @@ async function runSlot(db, websiteId, slotAt) {
       beforeWrite: () => slotWriteBlock(db, slot, worker),
     });
     if (result.outcome === "in_progress") return { slotId: slot.id, status: "running" };
+    if (retrySlotLater(result, slot.slot_at)) return { slotId: slot.id, status: "retrying", note: result.error };
     status = ["published", "already_published"].includes(result.outcome) ? "published" : "failed";
     note = status === "published" ? null : (result.error ?? result.reason ?? result.outcome);
   }

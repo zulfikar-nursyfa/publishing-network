@@ -2,29 +2,34 @@
 
 import { useState } from "react";
 import { Dialog } from "radix-ui";
-import { ImagePlus, Link2, SquarePlay } from "lucide-react";
+import { useEditorState } from "@tiptap/react";
+import { ImagePlus, Link2, Link2Off, SquarePlay } from "lucide-react";
 import { addInlineImage } from "@/app/actions/images";
 import { SubmitButton, useActionStateWithNotice } from "@/components/form-controls";
-import { Field, buttonClass, inputClass } from "@/components/ui";
-import { asBlock, embedUrl, linkUrl } from "@/lib/body-tools";
+import { Field, buttonClass, cn, inputClass } from "@/components/ui";
+import { embedUrl, linkUrl } from "@/lib/body-tools";
 import { ImageFields } from "./image-fields";
 
-/** Link, image and embed tools that write into the Body textarea at the cursor or selection. */
-export function BodyToolbar({ bodyRef, articleId }) {
+/** Link, image and embed tools for the body editor. */
+export function BodyToolbar({ editor, articleId }) {
   const [tool, setTool] = useState(null);
   const [error, setError] = useState(null);
+  const link = useEditorState({ editor, selector: ({ editor: e }) => e?.getAttributes("link").href ?? null });
   const [imageState, imageAction] = useActionStateWithNotice(async (previous, data) => {
     const result = await addInlineImage(articleId, previous, data);
-    if (result.marker) insert(result.marker, true);
+    if (result.marker) addBlock(result.marker);
     return result;
   }, {});
 
-  /** Replaces the selection with `text`, or adds it as its own paragraph after the selection. */
-  function insert(text, block = false) {
-    const body = bodyRef.current;
-    const { selectionStart: start, selectionEnd: end, value } = body;
-    if (block) body.setRangeText(asBlock(value.slice(0, end), text, value.slice(end)), end, end, "end");
-    else body.setRangeText(text, start, end, "end");
+  /** Adds `text` as its own paragraph after the cursor: image lines and embed links must stand alone. */
+  function addBlock(text) {
+    const { $to } = editor.state.selection;
+    const end = $to.depth ? $to.after(1) : $to.pos;
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(end, { type: "paragraph", content: [{ type: "text", text }] })
+      .run();
     setTool(null);
   }
 
@@ -32,66 +37,77 @@ export function BodyToolbar({ bodyRef, articleId }) {
     event.preventDefault();
     const href = linkUrl(new FormData(event.currentTarget).get("url"));
     if (!href) return setError("Enter a full link starting with https://");
-    const body = bodyRef.current;
-    const text = body.value.slice(body.selectionStart, body.selectionEnd).trim() || href;
-    insert(`<a href="${href}">${text}</a>`);
+    const chain = editor.chain().focus().extendMarkRange("link");
+    if (editor.state.selection.empty && !link)
+      chain.insertContent({ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] }).run();
+    else chain.setLink({ href }).run();
+    setTool(null);
   }
 
   function addEmbed(event) {
     event.preventDefault();
     const url = embedUrl(String(new FormData(event.currentTarget).get("url")));
     if (!url) return setError("Paste the link to a YouTube video, an X post or an Instagram post.");
-    insert(url, true);
+    addBlock(url);
   }
 
   const open = (name) => {
     setError(null);
     setTool(name);
   };
-  const button = (name, Icon, label, disabled, title) => (
-    <button
-      type="button"
-      onClick={() => open(name)}
-      disabled={disabled}
-      title={title}
-      className={buttonClass("secondary", null, "sm")}
-    >
-      <Icon />
-      {label}
-    </button>
-  );
+  if (!editor) return null;
 
   return (
-    <div className="mb-2 flex flex-wrap gap-1.5" dir="ltr">
-      {button("link", Link2, "Link", false, "Select words in the body first to turn them into a link")}
-      {button(
-        "image",
-        ImagePlus,
-        "Image",
-        !articleId,
-        articleId ? "Upload an image into the body at the cursor" : "Save the article first to add images",
-      )}
-      {button("embed", SquarePlay, "Embed", false, "Embed a YouTube video, X post or Instagram post")}
+    <>
+      <ToolButton label={link ? "Edit link" : "Link"} active={Boolean(link)} onClick={() => open("link")}>
+        <Link2 />
+      </ToolButton>
+      {link ? (
+        <ToolButton
+          label="Remove link"
+          onClick={() => editor.chain().focus().extendMarkRange("link").unsetLink().run()}
+        >
+          <Link2Off />
+        </ToolButton>
+      ) : null}
+      <ToolButton
+        label={articleId ? "Image" : "Save the article first to add images"}
+        disabled={!articleId}
+        onClick={() => open("image")}
+      >
+        <ImagePlus />
+      </ToolButton>
+      <ToolButton label="Embed a YouTube video, X post or Instagram post" onClick={() => open("embed")}>
+        <SquarePlay />
+      </ToolButton>
 
       <ToolDialog
         open={tool === "link"}
         onClose={() => setTool(null)}
-        bodyRef={bodyRef}
-        title="Add a link"
+        editor={editor}
+        title={link ? "Edit link" : "Add a link"}
         description="Turns the selected words into a link. Without a selection the address itself is inserted."
       >
         <form onSubmit={addLink} className="space-y-4">
           <Field label="Link address" htmlFor="link-url" error={error}>
-            <input id="link-url" name="url" dir="ltr" autoFocus className={inputClass} placeholder="https://…" />
+            <input
+              id="link-url"
+              name="url"
+              dir="ltr"
+              autoFocus
+              defaultValue={link ?? ""}
+              className={inputClass}
+              placeholder="https://…"
+            />
           </Field>
-          <DialogActions label="Add link" />
+          <DialogActions label={link ? "Update link" : "Add link"} />
         </form>
       </ToolDialog>
 
       <ToolDialog
         open={tool === "embed"}
         onClose={() => setTool(null)}
-        bodyRef={bodyRef}
+        editor={editor}
         title="Embed a video or post"
         description="Paste a YouTube, X or Instagram link. It goes on its own line and shows as the video or post on the website."
       >
@@ -114,7 +130,7 @@ export function BodyToolbar({ bodyRef, articleId }) {
         <ToolDialog
           open={tool === "image"}
           onClose={() => setTool(null)}
-          bodyRef={bodyRef}
+          editor={editor}
           title="Add an image to the body"
           description="Placed after the cursor as an [image:…] line. It is uploaded to WordPress with its caption and credit when the article is published."
         >
@@ -137,20 +153,20 @@ export function BodyToolbar({ bodyRef, articleId }) {
           </form>
         </ToolDialog>
       ) : null}
-    </div>
+    </>
   );
 }
 
-function ToolDialog({ open, onClose, bodyRef, title, description, children }) {
+function ToolDialog({ open, onClose, editor, title, description, children }) {
   return (
     <Dialog.Root open={open} onOpenChange={(next) => (next ? null : onClose())}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-fade-in" />
         <Dialog.Content
-          // Back to the body, where the selection the tool acted on still is.
+          // Back to the editor, where the selection the tool acted on still is.
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            bodyRef.current?.focus();
+            editor.commands.focus();
           }}
           className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border bg-popover p-6 text-popover-foreground shadow-2xl data-[state=open]:animate-zoom-in"
         >
@@ -173,5 +189,26 @@ function DialogActions({ label }) {
         {label}
       </button>
     </div>
+  );
+}
+
+export function ToolButton({ label, active = false, disabled = false, onClick, children }) {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      disabled={disabled}
+      // Keep the editor's selection while clicking the toolbar.
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+      className={cn(
+        "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-40 sm:size-8 [&_svg]:size-4",
+        active && "bg-accent text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }

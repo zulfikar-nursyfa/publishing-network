@@ -47,9 +47,12 @@ export function CardSkeleton({ className }) {
   );
 }
 
-export function Card({ title, description, children, className, actions, icon: Icon }) {
+export function Card({ id, title, description, children, className, actions, icon: Icon }) {
   return (
-    <section className={cn("min-w-0 max-w-full rounded-lg bg-card p-4 text-card-foreground sm:p-5", className)}>
+    <section
+      id={id}
+      className={cn("min-w-0 scroll-mt-6 max-w-full rounded-lg bg-card p-4 text-card-foreground sm:p-5", className)}
+    >
       {title ? (
         <div className="mb-5 flex flex-col items-start justify-between gap-3 sm:flex-row sm:gap-4">
           <div className="flex min-w-0 items-start gap-3">

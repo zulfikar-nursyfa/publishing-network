@@ -32,7 +32,8 @@ export default function ReviewingPage() {
             none.
           </Step>
           <Step title="Save the finished version">
-            Check Title, Excerpt, Body, Category and Sources. The toolbar above Body adds a <strong>Link</strong> to
+            Check Headline, Body, Excerpt, Category and Sources. Body is a text editor with headings, bold, italic,
+            lists and quotes. Its toolbar also adds a <strong>Link</strong> to
             the selected words, an <strong>Image</strong> inside the article (saved articles only; same source and
             credit rules as the featured image) and an <strong>Embed</strong> of a YouTube video, X post or Instagram
             post (X and Instagram need connector plugin 1.2.0). Check <strong>Search engines (Yoast SEO)</strong>: SEO

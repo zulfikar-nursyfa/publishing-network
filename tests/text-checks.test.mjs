@@ -4,13 +4,17 @@ import { draftSchema, researchSchema, verificationSchema } from "@/lib/automatio
 import { fitEvidence } from "@/lib/automation/drafting/write";
 import { collectEvidence } from "@/lib/automation/evidence";
 import {
+  addedActions,
   addedCurrencies,
   addedSuperlatives,
+  droppedFormat,
+  droppedQualifiers,
   aiLeftovers,
   relativeDates,
   scaleMismatches,
   textWarnings,
   unknownNames,
+  unsourcedDates,
   unsourcedQuotes,
   wrongWeekdays,
 } from "@/lib/automation/text-checks";
@@ -51,6 +55,17 @@ test("capitalised words no source uses are flagged, but not sentence starts or t
   assert.deepEqual(unknownNames(article, [source("وقعت الهيئة عقدا مع شركة هايبرميديا في دبي")], "en"), []);
 });
 
+test("title-case headlines are not read as names, but the body still is", () => {
+  const evidence = [source("Hypermedia signed the contract with the RTA in Dubai.")];
+  const article = {
+    title: "Dubai Expands Tech Ties as Hypermedia Explores Upskilling Launch Across the Region",
+    seo_title: "Hypermedia Expands Tech Ties: Upskilling Launch",
+    excerpt: "",
+    body: "Hypermedia signed with the RTA in Dubai, and Garmin joined.",
+  };
+  assert.deepEqual(unknownNames(article, evidence, "en"), ["Garmin"]);
+});
+
 test("relative dates are flagged in English and Arabic", () => {
   assert.deepEqual(relativeDates(body("Talks ended yesterday and resume next week. Today's figures follow.")), [
     "yesterday",
@@ -84,6 +99,58 @@ test("claims of scale must come from a source", () => {
     "landmark",
   ]);
   assert.deepEqual(addedSuperlatives(body("وقع المجلس الأعلى اتفاقا تاريخيا"), evidence), ["تاريخي"]);
+  assert.deepEqual(addedSuperlatives(body("Dubai is among the top four financial centres."), evidence), [
+    "among the top",
+  ]);
+  const ranked = [source("Dubai ranks among the top four financial centres.")];
+  assert.deepEqual(addedSuperlatives(body("Dubai is among the top four financial centres."), ranked), []);
+});
+
+test("a capacity, target or estimate written as a result is flagged", () => {
+  const evidence = [source("The programme has the capacity to train up to 10,000 learners. About 500 joined in 2025.")];
+  assert.deepEqual(
+    droppedQualifiers(body("The programme trained 10,000 learners; about 500 joined in 2025."), evidence),
+    ['10000 (sources: "capacity")'],
+  );
+  assert.deepEqual(droppedQualifiers(body("It can train up to 10,000 learners and nearly 500 joined."), evidence), []);
+  assert.deepEqual(droppedQualifiers(body("البرنامج درّب 10,000 متعلم"), [source("بقدرة تصل إلى ١٠٠٠٠ متعلم")]), [
+    '10000 (sources: "قدرة")',
+  ]);
+});
+
+test("an online programme described without saying so is flagged", () => {
+  const evidence = [source("The academy will offer young people online training sessions across the region.")];
+  assert.deepEqual(droppedFormat(body("Young people in Dubai will join the academy's sessions."), evidence), [
+    "online training",
+  ]);
+  assert.deepEqual(droppedFormat(body("The sessions are held online for young people."), evidence), []);
+  assert.deepEqual(droppedFormat(body("Sessions run in Dubai."), [source("Remote areas and virtual reality.")]), []);
+});
+
+test("outcomes, roles and presence no source states are flagged", () => {
+  const evidence = [
+    source("The delegation discussed tangible investment opportunities and was briefed on the hospital."),
+  ];
+  const article = body("The delegation signed deals, toured the hospital and launched direct investment projects.");
+  assert.deepEqual(addedActions(article, evidence), ["signed", "deals", "toured", "launched", "projects"]);
+  const signed = [source("Both sides signed a memorandum and toured the projects they launched.")];
+  assert.deepEqual(addedActions(body("They signed an MoU, toured projects and launched a fund."), signed), []);
+});
+
+test("dates no source gives are flagged; ranges in the sources cover every day in them", () => {
+  const evidence = [
+    {
+      ...source("Dubai Future Finance Week runs from 10 to 12 November, with the summit on Nov. 11."),
+      published_at: "2026-11-04T08:00:00Z",
+    },
+  ];
+  const article = body("The week runs 10-12 November and the summit on 11 November was announced on 4 November.");
+  assert.deepEqual(unsourcedDates(article, evidence), []);
+  assert.deepEqual(
+    unsourcedDates(body("The summit runs from 9 to 12 November, and from November 11 to 13."), evidence),
+    ["9 to 12 November", "November 11 to 13"],
+  );
+  assert.deepEqual(unsourcedDates(body("تنطلق القمة في 9 نوفمبر"), evidence), ["9 نوفمبر"]);
 });
 
 test("wording meant for us, not readers, is flagged", () => {

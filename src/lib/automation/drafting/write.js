@@ -124,7 +124,7 @@ export async function verifyStep(db, job, worker, { state, data, context, model,
     assertControls,
     prompt: verifyPrompt(data, state.draft),
   });
-  const warnings = checkVerification(state.verification, context.strictChecks);
+  const warnings = checkVerification(state.verification, context.strictChecks, state.evidence ?? []);
   state.draft.sensitive ||= state.verification.sensitive || warnings.length > 0;
   state.sources = (state.evidence ?? [])
     .filter((page) => state.draft.source_urls.includes(page.url))

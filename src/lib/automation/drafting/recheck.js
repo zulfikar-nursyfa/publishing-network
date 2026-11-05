@@ -101,7 +101,7 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
     state.warnings,
     [
       ...(state.recheck_skipped ?? []),
-      ...checkVerification(state.verification),
+      ...checkVerification(state.verification, [], state.recheck_evidence),
       ...textWarnings(article, state.recheck_evidence, { language: context.website.language }),
     ],
     { hasCategory: Boolean(article.category_id), hasImage: article.hasImage },

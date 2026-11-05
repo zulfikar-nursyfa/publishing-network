@@ -58,7 +58,15 @@ export const verificationSchema = z.object({
   sensitive: z.boolean(),
   issues: z.array(clipped(600)).max(20),
   checked_claims: z
-    .array(z.object({ claim: clipped(700), supported: z.boolean(), source_urls: sourceUrls }))
+    .array(
+      z.object({
+        claim: clipped(700),
+        supported: z.boolean(),
+        source_urls: sourceUrls,
+        // The source sentence the claim rests on, so code can confirm the support exists.
+        source_quote: clipped(500).default(""),
+      }),
+    )
     .min(3)
     .max(30),
 });
@@ -230,13 +238,22 @@ export function checkDraft(draft, research, evidence, categories, language, stri
   };
 }
 
-export function checkVerification(verification, strictChecks = []) {
-  const unsupported = verification.checked_claims.filter((claim) => !claim.supported).map((claim) => claim.claim);
+/**
+ * Verifier results as warnings. With the evidence, a claim marked supported whose quote is on no page
+ * counts as unsupported: the verifier has to show its support, not only assert it.
+ */
+export function checkVerification(verification, strictChecks = [], evidence) {
+  const quoted = (claim) =>
+    !evidence || evidence.some((page) => claim.source_quote && quoteFound(claim.source_quote, page.text));
   const warnings = [];
   const warn = warnOrBlock(warnings, strictChecks);
   if (!verification.passed) warn("verification_failed", "AI verification did not pass");
   for (const issue of verification.issues) warn("verification_issues", `Verification: ${issue}`);
-  for (const claim of unsupported) warn("unsupported_claims", `Unsupported claim: ${claim}`);
+  for (const claim of verification.checked_claims) {
+    if (!claim.supported) warn("unsupported_claims", `Unsupported claim: ${claim.claim}`);
+    else if (!quoted(claim))
+      warn("unsupported_claims", `Unsupported claim: ${claim.claim} (its quoted support is not on the source pages)`);
+  }
   return warnings;
 }
 

@@ -253,6 +253,17 @@ test("verification problems become warnings", () => {
   ]);
 });
 
+test("a claim marked supported needs its quoted support on a source page", () => {
+  const claim = { claim: "A new route to Dubai", supported: true, source_urls: [official.url] };
+  const check = (source_quote) =>
+    checkVerification({ passed: true, issues: [], checked_claims: [{ ...claim, source_quote }] }, [], [official]);
+  assert.deepEqual(check(statement), []);
+  assert.deepEqual(check("The airline signed direct investment projects worth billions."), [
+    "Unsupported claim: A new route to Dubai (its quoted support is not on the source pages)",
+  ]);
+  assert.equal(check("").length, 1);
+});
+
 test("each configurable warning keeps its message and becomes a DraftCheckError only when strict", () => {
   const r = research([official.url, outletA.url], { primary_source_url: official.url });
   const dropped = structuredClone(r);

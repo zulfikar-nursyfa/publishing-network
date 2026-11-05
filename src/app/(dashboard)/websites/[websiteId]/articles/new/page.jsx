@@ -25,7 +25,7 @@ export default async function NewArticlePage({ params }) {
       <PageHeader
         back={{ href: `/websites/${websiteId}`, label: website.name }}
         title="New article"
-        description="Manual articles do not count against the automated daily quota."
+        description="Saved as your private draft: only you can see it until you submit it for review or approve it. Manual articles do not count against the automated daily quota."
       />
       <ArticleForm
         action={createArticle.bind(null, websiteId)}

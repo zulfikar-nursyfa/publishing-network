@@ -1,4 +1,4 @@
-import { imageCredit, toWordPressContent } from "@/lib/publishing/content";
+import { imageCredit, inlineImageIds, toWordPressContent } from "@/lib/publishing/content";
 import { WordPressError } from "@/lib/wordpress/client";
 
 /**
@@ -10,6 +10,7 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @property {import("./content").ArticleSourceRef[]} sources
  * @property {{name: string, wpTermId: number|null}|null} category
  * @property {FeaturedImage|null} image
+ * @property {FeaturedImage[]} [inlineImages] The images the body places with [image:<id>] lines.
  * @property {import("../wordpress/client").WordPressConnection|null} connection
  *
  * @typedef {{id: string, storagePath: string|null, wpMediaId: number|null, altText: string|null, caption: string|null, credit: string|null, sourceKind: string}} FeaturedImage
@@ -99,13 +100,19 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
       const fields = {
         articleId,
         title: context.article.title,
-        content: toWordPressContent(context.article.body, context.sources, context.website.language, context.image),
+        content: toWordPressContent(
+          context.article.body,
+          context.sources,
+          context.website.language,
+          context.image,
+          await uploadInlineImages(context, store, wordpress),
+        ),
         excerpt: context.article.excerpt,
         slug: context.article.slug,
         status: "publish",
         categoryIds: context.category ? [context.category.wpTermId] : [],
         tagIds: await wordpress.ensureTags(context.article.tags ?? []),
-        featuredMediaId: context.image ? await uploadFeaturedImage(context, store, wordpress) : null,
+        featuredMediaId: context.image ? await uploadImage(context.image, context, store, wordpress) : null,
         seo: context.article.seo,
       };
       post = post ? await wordpress.updatePost(post.id, fields) : await wordpress.createPost(fields);
@@ -140,14 +147,23 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
 }
 
 /** The media id is saved once uploaded, so a retry reuses it instead of uploading a duplicate. */
-async function uploadFeaturedImage(context, store, wordpress) {
-  const { image, website } = context;
+async function uploadImage(image, context, store, wordpress) {
   if (image.wpMediaId) return image.wpMediaId;
   const file = await store.loadImageFile(image);
-  const caption = [image.caption, imageCredit(image, website.language)].filter(Boolean).join(" — ");
+  const caption = [image.caption, imageCredit(image, context.website.language)].filter(Boolean).join(" — ");
   const id = await wordpress.uploadMedia({ ...file, altText: image.altText, caption });
   await store.markImageUploaded(image.id, id);
   return id;
+}
+
+/** The body's images in the media library, by id, with the URL the post shows them from. */
+async function uploadInlineImages(context, store, wordpress) {
+  const images = {};
+  for (const image of context.inlineImages ?? []) {
+    const wpMediaId = await uploadImage(image, context, store, wordpress);
+    images[image.id] = { ...image, wpMediaId, src: await wordpress.mediaUrl(wpMediaId) };
+  }
+  return images;
 }
 
 function checkControls(context) {
@@ -165,5 +181,10 @@ function checkControls(context) {
   }
   if (context.image && !context.image.wpMediaId && !context.image.storagePath)
     return "Featured image has no stored file";
+  const placed = new Set(
+    (context.inlineImages ?? []).filter((image) => image.wpMediaId || image.storagePath).map((image) => image.id),
+  );
+  if (inlineImageIds(context.article.body).some((id) => !placed.has(id)))
+    return "The body places an image that no longer exists. Remove its [image:…] line or add the image again, then retry.";
   return null;
 }

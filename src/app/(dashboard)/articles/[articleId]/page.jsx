@@ -228,6 +228,8 @@ export default async function ArticlePage({ params, searchParams }) {
           <ArticleForm
             key={article.version}
             action={saveArticle.bind(null, articleId)}
+            websiteId={website.id}
+            articleId={articleId}
             values={{
               title: article.title,
               slug: article.slug,

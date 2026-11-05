@@ -5,7 +5,7 @@
  * Kept free of Next.js and Supabase imports so it can be unit tested with a fake fetch.
  */
 
-export const REQUIRED_PLUGIN_VERSION = "1.1.0";
+export const REQUIRED_PLUGIN_VERSION = "1.2.0";
 
 /**
  * @typedef {{baseUrl: string, username: string, appPassword: string}} WordPressConnection
@@ -172,6 +172,11 @@ export function createWordPressClient(connection, options = {}) {
         caption: media.caption ?? "",
       });
       return created.id;
+    },
+
+    /** @param {number} id @returns {Promise<string>} The file's public URL. */
+    async mediaUrl(id) {
+      return (await request("GET", `/wp/v2/media/${id}?_fields=source_url`)).source_url;
     },
 
     async updatePostStatus(id, status) {

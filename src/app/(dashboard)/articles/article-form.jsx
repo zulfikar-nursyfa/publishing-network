@@ -1,15 +1,48 @@
 "use client";
 
+import { useRef, useTransition } from "react";
+import { LoaderCircle, Sparkles } from "lucide-react";
+import { suggestSeo } from "@/app/actions/articles";
+import { showActionNotice } from "@/components/action-notice";
 import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
-import { Card, Field, inputClass } from "@/components/ui";
+import { Card, Field, buttonClass, inputClass } from "@/components/ui";
+import { BodyToolbar } from "./body-toolbar";
 
-export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel, categories = [] }) {
+export function ArticleForm({
+  action,
+  values,
+  rtl,
+  readOnly = false,
+  submitLabel,
+  categories = [],
+  websiteId,
+  articleId = null,
+}) {
   const [state, formAction] = useActionStateWithNotice(action, {});
   const errors = state.fieldErrors ?? {};
   const dir = rtl ? "rtl" : "ltr";
+  const formRef = useRef(null);
+  const bodyRef = useRef(null);
+  const [seoPending, startSeo] = useTransition();
+
+  // Not a form action: React resets a form after its action, which would drop unsaved edits.
+  function generateSeo() {
+    startSeo(async () => {
+      let result;
+      try {
+        result = await suggestSeo(websiteId, new FormData(formRef.current));
+      } catch (error) {
+        console.error(error);
+        result = { error: "That did not go through. Reload the page and try again." };
+      }
+      showActionNotice(result);
+      for (const [name, value] of Object.entries(result.seo ?? {}))
+        formRef.current.elements.namedItem(name).value = value;
+    });
+  }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       {values?.version !== undefined ? <input type="hidden" name="version" value={values.version} /> : null}
       <Card>
         <fieldset disabled={readOnly} className="min-w-0 space-y-5">
@@ -28,9 +61,11 @@ export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel
             label="Body"
             htmlFor="body"
             error={errors.body}
-            hint="Plain text (blank line = new paragraph) or HTML."
+            hint="Plain text (blank line = new paragraph) or HTML. Select words and use Link to make them clickable; Preview shows images and links as published."
           >
+            {readOnly ? null : <BodyToolbar bodyRef={bodyRef} articleId={articleId} />}
             <textarea
+              ref={bodyRef}
               id="body"
               name="body"
               dir={dir}
@@ -106,9 +141,24 @@ export function ArticleForm({ action, values, rtl, readOnly = false, submitLabel
             </Field>
           </div>
           <div className="space-y-5 border-t pt-5">
-            <div>
-              <div className="text-sm font-medium">Search engines (Yoast SEO)</div>
-              <p className="text-xs text-muted-foreground">Empty fields fall back to the title and excerpt.</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">Search engines (Yoast SEO)</div>
+                <p className="text-xs text-muted-foreground">
+                  Empty fields fall back to the title and excerpt. Generate replaces all four from the title and body.
+                </p>
+              </div>
+              {readOnly ? null : (
+                <button
+                  type="button"
+                  onClick={generateSeo}
+                  disabled={seoPending}
+                  className={buttonClass("secondary", null, "sm")}
+                >
+                  {seoPending ? <LoaderCircle className="animate-spin" /> : <Sparkles />}
+                  {seoPending ? "Generating…" : "Generate with AI"}
+                </button>
+              )}
             </div>
             <div className="grid gap-5 md:grid-cols-[2fr_1fr]">
               <Field label="SEO title" htmlFor="seo_title" error={errors.seo_title} hint="Up to about 60 characters.">

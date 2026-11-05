@@ -32,9 +32,13 @@ export default function ReviewingPage() {
             none.
           </Step>
           <Step title="Save the finished version">
-            Check Title, Excerpt, Body, Category and Sources. Check <strong>Search engines (Yoast SEO)</strong>: SEO
-            title, Meta description, Focus keyphrase and Tags. Save edits before using <strong>Preview</strong>, which
-            shows the last saved article.
+            Check Title, Excerpt, Body, Category and Sources. The toolbar above Body adds a <strong>Link</strong> to
+            the selected words, an <strong>Image</strong> inside the article (saved articles only; same source and
+            credit rules as the featured image) and an <strong>Embed</strong> of a YouTube video, X post or Instagram
+            post (X and Instagram need connector plugin 1.2.0). Check <strong>Search engines (Yoast SEO)</strong>: SEO
+            title, Meta description, Focus keyphrase and Tags. <strong>Generate with AI</strong> fills all four from
+            the title and body and counts against the website&apos;s AI budget. Save edits before using{" "}
+            <strong>Preview</strong>, which shows the last saved article.
           </Step>
           <Step title="Choose and check the image">
             Choose <strong>Use this image</strong> for an existing option, or upload a PNG, JPEG or WebP of at most 3

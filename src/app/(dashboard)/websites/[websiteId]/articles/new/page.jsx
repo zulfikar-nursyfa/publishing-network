@@ -29,6 +29,7 @@ export default async function NewArticlePage({ params }) {
       />
       <ArticleForm
         action={createArticle.bind(null, websiteId)}
+        websiteId={websiteId}
         rtl={website.text_direction === "rtl"}
         categories={categories ?? []}
         submitLabel="Create draft"

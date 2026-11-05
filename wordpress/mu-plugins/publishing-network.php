@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Publishing Network Connector
- * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button.
- * Version: 1.1.0
+ * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button and embeds X and Instagram posts pasted on their own line.
+ * Version: 1.2.0
  * Author: Publishing Network
  *
  * Install by copying this file into wp-content/mu-plugins/ (create the folder if needed).
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const PN_CONNECTOR_VERSION = '1.1.0';
+const PN_CONNECTOR_VERSION = '1.2.0';
 const PN_ARTICLE_META      = 'pn_article_id';
 
 add_action(
@@ -50,6 +50,33 @@ add_action(
 				)
 			);
 		}
+	}
+);
+
+// X and Instagram posts pasted on their own line in an article. WordPress no longer embeds Instagram
+// (its oEmbed needs a Facebook app token); the official embed markup needs no API call for either.
+add_action(
+	'init',
+	static function () {
+		wp_embed_register_handler(
+			'pn_x_post',
+			'#^https?://(?:www\.|mobile\.)?(?:twitter|x)\.com/(\w{1,15})/status/(\d+)#i',
+			static function ( $matches ) {
+				$url = esc_url( 'https://twitter.com/' . $matches[1] . '/status/' . $matches[2] );
+				return '<blockquote class="twitter-tweet"><a href="' . $url . '">' . $url . '</a></blockquote>'
+					. '<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>';
+			}
+		);
+		wp_embed_register_handler(
+			'pn_instagram_post',
+			'#^https?://(?:www\.)?instagram\.com/(?:[\w.]+/)?(p|reel|tv)/([\w-]+)#i',
+			static function ( $matches ) {
+				$url = esc_url( 'https://www.instagram.com/' . $matches[1] . '/' . $matches[2] . '/' );
+				return '<blockquote class="instagram-media" data-instgrm-permalink="' . $url . '" data-instgrm-version="14">'
+					. '<a href="' . $url . '">' . $url . '</a></blockquote>'
+					. '<script async src="https://www.instagram.com/embed.js"></script>';
+			}
+		);
 	}
 );
 

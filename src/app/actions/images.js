@@ -129,3 +129,49 @@ export async function removeFeaturedImage(articleId) {
   revalidatePath(`/articles/${articleId}`);
   return { ok: true, message: "Featured image removed." };
 }
+
+/**
+ * Stores an image for the article body and returns the [image:<id>] line that places it. The body
+ * keeps it only once the article is saved; publishing uploads it to WordPress with its credit.
+ */
+export async function addInlineImage(articleId, _prev, formData) {
+  const { error: loadError, user, supabase, article } = await loadEditableArticle(articleId);
+  if (loadError) return { error: loadError };
+  const parsed = articleImageSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Check the highlighted fields", fieldErrors: fieldErrorsFrom(parsed.error) };
+
+  let path;
+  try {
+    const file = await readImageFile(formData.get("file"), MAX_ARTICLE_IMAGE_BYTES, "Image");
+    if (!file) return { error: "Choose an image", fieldErrors: { file: "Required" } };
+    path = await uploadArticleImage(supabase, article, file);
+  } catch (error) {
+    return { error: error.message, fieldErrors: { file: error.message } };
+  }
+
+  const { data: image, error } = await supabase
+    .from("article_images")
+    .insert({
+      ...parsed.data,
+      storage_path: path,
+      article_id: articleId,
+      website_id: article.website_id,
+      role: "inline",
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    await removeArticleImage(supabase, path);
+    return { error: error.message };
+  }
+  await recordAudit({
+    action: "article.inline_image_added",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+    details: { image_id: image.id, source_kind: parsed.data.source_kind, credit: parsed.data.credit },
+  });
+  return { ok: true, message: "Image added to the body. Save the article to keep it.", marker: `[image:${image.id}]` };
+}

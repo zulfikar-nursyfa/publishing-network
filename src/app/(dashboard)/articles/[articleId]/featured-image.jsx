@@ -5,6 +5,7 @@ import { chooseFeaturedImage, removeFeaturedImage, saveFeaturedImage } from "@/a
 import { ActionForm, useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Badge, Card, Field, inputClass } from "@/components/ui";
 import { IMAGE_SOURCE_KINDS } from "@/lib/validation";
+import { ImageFields } from "../image-fields";
 
 const describe = (image) => `${IMAGE_SOURCE_KINDS[image.source_kind]}${image.credit ? ` · ${image.credit}` : ""}`;
 
@@ -76,63 +77,7 @@ export function FeaturedImage({ articleId, image, options = [], readOnly }) {
               className={inputClass}
             />
           </Field>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Source" htmlFor="image-kind" error={errors.source_kind}>
-              <select
-                id="image-kind"
-                name="source_kind"
-                defaultValue={image?.source_kind ?? "owned"}
-                className={inputClass}
-              >
-                {Object.entries(IMAGE_SOURCE_KINDS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field
-              label="Credit"
-              htmlFor="image-credit"
-              error={errors.credit}
-              hint="e.g. Dubai Media Office. Required for licensed and press images."
-            >
-              <input id="image-credit" name="credit" defaultValue={image?.credit ?? ""} className={inputClass} />
-            </Field>
-          </div>
-          <Field label="Alt text" htmlFor="image-alt" error={errors.alt_text}>
-            <input
-              id="image-alt"
-              name="alt_text"
-              required
-              defaultValue={image?.alt_text ?? ""}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Caption" htmlFor="image-caption" error={errors.caption} hint="Optional.">
-            <input id="image-caption" name="caption" defaultValue={image?.caption ?? ""} className={inputClass} />
-          </Field>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field
-              label="Source page"
-              htmlFor="image-source-url"
-              error={errors.source_url}
-              hint="Where the image or its terms were found."
-            >
-              <input
-                id="image-source-url"
-                name="source_url"
-                type="url"
-                dir="ltr"
-                defaultValue={image?.source_url ?? ""}
-                className={inputClass}
-                placeholder="https://…"
-              />
-            </Field>
-            <Field label="Licence or usage terms" htmlFor="image-license" error={errors.license}>
-              <input id="image-license" name="license" defaultValue={image?.license ?? ""} className={inputClass} />
-            </Field>
-          </div>
+          <ImageFields errors={errors} image={image} idPrefix="image" />
           <SubmitButton variant="secondary" pendingLabel="Saving…">
             Save image
           </SubmitButton>

@@ -29,6 +29,6 @@ export async function removeArticleImage(db, path) {
 export async function downloadArticleImage(db, path) {
   const { data, error } = await db.storage.from(ARTICLE_IMAGE_BUCKET).download(path);
   if (error || !data)
-    throw new Error(`Could not read the featured image from storage: ${error?.message ?? "missing file"}`);
+    throw new Error(`Could not read an article image from storage: ${error?.message ?? "missing file"}`);
   return { bytes: Buffer.from(await data.arrayBuffer()), contentType: data.type, filename: path.split("/").pop() };
 }

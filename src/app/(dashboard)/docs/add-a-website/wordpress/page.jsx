@@ -82,7 +82,7 @@ export default function WordPressStepPage() {
           </Step>
           <Step title="Check it is active">
             In WordPress, go to <Path>Plugins → Installed Plugins</Path>. A <strong>Must-Use</strong> tab should show{" "}
-            <strong>Publishing Network Connector</strong>. The version should be 1.1.0 or newer.
+            <strong>Publishing Network Connector</strong>. The version should be 1.2.0 or newer.
           </Step>
         </Steps>
       </Section>

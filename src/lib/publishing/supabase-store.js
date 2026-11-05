@@ -1,5 +1,6 @@
 import "server-only";
 import { recordAudit } from "@/lib/audit";
+import { inlineImageIds } from "@/lib/publishing/content";
 import { checkLivePost } from "@/lib/publishing/live-check";
 import { downloadArticleImage } from "@/lib/storage/article-images";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -42,14 +43,19 @@ export function createSupabasePublishStore() {
     async loadContext(articleId) {
       const { data: article } = await db.from("articles").select("*").eq("id", articleId).maybeSingle();
       if (!article) return null;
-      const [{ data: website }, { data: sources }, { data: category }, { data: image }] = await Promise.all([
-        db.from("websites").select("*").eq("id", article.website_id).single(),
-        db.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
-        article.category_id
-          ? db.from("categories").select("name, wp_term_id").eq("id", article.category_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        db.from("article_images").select("*").eq("article_id", articleId).eq("role", "featured").maybeSingle(),
-      ]);
+      const placedIds = inlineImageIds(article.body);
+      const [{ data: website }, { data: sources }, { data: category }, { data: image }, { data: placed }] =
+        await Promise.all([
+          db.from("websites").select("*").eq("id", article.website_id).single(),
+          db.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
+          article.category_id
+            ? db.from("categories").select("name, wp_term_id").eq("id", article.category_id).maybeSingle()
+            : Promise.resolve({ data: null }),
+          db.from("article_images").select("*").eq("article_id", articleId).eq("role", "featured").maybeSingle(),
+          placedIds.length
+            ? db.from("article_images").select("*").eq("article_id", articleId).in("id", placedIds)
+            : Promise.resolve({ data: [] }),
+        ]);
       if (!website) return null;
       return {
         article: {
@@ -70,17 +76,8 @@ export function createSupabasePublishStore() {
         website: { id: website.id, language: website.language, archived: website.archived_at !== null },
         sources: sources ?? [],
         category: category ? { name: category.name, wpTermId: category.wp_term_id } : null,
-        image: image
-          ? {
-              id: image.id,
-              storagePath: image.storage_path,
-              wpMediaId: image.wp_media_id,
-              altText: image.alt_text,
-              caption: image.caption,
-              credit: image.credit,
-              sourceKind: image.source_kind,
-            }
-          : null,
+        image: image ? imageFields(image) : null,
+        inlineImages: (placed ?? []).map(imageFields),
         connection: await loadConnection(website),
       };
     },
@@ -161,5 +158,18 @@ export function createSupabasePublishStore() {
     async audit({ websiteId, actorId, action, articleId, details }) {
       await recordAudit({ action, entityType: "article", entityId: articleId, websiteId, actorId, details });
     },
+  };
+}
+
+/** @returns {import("./publish").FeaturedImage} */
+function imageFields(row) {
+  return {
+    id: row.id,
+    storagePath: row.storage_path,
+    wpMediaId: row.wp_media_id,
+    altText: row.alt_text,
+    caption: row.caption,
+    credit: row.credit,
+    sourceKind: row.source_kind,
   };
 }

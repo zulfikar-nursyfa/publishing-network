@@ -53,6 +53,17 @@ export const draftSchema = z.object({
   focus_keyword: z.string().trim().default(""),
   tags: z.array(z.string().trim()).default([]),
 });
+export const seoSchema = draftSchema.pick({ seo_title: true, meta_description: true, focus_keyword: true, tags: true });
+
+/** AI search engine fields cut to the article columns' limits. */
+export function seoColumns(seo) {
+  return {
+    seo_title: seo.seo_title.slice(0, 70),
+    meta_description: seo.meta_description.slice(0, 170),
+    focus_keyword: seo.focus_keyword.slice(0, 80),
+    tags: [...new Set(seo.tags.map((tag) => tag.slice(0, 50)).filter(Boolean))].slice(0, 6),
+  };
+}
 export const verificationSchema = z.object({
   passed: z.boolean(),
   sensitive: z.boolean(),
@@ -229,10 +240,7 @@ export function checkDraft(draft, research, evidence, categories, language, stri
       source_urls: sourceUrls,
       category_id: categoryId,
       sensitive: draft.sensitive || research.sensitive || research.needs_corroboration,
-      seo_title: draft.seo_title.slice(0, 70),
-      meta_description: draft.meta_description.slice(0, 170),
-      focus_keyword: draft.focus_keyword.slice(0, 80),
-      tags: [...new Set(draft.tags.map((tag) => tag.slice(0, 50)).filter(Boolean))].slice(0, 6),
+      ...seoColumns(draft),
     },
     warnings,
   };

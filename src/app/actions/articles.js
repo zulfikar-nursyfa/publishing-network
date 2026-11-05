@@ -5,6 +5,11 @@ import { redirect } from "next/navigation";
 import { recordAudit } from "@/lib/audit";
 import { requireAdmin, requireUser, requireWebsite } from "@/lib/auth";
 
+import { generateForEditor } from "@/lib/ai/editor";
+import { GeminiError } from "@/lib/ai/gemini";
+import { seoColumns, seoSchema } from "@/lib/automation/draft-checks";
+import { textModelFor } from "@/lib/automation/drafting/context";
+import { seoPrompt } from "@/lib/automation/drafting/prompts";
 import { publishArticle } from "@/lib/publishing/publish";
 import { createSupabasePublishStore } from "@/lib/publishing/supabase-store";
 import { unpublishArticle } from "@/lib/publishing/unpublish";
@@ -152,6 +157,46 @@ export async function saveArticle(articleId, _prev, formData) {
   });
   refresh(article);
   return { ok: true, message: "Saved." };
+}
+
+/**
+ * AI-written SEO title, meta description, focus keyphrase and tags from the form's (unsaved) title
+ * and body. Nothing is saved: the form shows them for the editor to check and save.
+ */
+export async function suggestSeo(websiteId, formData) {
+  const { user, website } = await requireWebsite(websiteId);
+  if (website.archived_at) return { error: "This website is archived." };
+  const title = String(formData.get("title") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+  if (!title || body.length < 200) return { error: "Write the title and at least a paragraph of the body first." };
+
+  const admin = createAdminClient();
+  const { data: network } = await admin.from("network_settings").select("default_ai_model").single();
+  try {
+    const seo = await generateForEditor(admin, websiteId, {
+      model: textModelFor({ website, network: network ?? {} }),
+      operation: "seo",
+      prompt: seoPrompt({ title, body: body.slice(0, 30_000) }, website.language),
+      schema: seoSchema,
+    });
+    await recordAudit({
+      action: "article.seo_generated",
+      entityType: "website",
+      entityId: websiteId,
+      websiteId,
+      actorId: user.id,
+      details: { title },
+    });
+    const columns = seoColumns(seo);
+    return {
+      ok: true,
+      message: "SEO fields filled in. Check them, then save.",
+      seo: { ...columns, tags: columns.tags.join(", ") },
+    };
+  } catch (error) {
+    if (error instanceof GeminiError) return { error: `Could not generate the SEO fields: ${error.message}` };
+    throw error;
+  }
 }
 
 const TRANSITIONS = {

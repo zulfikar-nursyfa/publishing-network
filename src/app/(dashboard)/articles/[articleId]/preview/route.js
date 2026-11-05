@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { escapeHtml, toWordPressContent } from "@/lib/publishing/content";
+import { escapeHtml, inlineImageIds, toWordPressContent } from "@/lib/publishing/content";
 import { ARTICLE_IMAGE_BUCKET } from "@/lib/storage/article-images";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,14 +15,23 @@ export async function GET(_request, { params }) {
   const { data: article } = await supabase.from("articles").select("*").eq("id", articleId).maybeSingle();
   if (!article) return new Response("Not found", { status: 404 });
 
-  const [{ data: website }, { data: sources }, { data: image }, { data: category }] = await Promise.all([
-    supabase.from("websites").select("name, language, text_direction, timezone").eq("id", article.website_id).single(),
-    supabase.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
-    supabase.from("article_images").select("*").eq("article_id", articleId).eq("role", "featured").maybeSingle(),
-    article.category_id
-      ? supabase.from("categories").select("name").eq("id", article.category_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const placedIds = inlineImageIds(article.body);
+  const [{ data: website }, { data: sources }, { data: image }, { data: category }, { data: placed }] =
+    await Promise.all([
+      supabase
+        .from("websites")
+        .select("name, language, text_direction, timezone")
+        .eq("id", article.website_id)
+        .single(),
+      supabase.from("article_sources").select("url, title, publisher").eq("article_id", articleId).order("accessed_at"),
+      supabase.from("article_images").select("*").eq("article_id", articleId).eq("role", "featured").maybeSingle(),
+      article.category_id
+        ? supabase.from("categories").select("name").eq("id", article.category_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      placedIds.length
+        ? supabase.from("article_images").select("*").eq("article_id", articleId).in("id", placedIds)
+        : Promise.resolve({ data: [] }),
+    ]);
   if (!website) return new Response("Not found", { status: 404 });
 
   let imageUrl = image?.url ?? null;
@@ -31,7 +40,23 @@ export async function GET(_request, { params }) {
     imageUrl = data?.signedUrl ?? imageUrl;
   }
   const credit = image ? { sourceKind: image.source_kind, credit: image.credit } : null;
-  const content = toWordPressContent(article.body, sources ?? [], website.language, credit);
+  const paths = (placed ?? []).map((row) => row.storage_path).filter(Boolean);
+  const { data: signed } = paths.length
+    ? await supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600)
+    : { data: [] };
+  const inlineImages = Object.fromEntries(
+    (placed ?? []).map((row) => [
+      row.id,
+      {
+        src: signed?.find((entry) => entry.path === row.storage_path)?.signedUrl ?? row.url,
+        altText: row.alt_text,
+        caption: row.caption,
+        credit: row.credit,
+        sourceKind: row.source_kind,
+      },
+    ]),
+  );
+  const content = toWordPressContent(article.body, sources ?? [], website.language, credit, inlineImages);
   const date = article.published_at
     ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: website.timezone }).format(
         new Date(article.published_at),

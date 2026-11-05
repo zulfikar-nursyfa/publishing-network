@@ -8,6 +8,7 @@ const STEPS = [
   { key: "draft", label: "Drafting" },
   { key: "verify", label: "Verification" },
   { key: "illustrate", label: "AI images" },
+  { key: "seo", label: "SEO fields (editors)" },
 ];
 
 /** This month's estimated AI spend for one website, by drafting step and per drafted article. */

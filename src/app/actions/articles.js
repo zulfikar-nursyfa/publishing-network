@@ -83,6 +83,8 @@ export async function createArticle(websiteId, _prev, formData) {
       website_id: websiteId,
       origin: "manual",
       status: "draft",
+      // Only the author sees it until they submit or approve it (see migration 47).
+      private: true,
       title: parsed.data.title,
       slug: parsed.data.slug ? slugify(parsed.data.slug) || null : null,
       excerpt: parsed.data.excerpt,
@@ -104,7 +106,8 @@ export async function createArticle(websiteId, _prev, formData) {
     entityId: article.id,
     websiteId,
     actorId: user.id,
-    details: { title: parsed.data.title, origin: "manual" },
+    // No title: website members can read the activity log, and the draft is private.
+    details: { origin: "manual", private: true },
   });
   refresh(article);
   redirect(`/articles/${article.id}${sourceError ? "?warning=sources" : ""}`);

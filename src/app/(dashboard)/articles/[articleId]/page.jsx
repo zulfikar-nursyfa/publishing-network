@@ -160,6 +160,11 @@ export default async function ArticlePage({ params, searchParams }) {
           <span className="flex flex-wrap items-center gap-1.5">
             <ArticleStatusBadge status={article.status} />
             <Badge tone={article.origin === "automated" ? "purple" : "gray"}>{article.origin}</Badge>
+            {article.private ? (
+              <span title="Only you can see this draft until you submit it for review or approve it">
+                <Badge tone="gray">private</Badge>
+              </span>
+            ) : null}
             {publication && publication.status !== "succeeded" ? (
               <PublicationStatusBadge status={publication.status} />
             ) : null}

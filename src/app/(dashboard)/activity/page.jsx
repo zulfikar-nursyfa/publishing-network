@@ -1,12 +1,43 @@
-import Link from "next/link";
-import { PageHeader, Table, Td, Th } from "@/components/ui";
-import { ListToolbar, SortTh } from "@/components/list-controls";
+import { PageHeader } from "@/components/ui";
+import { ListToolbar } from "@/components/list-controls";
 import { ListResults } from "@/components/list-results";
-import { RelativeTime } from "@/components/relative-time";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { allRows, listContext, readList } from "@/lib/lists";
 import { activityList } from "@/lib/list-configs";
+import { ActivityEntry } from "./activity-entry";
+
+/** Splits a newest-or-oldest-first page into days in the user's time zone; one unlabelled group otherwise. */
+function groups(entries, timezone) {
+  if (!timezone) return [{ key: "all", label: null, entries }];
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const label = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const today = day.format(new Date());
+  const yesterday = day.format(new Date(Date.now() - 86_400_000));
+  const result = [];
+  for (const entry of entries) {
+    const key = day.format(new Date(entry.created_at));
+    if (result.at(-1)?.key !== key)
+      result.push({
+        key,
+        label: key === today ? "Today" : key === yesterday ? "Yesterday" : label.format(new Date(entry.created_at)),
+        entries: [],
+      });
+    result.at(-1).entries.push(entry);
+  }
+  return result;
+}
 
 export const metadata = { title: "Activity" };
 export default async function ActivityPage({ searchParams }) {
@@ -31,7 +62,7 @@ export default async function ActivityPage({ searchParams }) {
     <>
       <PageHeader
         title="Activity"
-        description={`Administrative and publishing actions you can access. Dates use ${timezone}.`}
+        description={`Who did what across the websites you can access. Times use ${timezone}.`}
       />
       <ListToolbar
         path="/activity"
@@ -51,49 +82,28 @@ export default async function ActivityPage({ searchParams }) {
         title="No activity recorded yet"
         empty="Administrative and publishing actions appear here."
       >
-        <Table>
-          <thead>
-            <tr>
-              <SortTh path="/activity" state={state} column="action">
-                Action
-              </SortTh>
-              <Th>Who</Th>
-              <Th>Website</Th>
-              <Th>Details</Th>
-              <SortTh path="/activity" state={state} column="created">
-                When
-              </SortTh>
-            </tr>
-          </thead>
-          <tbody>
-            {result.data.map((entry) => (
-              <tr key={entry.id}>
-                <Td>
-                  {entry.entity_type === "article" && entry.entity_id ? (
-                    <Link href={`/articles/${entry.entity_id}`} className="font-mono text-xs hover:underline">
-                      {entry.action}
-                    </Link>
-                  ) : (
-                    <code className="text-xs">{entry.action}</code>
-                  )}
-                </Td>
-                <Td>{entry.actor_id ? (actorName.get(entry.actor_id) ?? "Unknown user") : "System"}</Td>
-                <Td>{websiteName.get(entry.website_id) ?? "Network"}</Td>
-                <Td>
-                  <details className="max-w-sm">
-                    <summary className="cursor-pointer text-xs text-primary">Show details</summary>
-                    <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all text-xs">
-                      {JSON.stringify(entry.details, null, 2)}
-                    </pre>
-                  </details>
-                </Td>
-                <Td className="whitespace-nowrap">
-                  <RelativeTime value={entry.created_at} timezone={timezone} />
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <div className="overflow-hidden rounded-lg border bg-card">
+          {groups(result.data, state.sort === "created" ? timezone : null).map((group) => (
+            <section key={group.key} aria-label={group.label ?? undefined}>
+              {group.label ? (
+                <h2 className="sticky top-0 z-10 border-b bg-muted/80 px-4 py-2 text-xs font-semibold text-muted-foreground backdrop-blur sm:px-5">
+                  {group.label}
+                </h2>
+              ) : null}
+              <ul className="divide-y">
+                {group.entries.map((entry) => (
+                  <ActivityEntry
+                    key={entry.id}
+                    entry={entry}
+                    actor={entry.actor_id ? (actorName.get(entry.actor_id) ?? "Unknown user") : null}
+                    website={websiteName.get(entry.website_id)}
+                    timezone={timezone}
+                  />
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
       </ListResults>
     </>
   );

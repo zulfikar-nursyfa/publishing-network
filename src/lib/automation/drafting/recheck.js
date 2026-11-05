@@ -5,6 +5,7 @@ import { collectEvidence } from "../evidence";
 import { TEXT_WARNINGS, textWarnings } from "../text-checks";
 import { PermanentJob } from "./errors";
 import { aiImage, stopsJob } from "./illustrate";
+import { bodyText } from "@/lib/publishing/content";
 import { verifyPrompt } from "./prompts";
 import { promptData } from "./write";
 
@@ -57,7 +58,8 @@ async function loadArticle(db, job) {
       .eq("role", "featured"),
   ]);
   if (article.error || featured.error) throw new Error("Could not load the article to re-check");
-  return { ...article.data, hasImage: featured.count > 0 };
+  // Editor bodies are HTML; the verifier and text checks compare words, not markup.
+  return { ...article.data, body: bodyText(article.data.body), hasImage: featured.count > 0 };
 }
 
 /** Reads the article's current sources, reusing pages the draft already collected. */

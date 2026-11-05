@@ -10,11 +10,13 @@ import { GeminiError } from "@/lib/ai/gemini";
 import { seoColumns, seoSchema } from "@/lib/automation/draft-checks";
 import { textModelFor } from "@/lib/automation/drafting/context";
 import { seoPrompt } from "@/lib/automation/drafting/prompts";
+import { bodyText } from "@/lib/publishing/content";
 import { publishArticle } from "@/lib/publishing/publish";
 import { createSupabasePublishStore } from "@/lib/publishing/supabase-store";
 import { unpublishArticle } from "@/lib/publishing/unpublish";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { ARTICLE_IMAGE_BUCKET } from "@/lib/storage/article-images";
 import { createWordPressClient } from "@/lib/wordpress/client";
 import { zonedTimeToUtc } from "@/lib/schedule";
 import { articleSchema, fieldErrorsFrom, parseSourceLines, slugify } from "@/lib/validation";
@@ -162,6 +164,43 @@ export async function saveArticle(articleId, _prev, formData) {
   return { ok: true, message: "Saved." };
 }
 
+/** Deletes the caller's own private draft with its sources, images and stored files. */
+export async function deletePrivateDraft(articleId) {
+  const { user, supabase, article } = await loadArticle(articleId);
+  if (!article) return { error: "Article not found" };
+  if (!article.private || article.created_by !== user.id || article.status !== "draft") {
+    return { error: "Only your own private drafts can be deleted." };
+  }
+  // Files first: the storage policy needs the article row to authorise the removal.
+  const { data: images } = await supabase.from("article_images").select("storage_path").eq("article_id", articleId);
+  const paths = (images ?? []).map((image) => image.storage_path).filter(Boolean);
+  if (paths.length) {
+    const { error: storageError } = await supabase.storage.from(ARTICLE_IMAGE_BUCKET).remove(paths);
+    if (storageError) return { error: `Could not remove the draft's images: ${storageError.message}` };
+  }
+  const { data: deleted, error } = await supabase
+    .from("articles")
+    .delete()
+    .eq("id", articleId)
+    .eq("private", true)
+    .eq("status", "draft")
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!deleted) return { error: "The draft changed while you were working. Reload and try again." };
+
+  await recordAudit({
+    action: "article.deleted",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+    details: { origin: article.origin, private: true },
+  });
+  refresh(article);
+  redirect(`/websites/${article.website_id}`);
+}
+
 /**
  * AI-written SEO title, meta description, focus keyphrase and tags from the form's (unsaved) title
  * and body. Nothing is saved: the form shows them for the editor to check and save.
@@ -170,7 +209,7 @@ export async function suggestSeo(websiteId, formData) {
   const { user, website } = await requireWebsite(websiteId);
   if (website.archived_at) return { error: "This website is archived." };
   const title = String(formData.get("title") ?? "").trim();
-  const body = String(formData.get("body") ?? "").trim();
+  const body = bodyText(String(formData.get("body") ?? ""));
   if (!title || body.length < 200) return { error: "Write the title and at least a paragraph of the body first." };
 
   const admin = createAdminClient();

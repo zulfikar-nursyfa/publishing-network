@@ -22,11 +22,13 @@ export function ActionNotice() {
     window.addEventListener("pn-notice", show);
     return () => window.removeEventListener("pn-notice", show);
   }, []);
+  // Errors stay longer so they can be read; hovering or focusing the notice pauses the countdown.
+  const [paused, setPaused] = useState(false);
   useEffect(() => {
-    if (!notice || notice.tone === "error") return;
-    const timer = setTimeout(() => setNotice(null), 6000);
+    if (!notice || paused) return;
+    const timer = setTimeout(() => setNotice(null), notice.tone === "error" ? 10_000 : 5000);
     return () => clearTimeout(timer);
-  }, [notice]);
+  }, [notice, paused]);
 
   if (!notice) return null;
   const isError = notice.tone === "error";
@@ -36,6 +38,10 @@ export function ActionNotice() {
       key={notice.id}
       role={isError ? "alert" : "status"}
       aria-atomic="true"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
       className={cn(
         "fixed right-4 bottom-4 left-4 z-[60] flex items-start gap-3 rounded-lg border p-3 pl-4 text-sm shadow-lg sm:left-auto sm:w-max sm:max-w-sm",
         isError
@@ -49,7 +55,10 @@ export function ActionNotice() {
         type="button"
         aria-label="Dismiss notification"
         className="flex size-11 shrink-0 items-center justify-center rounded-md hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-        onClick={() => setNotice(null)}
+        onClick={() => {
+          setNotice(null);
+          setPaused(false);
+        }}
       >
         <X aria-hidden="true" className="size-4" />
       </button>

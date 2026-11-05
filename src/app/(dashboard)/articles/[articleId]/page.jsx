@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, Eye, History, Info, Lock, RefreshCw } from "lucide-react";
-import { recheckArticle, saveArticle } from "@/app/actions/articles";
+import { ExternalLink, Eye, History, Info, Lock, RefreshCw, Trash2 } from "lucide-react";
+import { deletePrivateDraft, recheckArticle, saveArticle } from "@/app/actions/articles";
 import { RedirectNotice } from "@/components/action-notice";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
 import {
@@ -281,6 +281,21 @@ export default async function ArticlePage({ params, searchParams }) {
             }
             schedule={schedule}
           />
+
+          {article.private && article.created_by === user.id && article.status === "draft" ? (
+            <ActionForm action={deletePrivateDraft.bind(null, articleId)}>
+              <SubmitButton
+                variant="danger-outline"
+                className="w-full"
+                pendingLabel="Deleting…"
+                confirm="Delete this private draft with its sources and images? This cannot be undone."
+                confirmLabel="Delete draft"
+              >
+                <Trash2 />
+                Delete draft
+              </SubmitButton>
+            </ActionForm>
+          ) : null}
 
           <Card icon={Info} title="Details">
             <DescriptionList

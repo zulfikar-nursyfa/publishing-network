@@ -97,3 +97,22 @@ export function escapeHtml(value) {
 function escapeAttribute(value) {
   return escapeHtml(value).replace(/'/g, "&#39;");
 }
+
+/** The body as HTML for the rich editor: HTML bodies as they are, plain-text bodies as paragraphs. */
+export function bodyHtml(body) {
+  const trimmed = (body ?? "").trim();
+  return BLOCK_TAG.test(trimmed) ? trimmed : paragraphs(trimmed);
+}
+
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
+/** The words a reader sees, without markup: for AI prompts and text checks, which expect plain text. */
+export function bodyText(body) {
+  return (body ?? "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(?:p|h[1-6]|li|blockquote|figure|div|ul|ol)>/gi, "\n\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_entity, name) => ENTITIES[name])
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}

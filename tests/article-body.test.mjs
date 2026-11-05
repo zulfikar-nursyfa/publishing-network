@@ -120,3 +120,13 @@ test("a body image that no longer exists stops publishing", async () => {
   assert.match(result.error, /image that no longer exists/);
   assert.equal(calls.content, null);
 });
+
+test("editor bodies: plain text opens as paragraphs and HTML is read back as plain text", async () => {
+  const { bodyHtml, bodyText } = await import("@/lib/publishing/content");
+  assert.equal(bodyHtml("One & two.\n\nThree."), "<p>One &amp; two.</p>\n<p>Three.</p>");
+  assert.equal(bodyHtml("<h2>Kept</h2><p>as is</p>"), "<h2>Kept</h2><p>as is</p>");
+  assert.equal(
+    bodyText('<h2>Head</h2><p>A <a href="https://x.test/1234">link</a> &amp; 5%<br>next</p><ul><li>one</li></ul>'),
+    "Head\n\nA link & 5%\nnext\n\none",
+  );
+});

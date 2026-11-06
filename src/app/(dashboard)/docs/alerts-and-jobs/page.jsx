@@ -43,7 +43,13 @@ export default function AlertsAndJobsGuidePage() {
         </p>
         <p>
           The same recipients get the <DocLink href="/weekly">Weekly report</DocLink> every Monday at 07:00 UTC, covering
-          the previous Monday to Sunday for every active website, muted ones included.
+          the previous Monday to Sunday for every active website, muted ones included. To send the weekly report to
+          someone without the problem alerts, add them under Weekly report only in the same card.
+        </p>
+        <p>
+          The <DocLink href="/status">Status report</DocLink> shows the current article counts per website (automated and
+          manual publishing included) and lists every failed publication, failed or waiting draft job, source feed
+          error, traffic sync error and article waiting for review or publishing. Both tables export as CSV.
         </p>
       </Section>
       <Section title="Read a draft job before retrying">

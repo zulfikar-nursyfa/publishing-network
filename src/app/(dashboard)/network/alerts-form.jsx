@@ -1,13 +1,24 @@
 "use client";
 import { useState } from "react";
 import { X } from "lucide-react";
-import { sendTestAlert, updateAlertEmails } from "@/app/actions/network";
+import { sendTestAlert, updateAlertEmails, updateWeeklyReportEmails } from "@/app/actions/network";
 import { alertRecipient, MAX_ALERT_RECIPIENTS } from "@/lib/alert-recipients";
-import { Field, inputClass, buttonClass } from "@/components/ui";
+import { Field, inputClass, buttonClass, cn } from "@/components/ui";
 import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 
-export function AlertEmailsForm({ emails }) {
-  const [state, action] = useActionStateWithNotice(updateAlertEmails, {});
+const LISTS = {
+  alert_emails: { title: "Alert recipients", off: "alert emails are off", save: updateAlertEmails },
+  weekly_report_emails: {
+    title: "Weekly report only",
+    off: "only alert recipients get the weekly report",
+    save: updateWeeklyReportEmails,
+  },
+};
+
+export function AlertEmailsForm({ emails, field = "alert_emails" }) {
+  const list = LISTS[field];
+  const withTest = field === "alert_emails";
+  const [state, action] = useActionStateWithNotice(list.save, {});
   const [, testAction] = useActionStateWithNotice(sendTestAlert, {});
   const [recipients, setRecipients] = useState(emails);
   const [email, setEmail] = useState("");
@@ -26,10 +37,10 @@ export function AlertEmailsForm({ emails }) {
     setError("");
   }
   return (
-    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.65fr)]">
+    <div className={cn("grid min-w-0 gap-5", withTest && "lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.65fr)]")}>
       <div className="min-w-0 space-y-3">
         <div className="flex items-center justify-between gap-2 text-sm">
-          <h3 className="font-medium">Alert recipients</h3>
+          <h3 className="font-medium">{list.title}</h3>
           <span className="text-xs text-muted-foreground">
             {recipients.length} / 10{dirty ? " · Unsaved" : ""}
           </span>
@@ -55,13 +66,13 @@ export function AlertEmailsForm({ emails }) {
           </ul>
         ) : (
           <p className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
-            {dirty ? "No recipients selected. Save to turn alert emails off." : "No recipients — alert emails are off"}
+            {dirty ? "No recipients selected. Save to apply." : `No recipients — ${list.off}`}
           </p>
         )}
         <form onSubmit={add} noValidate className="flex min-w-0 items-end gap-2">
-          <Field label="Add email" htmlFor="add-alert-email" className="min-w-0 flex-1">
+          <Field label="Add email" htmlFor={`add-${field}`} className="min-w-0 flex-1">
             <input
-              id="add-alert-email"
+              id={`add-${field}`}
               type="email"
               autoComplete="email"
               value={email}
@@ -69,7 +80,7 @@ export function AlertEmailsForm({ emails }) {
               className={inputClass}
               placeholder="editor@publisher.example"
               aria-invalid={Boolean(error)}
-              aria-describedby={error ? "recipient-error" : undefined}
+              aria-describedby={error ? `${field}-error` : undefined}
             />
           </Field>
           <button type="submit" className={buttonClass("secondary")}>
@@ -77,30 +88,32 @@ export function AlertEmailsForm({ emails }) {
           </button>
         </form>
         {error ? (
-          <p id="recipient-error" role="alert" className="text-sm text-destructive">
+          <p id={`${field}-error`} role="alert" className="text-sm text-destructive">
             {error}
           </p>
         ) : null}
         <form action={action} className="space-y-3">
-          <input type="hidden" name="alert_emails" value={recipients.join("\n")} />
+          <input type="hidden" name={field} value={recipients.join("\n")} />
           <SubmitButton disabled={!dirty}>Save recipients</SubmitButton>
         </form>
       </div>
-      <div className="min-w-0 space-y-3 border-t pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5">
-        <h3 className="text-sm font-medium">Test delivery</h3>
-        <p className="break-words text-xs leading-relaxed text-muted-foreground">
-          {dirty
-            ? "Save recipient changes before sending a test."
-            : saved.length
-              ? `Sends to ${saved.join(", ")}.`
-              : "Add and save a recipient to send a test."}
-        </p>
-        <form action={testAction} className="space-y-3">
-          <SubmitButton variant="secondary" disabled={dirty || !saved.length}>
-            Send test email
-          </SubmitButton>
-        </form>
-      </div>
+      {withTest ? (
+        <div className="min-w-0 space-y-3 border-t pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5">
+          <h3 className="text-sm font-medium">Test delivery</h3>
+          <p className="break-words text-xs leading-relaxed text-muted-foreground">
+            {dirty
+              ? "Save recipient changes before sending a test."
+              : saved.length
+                ? `Sends to ${saved.join(", ")}.`
+                : "Add and save a recipient to send a test."}
+          </p>
+          <form action={testAction} className="space-y-3">
+            <SubmitButton variant="secondary" disabled={dirty || !saved.length}>
+              Send test email
+            </SubmitButton>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

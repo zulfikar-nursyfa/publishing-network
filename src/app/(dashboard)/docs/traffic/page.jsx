@@ -51,6 +51,30 @@ export default function TrafficGuidePage() {
           ranking.
         </p>
       </Section>
+      <Section title="Traffic sources and contact clicks">
+        <p>
+          <strong>Traffic sources and contact clicks, last 28 days</strong> needs Google Analytics. Sources show the
+          channel (for example Organic Search, Direct, Referral, Organic Social) and the site that sent the visit.
+        </p>
+        <p>
+          Contact clicks count taps on phone (<Path>tel:</Path>), email (<Path>mailto:</Path>) and WhatsApp links. The
+          connector plugin 1.3.0 or newer sends them to Google Analytics as <strong>contact_phone</strong>,{" "}
+          <strong>contact_email</strong> and <strong>contact_whatsapp</strong>, using the site&apos;s existing Google tag.
+          No phone number or email address is sent. A click is not a confirmed call, message or inquiry.
+        </p>
+        <p>
+          Sites that load Google Analytics only through Google Tag Manager need a GTM trigger for these events. In
+          Google Analytics you can mark them as key events.
+        </p>
+      </Section>
+      <Section title="Weekly report">
+        <p>
+          <DocLink href="/weekly">Weekly report</DocLink> shows each website&apos;s published articles (automated and
+          manual), AI drafts, failed draft jobs, estimated AI cost, sessions, page views, search clicks and contact
+          clicks for Monday to Sunday (UTC), with the change from the week before. Alert recipients get it by email
+          every Monday.
+        </p>
+      </Section>
       <Section title="When the numbers update">
         <p>
           The automatic update runs daily at 04:00 UTC. It requests the 28 days ending yesterday; today&apos;s live

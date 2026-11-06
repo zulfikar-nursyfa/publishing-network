@@ -97,6 +97,57 @@ export async function fetchAnalyticsPages(token, propertyId, startDate, endDate,
   });
 }
 
+/** Sessions and users per default channel group and source from a GA4 property, busiest first. */
+export async function fetchAnalyticsSources(token, propertyId, startDate, endDate, fetchImpl = globalThis.fetch) {
+  const report = await post(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    token,
+    {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "sessionDefaultChannelGroup" }, { name: "sessionSource" }],
+      metrics: [{ name: "sessions" }, { name: "activeUsers" }],
+      orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+      limit: 100,
+    },
+    fetchImpl,
+  );
+  return (report.rows ?? []).map((row) => {
+    const [channel, source] = row.dimensionValues.map((value) => value.value);
+    const [sessions, users] = row.metricValues.map((metric) => Number(metric.value));
+    return { channel, source, sessions, users };
+  });
+}
+
+/** GA4 event names the connector plugin sends, by contact channel. */
+export const CONTACT_EVENTS = { contact_phone: "phone", contact_email: "email", contact_whatsapp: "whatsapp" };
+
+/** Contact-link click events per day and page from a GA4 property. */
+export async function fetchContactClicks(token, propertyId, startDate, endDate, fetchImpl = globalThis.fetch) {
+  const report = await post(
+    `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`,
+    token,
+    {
+      dateRanges: [{ startDate, endDate }],
+      dimensions: [{ name: "date" }, { name: "pagePath" }, { name: "eventName" }],
+      metrics: [{ name: "eventCount" }],
+      dimensionFilter: {
+        filter: { fieldName: "eventName", inListFilter: { values: Object.keys(CONTACT_EVENTS) } },
+      },
+      limit: 10000,
+    },
+    fetchImpl,
+  );
+  return (report.rows ?? []).map((row) => {
+    const [date, path, event] = row.dimensionValues.map((value) => value.value);
+    return {
+      day: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`,
+      path,
+      channel: CONTACT_EVENTS[event],
+      clicks: Number(row.metricValues[0].value),
+    };
+  });
+}
+
 /**
  * Search Console rows grouped by `dimensions` (e.g. ["date"], ["page"], ["page", "query"]),
  * most clicked first. `keys` holds one value per dimension.

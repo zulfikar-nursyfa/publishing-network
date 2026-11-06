@@ -41,6 +41,10 @@ export default function AlertsAndJobsGuidePage() {
           problem emails, then Save muted websites. Muting does not fix or pause the site. Unmuting does not replay
           problems that have disappeared from the current checks.
         </p>
+        <p>
+          The same recipients get the <DocLink href="/weekly">Weekly report</DocLink> every Monday at 07:00 UTC, covering
+          the previous Monday to Sunday for every active website, muted ones included.
+        </p>
       </Section>
       <Section title="Read a draft job before retrying">
         <Steps>

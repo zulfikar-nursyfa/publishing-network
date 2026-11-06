@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { test } from "node:test";
-import { fetchAnalyticsDays, fetchSearchDays, googleAccessToken } from "@/lib/traffic/google";
-import { fetchTopLists, pagePath } from "@/lib/traffic/top";
+import {
+  fetchAnalyticsDays,
+  fetchAnalyticsSources,
+  fetchContactClicks,
+  fetchSearchDays,
+  googleAccessToken,
+} from "@/lib/traffic/google";
+import { contactTotals, fetchTopLists, pagePath } from "@/lib/traffic/top";
 import { trafficTotals } from "@/lib/traffic/totals";
 
 const reply =
@@ -106,4 +112,54 @@ test("top pages merge GA4 and Search Console rows by path", async () => {
       ["/story/", "gcc ipo", 4],
     ],
   );
+});
+
+test("GA4 sources and contact-click events are read and totalled", async () => {
+  let filter;
+  const contacts = await fetchContactClicks("t", "123456", "2026-10-01", "2026-10-28", async (_url, init) => {
+    filter = JSON.parse(init.body).dimensionFilter.filter.inListFilter.values;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        rows: [
+          ["20261001", "/story/", "contact_phone", "2"],
+          ["20261001", "/story?a=1", "contact_whatsapp", "1"],
+          ["20261002", "/story/", "contact_phone", "3"],
+        ].map(([date, path, event, count]) => ({
+          dimensionValues: [{ value: date }, { value: path }, { value: event }],
+          metricValues: [{ value: count }],
+        })),
+      }),
+    };
+  });
+  assert.deepEqual(filter, ["contact_phone", "contact_email", "contact_whatsapp"]);
+  const totals = contactTotals(contacts);
+  assert.deepEqual(totals.pages, [
+    { path: "/story/", channel: "phone", clicks: 5 },
+    { path: "/story/", channel: "whatsapp", clicks: 1 },
+  ]);
+  assert.deepEqual(
+    [...totals.days],
+    [
+      ["2026-10-01", 3],
+      ["2026-10-02", 3],
+    ],
+  );
+
+  const sources = await fetchAnalyticsSources(
+    "t",
+    "123456",
+    "2026-10-01",
+    "2026-10-28",
+    reply({
+      rows: [
+        {
+          dimensionValues: [{ value: "Organic Search" }, { value: "google" }],
+          metricValues: [{ value: "40" }, { value: "30" }],
+        },
+      ],
+    }),
+  );
+  assert.deepEqual(sources, [{ channel: "Organic Search", source: "google", sessions: 40, users: 30 }]);
 });

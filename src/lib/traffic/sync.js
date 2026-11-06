@@ -1,8 +1,14 @@
 import "server-only";
 import { serverEnv } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { fetchAnalyticsDays, fetchSearchDays, googleAccessToken } from "./google";
-import { fetchTopLists, pagePath } from "./top";
+import {
+  fetchAnalyticsDays,
+  fetchAnalyticsSources,
+  fetchContactClicks,
+  fetchSearchDays,
+  googleAccessToken,
+} from "./google";
+import { contactTotals, fetchTopLists, pagePath } from "./top";
 
 const DAYS = 28;
 
@@ -32,13 +38,16 @@ async function articlesByPath(db, websiteId) {
   }
 }
 
-/** Replaces the website's 28-day top pages and search queries. */
-async function saveTopLists(db, websiteId, { pages, queries }) {
+/** Replaces the website's 28-day top pages, search queries, traffic sources and contact clicks. */
+async function saveTopLists(db, websiteId, { pages, queries, sources, contacts }) {
   const articleIds = await articlesByPath(db, websiteId);
   const updatedAt = new Date().toISOString();
+  const withArticle = (row) => ({ ...row, article_id: articleIds.get(row.path) ?? null });
   const tables = [
-    ["website_traffic_pages", pages.map((row) => ({ ...row, article_id: articleIds.get(row.path) ?? null }))],
+    ["website_traffic_pages", pages.map(withArticle)],
     ["website_search_queries", queries],
+    ["website_traffic_sources", sources],
+    ["website_contact_clicks", contacts.map(withArticle)],
   ];
   for (const [table, rows] of tables) {
     const { error: clearError } = await db.from(table).delete().eq("website_id", websiteId);
@@ -78,17 +87,24 @@ export async function syncTraffic({ websiteId = null } = {}) {
   for (const site of websites) {
     let failure = null;
     try {
-      const [analytics, search] = await Promise.all([
-        site.ga4_property_id ? fetchAnalyticsDays(token, site.ga4_property_id, isoDay(start), isoDay(end)) : [],
+      const ga4 = (fetch) =>
+        site.ga4_property_id ? fetch(token, site.ga4_property_id, isoDay(start), isoDay(end)) : [];
+      const [analytics, search, sources, contactRows] = await Promise.all([
+        ga4(fetchAnalyticsDays),
         site.search_console_site ? fetchSearchDays(token, site.search_console_site, isoDay(start), isoDay(end)) : [],
+        ga4(fetchAnalyticsSources),
+        ga4(fetchContactClicks),
       ]);
+      const contacts = contactTotals(contactRows);
       const days = new Map();
-      for (const row of [...analytics, ...search]) days.set(row.day, { ...days.get(row.day), ...row });
+      for (const row of analytics) days.set(row.day, { ...row, contact_clicks: contacts.days.get(row.day) ?? 0 });
+      for (const row of search) days.set(row.day, { ...days.get(row.day), ...row });
       const rows = [...days.values()].map((row) => ({
         website_id: site.id,
         users: null,
         sessions: null,
         page_views: null,
+        contact_clicks: null,
         clicks: null,
         impressions: null,
         ctr: null,
@@ -102,7 +118,11 @@ export async function syncTraffic({ websiteId = null } = {}) {
           .upsert(rows, { onConflict: "website_id,day" });
         if (saveError) throw new Error(saveError.message);
       }
-      await saveTopLists(db, site.id, await fetchTopLists(token, site, isoDay(start), isoDay(end)));
+      await saveTopLists(db, site.id, {
+        ...(await fetchTopLists(token, site, isoDay(start), isoDay(end))),
+        sources,
+        contacts: contacts.pages,
+      });
     } catch (syncError) {
       failure = (syncError instanceof Error ? syncError.message : String(syncError)).slice(0, 500);
     }

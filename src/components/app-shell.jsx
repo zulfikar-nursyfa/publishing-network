@@ -26,6 +26,7 @@ import {
   Users,
   X,
   Receipt,
+  CalendarRange,
 } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
@@ -39,6 +40,7 @@ const NAV = [
       { href: "/stories", label: "Story inbox", icon: Rss },
       { href: "/review", label: "Review queue", icon: ClipboardCheck },
       { href: "/jobs", label: "Draft jobs", icon: ListChecks },
+      { href: "/weekly", label: "Weekly report", icon: CalendarRange },
     ],
   },
   {

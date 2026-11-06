@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Publishing Network Connector
- * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button and embeds X and Instagram posts pasted on their own line.
- * Version: 1.2.0
+ * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button embeds X and Instagram posts pasted on their own line, and reports clicks on phone, email and WhatsApp links to Google Analytics.
+ * Version: 1.3.0
  * Author: Publishing Network
  *
  * Install by copying this file into wp-content/mu-plugins/ (create the folder if needed).
@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const PN_CONNECTOR_VERSION = '1.2.0';
+const PN_CONNECTOR_VERSION = '1.3.0';
 const PN_ARTICLE_META      = 'pn_article_id';
 
 add_action(
@@ -107,6 +107,32 @@ add_filter(
 	},
 	10,
 	2
+);
+
+// Clicks on phone, email and WhatsApp links become GA4 events (contact_phone, contact_email,
+// contact_whatsapp) that the dashboard's traffic sync reads. Uses the site's existing gtag
+// (GA4 tag or Site Kit); with Google Tag Manager only, the event goes to the dataLayer and needs a
+// GTM trigger. No link address is sent, so no phone number or email reaches Google Analytics.
+add_action(
+	'wp_footer',
+	static function () {
+		?>
+<script>
+document.addEventListener('click', function (event) {
+	var link = event.target.closest && event.target.closest('a[href]');
+	if (!link) return;
+	var href = link.getAttribute('href') || '';
+	var channel = /^tel:/i.test(href) ? 'phone'
+		: /^mailto:/i.test(href) ? 'email'
+		: /^(whatsapp:|https?:\/\/(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)\/)/i.test(href) ? 'whatsapp'
+		: null;
+	if (!channel) return;
+	if (typeof window.gtag === 'function') window.gtag('event', 'contact_' + channel);
+	else (window.dataLayer = window.dataLayer || []).push({ event: 'contact_' + channel });
+}, true);
+</script>
+		<?php
+	}
 );
 
 add_action(

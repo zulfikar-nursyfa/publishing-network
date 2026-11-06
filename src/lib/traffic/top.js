@@ -82,3 +82,21 @@ export async function fetchTopLists(token, site, startDate, endDate, fetchImpl =
   }
   return { pages: [...pages.values()], queries: [...queries.values()] };
 }
+
+/**
+ * Contact clicks per page and channel over the whole window, and the total per day.
+ * shortcut: GA4 returns at most 10,000 day/page/event rows; page through if a site exceeds that.
+ */
+export function contactTotals(rows) {
+  const pages = new Map();
+  const days = new Map();
+  for (const row of rows) {
+    days.set(row.day, (days.get(row.day) ?? 0) + row.clicks);
+    const path = pagePath(row.path);
+    if (!path) continue;
+    const key = `${path}\n${row.channel}`;
+    if (!pages.has(key)) pages.set(key, { path, channel: row.channel, clicks: 0 });
+    pages.get(key).clicks += row.clicks;
+  }
+  return { pages: [...pages.values()], days };
+}

@@ -30,6 +30,7 @@ import { AiUsageCard } from "./ai-usage-card";
 import { TrafficCard } from "./traffic-card";
 import { TodaySchedule } from "./today-schedule";
 import { TopContentCard } from "./top-content-card";
+import { SourcesCard } from "./sources-card";
 
 const sections = ["articles", "overview", "schedule", "traffic", "costs"];
 const sectionFilter = {
@@ -173,6 +174,9 @@ export default async function WebsitePage({ params, searchParams }) {
           </Suspense>
           <Suspense fallback={<CardSkeleton className="h-96" />}>
             <TopContentCard supabase={supabase} website={website} />
+          </Suspense>
+          <Suspense fallback={<CardSkeleton className="h-96" />}>
+            <SourcesCard supabase={supabase} website={website} />
           </Suspense>
         </>
       ) : null}

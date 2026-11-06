@@ -4,11 +4,24 @@ import { z } from "zod";
 import { deleteCostEntry } from "@/app/actions/costs";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { ChevronLeft, ChevronRight, Download, ReceiptText } from "lucide-react";
-import { Card, PageHeader, Stat, Table, Td, Th, ButtonLink, FilterTabs, buttonClass } from "@/components/ui";
-import { ListToolbar, SortTh, Pagination, ListEmpty } from "@/components/list-controls";
+import {
+  Card,
+  PageHeader,
+  Stat,
+  Table,
+  Td,
+  Th,
+  ButtonLink,
+  FilterTabs,
+  buttonClass,
+  cn,
+  inputClass,
+} from "@/components/ui";
+import { ListToolbar, SortTh, Pagination, ListEmpty, HiddenState } from "@/components/list-controls";
+import { ListForm } from "@/components/list-form";
 import { ListResults } from "@/components/list-results";
 import { requireAdmin } from "@/lib/auth";
-import { COST_CATEGORIES, buildCostReport, monthParam, shiftMonth } from "@/lib/cost-report";
+import { COST_CATEGORIES, FIRST_MONTH, buildCostReport, monthParam, reportMonths, shiftMonth } from "@/lib/cost-report";
 import { formatUsd } from "@/lib/costs";
 import { allRows, readList, listContext } from "@/lib/lists";
 import { listHref, sortRows, uuidFilter, enumFilter } from "@/lib/list-params";
@@ -16,6 +29,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CostEntryForm } from "./cost-entry-form";
 
 export const metadata = { title: "Costs" };
+const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
 const columns = [
   ["published", "Published"],
   ["drafted", "Drafted"],
@@ -110,19 +124,32 @@ export default async function CostsPage({ searchParams }) {
         }
       />
       <nav aria-label="Month" className="flex items-center gap-1">
-        <Link
-          href={listHref("/costs", state, { month: shiftMonth(month, -1) })}
-          aria-label="Previous month"
-          className={buttonClass("secondary", null, "icon")}
-        >
-          <ChevronLeft />
-        </Link>
-        <span aria-live="polite" className="min-w-40 text-center text-sm font-semibold">
-          {new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(
-            new Date(`${month}-01T00:00:00Z`),
-          )}
-          <span className="block text-xs font-normal text-muted-foreground">UTC calendar month</span>
-        </span>
+        {month > FIRST_MONTH ? (
+          <Link
+            href={listHref("/costs", state, { month: shiftMonth(month, -1) })}
+            aria-label="Previous month"
+            className={buttonClass("secondary", null, "icon")}
+          >
+            <ChevronLeft />
+          </Link>
+        ) : (
+          <button type="button" disabled aria-label="Previous month" className={buttonClass("secondary", null, "icon")}>
+            <ChevronLeft />
+          </button>
+        )}
+        <ListForm key={month} path="/costs">
+          <HiddenState state={state} except={["month"]} />
+          <label htmlFor="cost-month" className="sr-only">
+            Month (UTC calendar month)
+          </label>
+          <select id="cost-month" name="month" defaultValue={month} className={cn(inputClass, "w-44 pr-9")}>
+            {reportMonths(month).map((value) => (
+              <option key={value} value={value}>
+                {monthLabel.format(new Date(`${value}-01T00:00:00Z`))}
+              </option>
+            ))}
+          </select>
+        </ListForm>
         <Link
           href={listHref("/costs", state, { month: shiftMonth(month, 1) })}
           aria-label="Next month"
@@ -130,6 +157,7 @@ export default async function CostsPage({ searchParams }) {
         >
           <ChevronRight />
         </Link>
+        <span className="ml-2 text-xs text-muted-foreground">UTC calendar month</span>
       </nav>
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">
         <Stat label="Total this month" value={formatUsd(report.totals.total)} hint="AI estimate plus entered costs" />

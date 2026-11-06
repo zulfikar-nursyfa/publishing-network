@@ -8,18 +8,31 @@ export const COST_CATEGORIES = [
   { key: "other", label: "Other" },
 ];
 
-/** "YYYY-MM" from the query string, or the current UTC month (the budget month). */
+/** The network has no cost data before this month, so reports start here. */
+export const FIRST_MONTH = "2026-08";
+
+/** "YYYY-MM" from the query string, or the current UTC month (the budget month); never before FIRST_MONTH. */
 export function monthParam(value, now = new Date()) {
   const parsed = z
     .string()
     .regex(/^[1-9]\d{3}-(0[1-9]|1[0-2])$/)
     .safeParse(value);
-  return parsed.success ? parsed.data : now.toISOString().slice(0, 7);
+  const month = parsed.success ? parsed.data : now.toISOString().slice(0, 7);
+  return month < FIRST_MONTH ? FIRST_MONTH : month;
 }
 
 export function shiftMonth(month, delta) {
   const [year, index] = month.split("-").map(Number);
   return new Date(Date.UTC(year, index - 1 + delta, 1)).toISOString().slice(0, 7);
+}
+
+/** Months for the picker, newest first: from the current (or chosen later) month back to FIRST_MONTH. */
+export function reportMonths(selected, now = new Date()) {
+  const current = now.toISOString().slice(0, 7);
+  const months = [];
+  for (let month = selected > current ? selected : current; month >= FIRST_MONTH; month = shiftMonth(month, -1))
+    months.push(month);
+  return months;
 }
 
 /**

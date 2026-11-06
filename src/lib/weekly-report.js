@@ -128,6 +128,6 @@ export function weeklyEmail(report, week, appUrl) {
   const blocks = [`All websites\n${line(report.totals)}`, ...report.rows.map((row) => `${row.name}\n${line(row)}`)];
   return {
     subject: `Publishing Network weekly report: ${weekLabel(week)}`,
-    text: `Week ${weekLabel(week)} (UTC), compared with the week before.\n\n${blocks.join("\n\n")}\n\nFull report: ${appUrl}/weekly?week=${week}\nSearch Console runs 2–3 days behind, so recent search clicks may still rise. AI costs are estimates.\n\nYou receive this because you are an alert recipient in Network settings.`,
+    text: `Week ${weekLabel(week)} (UTC), compared with the week before.\n\n${blocks.join("\n\n")}\n\nFull report: ${appUrl}/weekly?week=${week}\nWhat is failing or waiting right now: ${appUrl}/status\nSearch Console runs 2–3 days behind, so recent search clicks may still rise. AI costs are estimates.\n\nYou receive this because you are an alert or weekly report recipient in Network settings.`,
   };
 }

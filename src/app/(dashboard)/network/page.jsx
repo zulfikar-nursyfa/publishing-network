@@ -140,6 +140,23 @@ export default async function NetworkPage() {
             ) : (
               <AlertEmailsForm key={settings.alert_emails.join(",")} emails={settings.alert_emails} />
             )}
+            <div className="mt-5 space-y-3 border-t pt-4">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                The weekly report is emailed every Monday at 07:00 UTC and covers the previous Monday to Sunday. Alert
+                recipients get it too; add people here who want only the weekly report.
+              </p>
+              {settings.weekly_report_emails === undefined ? (
+                <Alert tone="warning">
+                  Apply migration 51_weekly_report_recipients.sql to add weekly-only recipients.
+                </Alert>
+              ) : (
+                <AlertEmailsForm
+                  key={settings.weekly_report_emails.join(",")}
+                  field="weekly_report_emails"
+                  emails={settings.weekly_report_emails}
+                />
+              )}
+            </div>
             {websiteError ? (
               <Alert tone="warning" className="mt-5">
                 Website alert settings are unavailable. Check that migration 43_website_alerts_muted.sql is applied.

@@ -298,6 +298,10 @@ export const alertEmailsSchema = z.object({
   alert_emails: alertRecipientList,
 });
 
+export const weeklyReportEmailsSchema = z.object({
+  weekly_report_emails: alertRecipientList,
+});
+
 export const alertMutingSchema = z.object({
   muted_website_ids: z
     .array(z.uuid())

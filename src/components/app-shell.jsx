@@ -33,6 +33,7 @@ import {
   Plus,
   Search,
   CalendarRange,
+  ClipboardList,
 } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
@@ -51,6 +52,7 @@ const NAV = [
       { href: "/articles", label: "All articles", icon: FileText, exact: true },
       { href: "/jobs", label: "Draft jobs", icon: ListChecks },
       { href: "/weekly", label: "Weekly report", icon: CalendarRange },
+      { href: "/status", label: "Status report", icon: ClipboardList },
     ],
   },
   {

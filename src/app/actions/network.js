@@ -13,6 +13,7 @@ import {
   modelPriceSchema,
   networkSettingsSchema,
   strictDraftChecksSchema,
+  weeklyReportEmailsSchema,
 } from "@/lib/validation";
 
 export async function updateStrictDraftChecks(_prev, formData) {
@@ -73,9 +74,9 @@ export async function updateNetworkSettings(_prev, formData) {
   return { ok: true, message: "Network settings saved." };
 }
 
-export async function updateAlertEmails(_prev, formData) {
+async function saveRecipients(formData, field, schema, auditAction, message) {
   const user = await requireAdmin();
-  const parsed = alertEmailsSchema.safeParse({ alert_emails: formData.get("alert_emails") });
+  const parsed = schema.safeParse({ [field]: formData.get(field) });
   if (!parsed.success)
     return {
       error: parsed.error.issues[0]?.message ?? "Check the recipients",
@@ -88,13 +89,33 @@ export async function updateAlertEmails(_prev, formData) {
     .eq("id", true);
   if (error) return { error: error.message };
   await recordAudit({
-    action: "network.alert_emails_updated",
+    action: auditAction,
     entityType: "network",
     actorId: user.id,
-    details: { recipients: parsed.data.alert_emails.length },
+    details: { recipients: parsed.data[field].length },
   });
   revalidatePath("/network");
-  return { ok: true, message: "Alert recipients saved.", emails: parsed.data.alert_emails };
+  return { ok: true, message, emails: parsed.data[field] };
+}
+
+export async function updateAlertEmails(_prev, formData) {
+  return saveRecipients(
+    formData,
+    "alert_emails",
+    alertEmailsSchema,
+    "network.alert_emails_updated",
+    "Alert recipients saved.",
+  );
+}
+
+export async function updateWeeklyReportEmails(_prev, formData) {
+  return saveRecipients(
+    formData,
+    "weekly_report_emails",
+    weeklyReportEmailsSchema,
+    "network.weekly_report_emails_updated",
+    "Weekly report recipients saved.",
+  );
 }
 
 export async function sendTestAlert() {

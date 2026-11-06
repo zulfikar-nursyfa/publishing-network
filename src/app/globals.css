@@ -328,3 +328,71 @@ body:has([data-list-form][aria-busy="true"], [data-list-link-pending="true"]) .l
   pointer-events: none;
   color: var(--muted-foreground);
 }
+
+/* Display and accessibility settings (components/display-settings.jsx). Sizes are in rem, so
+   changing the root size scales the whole dashboard. */
+html[data-text="large"] {
+  font-size: 112.5%;
+}
+html[data-text="larger"] {
+  font-size: 125%;
+}
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+/* Button-styled links are rounded; text links are not. */
+html[data-links="underline"] main a:not([class*="rounded"]) {
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+}
+html[data-contrast="more"] {
+  --muted-foreground: #3d3d3d;
+  --border: #b5b5b2;
+  --input: #8a8a87;
+  --ring: #1a1a1a;
+}
+html[data-contrast="more"].dark {
+  --muted-foreground: #d6d6d6;
+  --border: #4a4a4a;
+  --input: #7a7a7a;
+  --ring: #ffffff;
+}
+html[data-contrast="more"] :focus-visible {
+  outline: 3px solid var(--ring) !important;
+  outline-offset: 2px;
+}
+
+/* Plain disclosure toggles ("Edit", "Show details"): a chevron that turns when open, and a
+   visible focus outline. Toggles styled as rows opt out with list-none. */
+main summary:not(.list-none) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 1.75rem;
+  list-style: none;
+  border-radius: 0.25rem;
+}
+main summary:not(.list-none)::-webkit-details-marker {
+  display: none;
+}
+main summary:not(.list-none)::before {
+  content: "";
+  width: 0.4em;
+  height: 0.4em;
+  flex-shrink: 0;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+main details[open] > summary:not(.list-none)::before {
+  transform: rotate(45deg);
+}
+main summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

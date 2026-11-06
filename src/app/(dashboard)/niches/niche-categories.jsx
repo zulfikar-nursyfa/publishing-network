@@ -106,7 +106,9 @@ export function NicheCategories({ nicheId, categories }) {
                       {category.archived_at ? <Badge>archived</Badge> : null}
                     </div>
                     <details>
-                      <summary className="cursor-pointer text-xs text-primary">Edit / reorder / archive</summary>
+                      <summary className="cursor-pointer text-xs text-primary">
+                        Edit / reorder / archive<span className="sr-only"> {category.name}</span>
+                      </summary>
                       <div className="mt-2">
                         <CategoryForm nicheId={nicheId} language={language} category={category} />
                       </div>

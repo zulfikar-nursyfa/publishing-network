@@ -4,7 +4,7 @@ import { parseListParams, enumFilter, searchOr } from "@/lib/list-params";
 import { nicheList } from "@/lib/list-configs";
 import Link from "next/link";
 import { ListLoading } from "@/components/list-loading";
-import { ChevronDown, ExternalLink } from "lucide-react";
+import { ChevronDown, ExternalLink, Layers, Plus } from "lucide-react";
 import { addNicheSource, removeNicheSource, updateNicheSource } from "@/app/actions/niches";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { Alert, Badge, Card, PageHeader } from "@/components/ui";
@@ -77,8 +77,11 @@ export default async function NichesPage({ searchParams }) {
                 const sites = (websites ?? []).filter((website) => website.niche_id === niche.id);
                 return (
                   <details key={niche.id} className="group rounded-lg bg-card">
-                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 sm:px-6">
-                      <div className="min-w-0">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-4 rounded-lg p-4 outline-none hover:bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring sm:px-6 [&::-webkit-details-marker]:hidden">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <Layers aria-hidden className="size-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
                         <div className="font-semibold">{niche.name}</div>
                         <div className="mt-0.5 text-xs text-muted-foreground">
                           {group.length} source{group.length === 1 ? "" : "s"} ·{" "}
@@ -89,94 +92,115 @@ export default async function NichesPage({ searchParams }) {
                       </div>
                       <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                     </summary>
-                    <div className="space-y-5 border-t p-4 sm:px-6">
+                    <div className="divide-y border-t [&>section]:space-y-3 [&>section]:p-4 sm:[&>section]:px-6">
                       {sites.length ? (
-                        <div className="flex flex-wrap gap-2 text-sm">
-                          {sites.map((site) => (
-                            <Link
-                              key={site.id}
-                              href={`/websites/${site.id}/settings`}
-                              className="text-primary hover:underline"
-                            >
-                              {site.name}
-                            </Link>
-                          ))}
-                        </div>
-                      ) : null}
-                      {group.length ? (
-                        <ul className="divide-y rounded-lg border">
-                          {group.map((source) => (
-                            <li
-                              key={source.id}
-                              className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-4"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-1.5 font-medium">
-                                  {source.name}
-                                  <Badge>{SOURCE_KINDS[source.kind] ?? source.kind}</Badge>
-                                  {source.kind === "newsroom" || source.kind === "government" ? (
-                                    <Badge tone="blue">primary</Badge>
-                                  ) : null}
-                                  {source.images_reusable ? <Badge tone="green">images reusable</Badge> : null}
-                                </div>
-                                <a
-                                  href={source.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary"
-                                >
-                                  <span className="truncate">{source.url}</span>
-                                  <ExternalLink className="size-3 shrink-0" />
-                                </a>
-                                <div className="mt-1 truncate text-xs text-muted-foreground">
-                                  {source.feed_url
-                                    ? `Feed: ${source.feed_url}`
-                                    : "No feed: not used for story discovery"}
-                                </div>
-                                {source.attribution_note ? (
-                                  <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div>
-                                ) : null}
-                                <details className="mt-2">
-                                  <summary className="cursor-pointer text-xs font-medium text-primary">Edit</summary>
-                                  <div className="mt-2">
-                                    <SourceForm
-                                      saveSource={updateNicheSource.bind(null, niche.id, source.id)}
-                                      source={source}
-                                    />
-                                  </div>
-                                </details>
-                              </div>
-                              <ActionForm
-                                action={removeNicheSource.bind(null, niche.id, source.id)}
-                                className="shrink-0"
+                        <section aria-label="Websites">
+                          <h3 className="text-sm font-semibold">Websites in this niche</h3>
+                          <div className="flex flex-wrap gap-2 text-sm">
+                            {sites.map((site) => (
+                              <Link
+                                key={site.id}
+                                href={`/websites/${site.id}/settings`}
+                                className="rounded-full border px-3 py-1 hover:bg-muted"
                               >
-                                <SubmitButton
-                                  variant="danger-outline"
-                                  size="sm"
-                                  confirmLabel="Remove"
-                                  confirm={`Remove ${source.name} from ${niche.name}? It is also removed from every website in this niche.`}
+                                {site.name}
+                                <span className="ms-1.5 text-xs text-muted-foreground uppercase">{site.language}</span>
+                              </Link>
+                            ))}
+                          </div>
+                        </section>
+                      ) : null}
+                      <section aria-label="Sources">
+                        <h3 className="text-sm font-semibold">Shared sources ({group.length})</h3>
+                        {group.length ? (
+                          <ul className="divide-y rounded-lg border">
+                            {group.map((source) => (
+                              <li
+                                key={source.id}
+                                className="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-4"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                                    {source.name}
+                                    <Badge>{SOURCE_KINDS[source.kind] ?? source.kind}</Badge>
+                                    {source.kind === "newsroom" || source.kind === "government" ? (
+                                      <Badge tone="blue">primary</Badge>
+                                    ) : null}
+                                    {source.images_reusable ? <Badge tone="green">images reusable</Badge> : null}
+                                  </div>
+                                  <a
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary"
+                                  >
+                                    <span className="truncate">{source.url}</span>
+                                    <ExternalLink className="size-3 shrink-0" />
+                                  </a>
+                                  <div className="mt-1 truncate text-xs text-muted-foreground">
+                                    {source.feed_url
+                                      ? `Feed: ${source.feed_url}`
+                                      : "No feed: not used for story discovery"}
+                                  </div>
+                                  {source.attribution_note ? (
+                                    <div className="mt-1 text-xs text-muted-foreground">{source.attribution_note}</div>
+                                  ) : null}
+                                  <details className="mt-2">
+                                    <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
+                                      Edit source<span className="sr-only"> {source.name}</span>
+                                    </summary>
+                                    <div className="mt-2">
+                                      <SourceForm
+                                        saveSource={updateNicheSource.bind(null, niche.id, source.id)}
+                                        source={source}
+                                      />
+                                    </div>
+                                  </details>
+                                </div>
+                                <ActionForm
+                                  action={removeNicheSource.bind(null, niche.id, source.id)}
+                                  className="shrink-0"
                                 >
-                                  Remove
-                                </SubmitButton>
-                              </ActionForm>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-                          No sources yet.
-                        </p>
-                      )}
-                      <SourceForm saveSource={addNicheSource.bind(null, niche.id)} />
-                      <NicheCategories
-                        nicheId={niche.id}
-                        categories={categories.filter((category) => category.niche_id === niche.id)}
-                      />
-                      {"guide_en" in niche ? (
-                        <NicheGuideForm niche={niche} />
-                      ) : (
-                        <Alert tone="error">Apply migration 34 to edit writing guides.</Alert>
-                      )}
+                                  <SubmitButton
+                                    variant="danger-outline"
+                                    size="sm"
+                                    confirmLabel="Remove"
+                                    confirm={`Remove ${source.name} from ${niche.name}? It is also removed from every website in this niche.`}
+                                  >
+                                    Remove
+                                  </SubmitButton>
+                                </ActionForm>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                            No sources yet.
+                          </p>
+                        )}
+                        <details className="group/add rounded-lg border">
+                          <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-primary hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+                            <Plus aria-hidden className="size-4" />
+                            Add a source
+                          </summary>
+                          <div className="border-t p-4">
+                            <SourceForm saveSource={addNicheSource.bind(null, niche.id)} />
+                          </div>
+                        </details>
+                      </section>
+                      <section aria-label="Starting categories">
+                        <NicheCategories
+                          nicheId={niche.id}
+                          categories={categories.filter((category) => category.niche_id === niche.id)}
+                        />
+                      </section>
+                      <section aria-label="Writing guides">
+                        {"guide_en" in niche ? (
+                          <NicheGuideForm niche={niche} />
+                        ) : (
+                          <Alert tone="error">Apply migration 34 to edit writing guides.</Alert>
+                        )}
+                      </section>
                     </div>
                   </details>
                 );
@@ -184,7 +208,11 @@ export default async function NichesPage({ searchParams }) {
             </div>
             <Pagination path="/niches" state={state} count={result.count ?? 0} />
           </ListLoading>
-          <Card title="Add a niche">
+          <Card
+            icon={Plus}
+            title="Add a niche"
+            description="A niche shares sources, categories and writing guides between websites."
+          >
             <AddNicheForm />
           </Card>
         </>

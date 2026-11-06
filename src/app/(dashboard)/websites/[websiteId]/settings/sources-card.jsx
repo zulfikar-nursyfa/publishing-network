@@ -59,7 +59,9 @@ function SourceItem({ source, website, isAdmin }) {
         </div>
         {isAdmin && ownSource ? (
           <details className="mt-2">
-            <summary className="cursor-pointer text-xs font-medium text-primary">Edit</summary>
+            <summary className="cursor-pointer text-xs font-medium text-primary">
+              Edit<span className="sr-only"> {source.name}</span>
+            </summary>
             <div className="mt-2">
               <SourceForm saveSource={updateContentSource.bind(null, website.id, source.id)} source={source} />
             </div>

@@ -355,6 +355,15 @@ export default async function OverviewPage() {
                           · attempt {failure.attempt_count} of {failure.max_attempts}
                         </span>
                       </div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        Failed{" "}
+                        <time dateTime={failure.updated_at}>
+                          {formatDateTime(
+                            failure.updated_at,
+                            websites?.find((site) => site.id === failure.website_id)?.timezone,
+                          )}
+                        </time>
+                      </div>
                       <p className="mt-0.5 line-clamp-2 text-xs text-red-700 dark:text-red-300">{failure.last_error}</p>
                     </div>
                   </Link>

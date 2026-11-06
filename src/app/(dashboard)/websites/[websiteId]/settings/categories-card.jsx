@@ -59,7 +59,9 @@ function CategoryItem({ category, websiteId, isAdmin }) {
       </div>
       {isAdmin ? (
         <details className="mt-2">
-          <summary className="cursor-pointer text-xs font-medium text-primary">Edit</summary>
+          <summary className="cursor-pointer text-xs font-medium text-primary">
+            Edit<span className="sr-only"> {category.name}</span>
+          </summary>
           <div className="mt-2">
             <CategoryForm websiteId={websiteId} category={category} />
           </div>

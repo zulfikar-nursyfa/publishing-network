@@ -1,12 +1,25 @@
 import Link from "next/link";
-import { Badge, PageHeader, Table, Td, Th } from "@/components/ui";
-import { ListToolbar, SortTh } from "@/components/list-controls";
+import { BellRing, CalendarClock, CircleDollarSign, ListChecks, Send, Settings } from "lucide-react";
+import { ButtonLink, PageHeader, cn } from "@/components/ui";
+import { ListToolbar } from "@/components/list-controls";
 import { ListResults } from "@/components/list-results";
 import { RelativeTime } from "@/components/relative-time";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { listContext, readList } from "@/lib/lists";
 import { alertList } from "@/lib/list-configs";
+
+const KINDS = {
+  budget: { label: "AI budget", icon: CircleDollarSign, tone: "bg-amber-500/10 text-amber-700 dark:text-amber-300" },
+  publication: { label: "Publishing", icon: Send, tone: "bg-red-500/10 text-red-700 dark:text-red-300" },
+  slot: {
+    label: "Publishing slot",
+    icon: CalendarClock,
+    tone: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
+  },
+  job: { label: "Draft job", icon: ListChecks, tone: "bg-purple-500/10 text-purple-700 dark:text-purple-300" },
+};
+const OTHER = { icon: BellRing, tone: "bg-muted text-muted-foreground" };
 
 export const metadata = { title: "Alert history" };
 export default async function AlertsPage({ searchParams }) {
@@ -19,8 +32,13 @@ export default async function AlertsPage({ searchParams }) {
     <>
       <PageHeader
         title="Alert history"
-        back={{ href: "/network", label: "Network settings" }}
-        description={`Recorded alert emails. Dates use ${timezone}.`}
+        description={`Every problem that was emailed to the alert recipients. Times use ${timezone}.`}
+        actions={
+          <ButtonLink href="/network#alerts" variant="secondary">
+            <Settings />
+            Alert settings
+          </ButtonLink>
+        }
       />
       <ListToolbar path="/network/alerts" state={state} websites={websites} searchLabel="Search alert messages" />
       <ListResults
@@ -30,42 +48,37 @@ export default async function AlertsPage({ searchParams }) {
         title="No alerts yet"
         empty="Set recipients in Network settings to receive alerts."
       >
-        <Table>
-          <thead>
-            <tr>
-              <SortTh path="/network/alerts" state={state} column="kind">
-                Kind
-              </SortTh>
-              <Th>Website</Th>
-              <Th>Message</Th>
-              <SortTh path="/network/alerts" state={state} column="created">
-                Sent
-              </SortTh>
-            </tr>
-          </thead>
-          <tbody>
-            {result.data.map((alert) => (
-              <tr key={alert.id}>
-                <Td>
-                  <Badge>{alert.kind}</Badge>
-                </Td>
-                <Td>
-                  {alert.website_id ? (
-                    <Link href={`/websites/${alert.website_id}`} className="hover:underline">
-                      {names.get(alert.website_id) ?? "Website"}
-                    </Link>
-                  ) : (
-                    "Network"
-                  )}
-                </Td>
-                <Td className="min-w-56 max-w-xl">{alert.message}</Td>
-                <Td>
-                  <RelativeTime value={alert.created_at} timezone={timezone} />
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <ul className="divide-y overflow-hidden rounded-lg border bg-card">
+          {result.data.map((alert) => {
+            const kind = KINDS[alert.kind] ?? { ...OTHER, label: alert.kind };
+            const Icon = kind.icon;
+            return (
+              <li key={alert.id} className="flex gap-3 px-4 py-3.5 sm:px-5">
+                <span className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full", kind.tone)}>
+                  <Icon aria-hidden className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p dir="auto" className="text-sm break-words">
+                    {alert.message}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                    <span className="font-medium">{kind.label}</span>
+                    <span aria-hidden>·</span>
+                    {alert.website_id ? (
+                      <Link href={`/websites/${alert.website_id}`} className="hover:text-foreground hover:underline">
+                        {names.get(alert.website_id) ?? "Website"}
+                      </Link>
+                    ) : (
+                      <span>Network</span>
+                    )}
+                    <span aria-hidden>·</span>
+                    <RelativeTime value={alert.created_at} timezone={timezone} />
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </ListResults>
     </>
   );

@@ -26,9 +26,18 @@ import {
   Users,
   X,
   Receipt,
+  Accessibility,
+  BellRing,
+  FileText,
+  Link2,
+  Plus,
+  Search,
 } from "lucide-react";
 
 import { signOut } from "@/app/actions/auth";
+import { DOC_TOPICS } from "@/app/(dashboard)/docs/topics";
+import { CommandMenu, useCommandShortcut } from "@/components/command-menu";
+import { DisplaySettingsDialog } from "@/components/display-settings";
 import { Avatar, Badge, cn } from "@/components/ui";
 
 const NAV = [
@@ -38,12 +47,17 @@ const NAV = [
       { href: "/", label: "Overview", icon: LayoutDashboard, exact: true },
       { href: "/stories", label: "Story inbox", icon: Rss },
       { href: "/review", label: "Review queue", icon: ClipboardCheck },
+      { href: "/articles", label: "All articles", icon: FileText, exact: true },
       { href: "/jobs", label: "Draft jobs", icon: ListChecks },
     ],
   },
   {
     label: "Sites",
-    items: [{ href: "/websites", label: "Websites", icon: Globe, match: ["/websites", "/articles", "/sources"] }],
+    items: [
+      // Article pages belong to a website, so they keep Websites highlighted.
+      { href: "/websites", label: "Websites", icon: Globe, match: ["/websites", "/articles/"] },
+      { href: "/sources", label: "All sources", icon: Link2 },
+    ],
   },
   {
     label: "Administration",
@@ -51,7 +65,8 @@ const NAV = [
       { href: "/niches", label: "Niches", icon: Layers, adminOnly: true },
       { href: "/users", label: "Users", icon: Users, adminOnly: true },
       { href: "/costs", label: "Costs", icon: Receipt, adminOnly: true },
-      { href: "/network", label: "Network settings", icon: Settings, adminOnly: true },
+      { href: "/network", label: "Network settings", icon: Settings, adminOnly: true, exact: true },
+      { href: "/network/alerts", label: "Alerts", icon: BellRing, adminOnly: true },
       { href: "/activity", label: "Activity", icon: Activity },
     ],
   },
@@ -63,7 +78,10 @@ const NAV = [
 
 function isActive(pathname, item) {
   if (item.exact) return pathname === item.href;
-  return (item.match ?? [item.href]).some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  // A prefix ending in "/" matches only paths below it ("/articles/" is not the /articles list).
+  return (item.match ?? [item.href]).some((prefix) =>
+    prefix.endsWith("/") ? pathname.startsWith(prefix) : pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
 
 function Brand({ appEnv }) {
@@ -106,16 +124,16 @@ function AttentionCount({ attention, href }) {
 function Nav({ isAdmin, onNavigate, attention }) {
   const pathname = usePathname();
   return (
-    <nav className="space-y-6">
+    <nav aria-label="Main" className="space-y-6">
       {NAV.map((section) => {
         const items = section.items.filter((item) => !item.adminOnly || isAdmin);
         if (items.length === 0) return null;
         return (
           <div key={section.label}>
-            <div className="mb-1.5 px-3 text-xs font-medium text-muted-foreground">
+            <h2 id={`nav-${section.label}`} className="mb-1.5 px-3 text-xs font-medium text-muted-foreground">
               {section.label === "Administration" && !isAdmin ? "History" : section.label}
-            </div>
-            <ul className="space-y-0.5">
+            </h2>
+            <ul aria-labelledby={`nav-${section.label}`} className="space-y-0.5">
               {items.map((item) => {
                 const active = isActive(pathname, item);
                 const Icon = item.icon;
@@ -159,7 +177,7 @@ function Nav({ isAdmin, onNavigate, attention }) {
 const menuItemClass =
   "flex cursor-default items-center gap-2.5 rounded-md px-2 py-1.5 text-sm outline-none select-none data-highlighted:bg-muted data-highlighted:text-foreground [&_svg]:size-4 [&_svg]:text-muted-foreground";
 
-function UserMenu({ user, side = "top", align = "start", compact = false }) {
+function UserMenu({ user, side = "top", align = "start", compact = false, onDisplaySettings }) {
   const { theme, setTheme } = useTheme();
   const signOutForm = useRef(null);
   const name = user.name || user.email;
@@ -209,6 +227,10 @@ function UserMenu({ user, side = "top", align = "start", compact = false }) {
                 Change password
               </Link>
             </DropdownMenu.Item>
+            <DropdownMenu.Item className={menuItemClass} onSelect={onDisplaySettings}>
+              <Accessibility />
+              Display and accessibility
+            </DropdownMenu.Item>
             <DropdownMenu.Separator className="-mx-1 my-1 h-px bg-border" />
             <DropdownMenu.Label className="px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
               Theme
@@ -246,30 +268,103 @@ function UserMenu({ user, side = "top", align = "start", compact = false }) {
   );
 }
 
-function SidebarBody({ user, appEnv, onNavigate, attention }) {
+function SearchButton({ onClick, className }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-keyshortcuts="Control+K Meta+K /"
+      className={cn(
+        "flex h-9 w-full items-center gap-2 rounded-md border bg-card px-3 text-sm text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40",
+        className,
+      )}
+    >
+      <Search aria-hidden className="size-4" />
+      <span className="flex-1 text-left">Search or jump to…</span>
+      <kbd className="rounded border px-1.5 text-[0.7rem]">⌘K</kbd>
+    </button>
+  );
+}
+
+function SidebarBody({ user, appEnv, onNavigate, attention, onSearch, onDisplaySettings }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="px-4 pt-5 pb-6">
-        <Brand appEnv={appEnv} />
+      <div className="space-y-4 px-4 pt-5 pb-5">
+        {/* In the phone drawer, leave room for its close button. */}
+        <div className={onNavigate ? "pr-9" : undefined}>
+          <Brand appEnv={appEnv} />
+        </div>
+        <SearchButton onClick={onSearch} />
       </div>
       <div className="flex-1 overflow-y-auto px-3">
         <Nav isAdmin={user.isAdmin} onNavigate={onNavigate} attention={attention} />
       </div>
       <div className="border-t border-sidebar-border p-2">
-        <UserMenu user={user} />
+        <UserMenu user={user} onDisplaySettings={onDisplaySettings} />
       </div>
     </div>
   );
 }
 
-export function AppShell({ user, appEnv, children, attention }) {
+export function AppShell({ user, appEnv, children, attention, websites }) {
   const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [displaySettings, setDisplaySettings] = useState(false);
+  useCommandShortcut(setSearching);
+  const openSearch = () => {
+    setOpen(false);
+    setSearching(true);
+  };
+  const openDisplaySettings = () => {
+    setOpen(false);
+    setDisplaySettings(true);
+  };
+  const pages = NAV.flatMap((section) =>
+    section.items
+      .filter((item) => !item.adminOnly || user.isAdmin)
+      .map((item) => ({ href: item.href, label: item.label, icon: item.icon, group: "Pages" })),
+  );
+  const guide = DOC_TOPICS.flatMap((topic) =>
+    topic.pages.map((page) => ({
+      href: page.href,
+      label: page.title.replace(/^\d+\.\s*/, ""),
+      icon: BookOpen,
+      group: "Guide",
+      keywords: `${topic.title} ${page.summary} help docs`,
+    })),
+  );
+  const actions = [
+    ...(user.isAdmin ? [{ href: "/websites/new", label: "Add a website", icon: Plus, group: "Actions" }] : []),
+    { href: "/account/password", label: "Change password", icon: KeyRound, group: "Actions" },
+    {
+      label: "Display and accessibility",
+      icon: Accessibility,
+      group: "Actions",
+      keywords: "theme dark light text size font motion contrast",
+      run: () => setDisplaySettings(true),
+    },
+    ...guide,
+  ];
 
   return (
     <div className="min-h-screen">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-card focus:p-3 focus:text-primary"
+      >
+        Skip to content
+      </a>
+      <CommandMenu open={searching} onOpenChange={setSearching} pages={pages} actions={actions} websites={websites} />
+      <DisplaySettingsDialog open={displaySettings} onOpenChange={setDisplaySettings} />
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-sidebar-border bg-sidebar xl:block">
-        <SidebarBody user={user} appEnv={appEnv} attention={attention} />
+        <SidebarBody
+          user={user}
+          appEnv={appEnv}
+          attention={attention}
+          onSearch={openSearch}
+          onDisplaySettings={openDisplaySettings}
+        />
       </aside>
 
       {/* Mobile top bar + drawer */}
@@ -287,8 +382,16 @@ export function AppShell({ user, appEnv, children, attention }) {
             </span>
             <span className="truncate">Publishing Network</span>
           </Link>
-          <div className="ml-auto shrink-0">
-            <UserMenu user={user} side="bottom" align="end" compact />
+          <button
+            type="button"
+            onClick={openSearch}
+            aria-label="Search or jump to"
+            className="ml-auto flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <Search className="size-5" />
+          </button>
+          <div className="shrink-0">
+            <UserMenu user={user} side="bottom" align="end" compact onDisplaySettings={openDisplaySettings} />
           </div>
         </header>
         <Dialog.Portal>
@@ -302,18 +405,19 @@ export function AppShell({ user, appEnv, children, attention }) {
             >
               <X className="size-4" />
             </Dialog.Close>
-            <SidebarBody user={user} appEnv={appEnv} attention={attention} onNavigate={() => setOpen(false)} />
+            <SidebarBody
+              user={user}
+              appEnv={appEnv}
+              attention={attention}
+              onNavigate={() => setOpen(false)}
+              onSearch={openSearch}
+              onDisplaySettings={openDisplaySettings}
+            />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
 
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-[60] focus:rounded focus:bg-card focus:p-3 focus:text-primary"
-      >
-        Skip to content
-      </a>
-      <main id="main-content" className="min-w-0 xl:pl-64">
+      <main id="main-content" tabIndex={-1} className="min-w-0 outline-none xl:pl-64">
         {/* At 1440px: 256px navigation + two 32px gutters + 1120px canvas. Mobile keeps two 16px gutters. */}
         <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">{children}</div>
       </main>

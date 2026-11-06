@@ -25,7 +25,6 @@ export default async function SourcesPage({ searchParams }) {
     <>
       <PageHeader
         title="Source feeds"
-        back={{ href: "/", label: "Overview" }}
         description="Check feed errors across your websites. Edit a source in its website settings."
       />
       <ListToolbar path="/sources" state={state} websites={websites} />
@@ -43,8 +42,8 @@ export default async function SourcesPage({ searchParams }) {
                 Source
               </SortTh>
               <Th>Website</Th>
-              <Th>Kind / status</Th>
-              <Th>Feed error</Th>
+              <Th>Status</Th>
+              <Th>Last error</Th>
               <SortTh path="/sources" state={state} column="checked">
                 Checked
               </SortTh>
@@ -60,13 +59,29 @@ export default async function SourcesPage({ searchParams }) {
                   >
                     {source.name}
                   </Link>
+                  <span className="block text-xs text-muted-foreground capitalize">{source.kind}</span>
                 </Td>
                 <Td>{names.get(source.website_id)}</Td>
                 <Td>
-                  <Badge>{source.kind}</Badge>
-                  <Badge tone={source.active ? "green" : "gray"}>{source.active ? "enabled" : "disabled"}</Badge>
+                  {!source.active ? (
+                    <Badge dot>disabled</Badge>
+                  ) : source.last_error ? (
+                    <Badge tone="red" dot>
+                      error
+                    </Badge>
+                  ) : (
+                    <Badge tone="green" dot>
+                      healthy
+                    </Badge>
+                  )}
                 </Td>
-                <Td className="min-w-52 max-w-md text-red-700 dark:text-red-300">{source.last_error ?? "—"}</Td>
+                <Td className="min-w-52 max-w-md text-sm">
+                  {source.last_error ? (
+                    <span className="text-red-700 dark:text-red-300">{source.last_error}</span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </Td>
                 <Td>
                   <RelativeTime
                     value={source.last_checked_at}

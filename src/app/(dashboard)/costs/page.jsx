@@ -3,7 +3,8 @@ import { ListLoading } from "@/components/list-loading";
 import { z } from "zod";
 import { deleteCostEntry } from "@/app/actions/costs";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
-import { Card, PageHeader, Table, Td, Th, ButtonLink, FilterTabs } from "@/components/ui";
+import { ChevronLeft, ChevronRight, Download, ReceiptText } from "lucide-react";
+import { Card, PageHeader, Stat, Table, Td, Th, ButtonLink, FilterTabs, buttonClass } from "@/components/ui";
 import { ListToolbar, SortTh, Pagination, ListEmpty } from "@/components/list-controls";
 import { ListResults } from "@/components/list-results";
 import { requireAdmin } from "@/lib/auth";
@@ -98,22 +99,55 @@ export default async function CostsPage({ searchParams }) {
         actions={
           <>
             <ButtonLink href={`/costs/export?type=costs&month=${month}`} variant="secondary">
+              <Download />
               Costs CSV
             </ButtonLink>
             <ButtonLink href={`/costs/export?type=articles&month=${month}`} variant="secondary">
+              <Download />
               Articles CSV
             </ButtonLink>
           </>
         }
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <ButtonLink href={listHref("/costs", state, { month: shiftMonth(month, -1) })} variant="secondary" size="sm">
-          Previous month
-        </ButtonLink>
-        <span className="text-sm font-medium">{month} (UTC)</span>
-        <ButtonLink href={listHref("/costs", state, { month: shiftMonth(month, 1) })} variant="secondary" size="sm">
-          Next month
-        </ButtonLink>
+      <nav aria-label="Month" className="flex items-center gap-1">
+        <Link
+          href={listHref("/costs", state, { month: shiftMonth(month, -1) })}
+          aria-label="Previous month"
+          className={buttonClass("secondary", null, "icon")}
+        >
+          <ChevronLeft />
+        </Link>
+        <span aria-live="polite" className="min-w-40 text-center text-sm font-semibold">
+          {new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(
+            new Date(`${month}-01T00:00:00Z`),
+          )}
+          <span className="block text-xs font-normal text-muted-foreground">UTC calendar month</span>
+        </span>
+        <Link
+          href={listHref("/costs", state, { month: shiftMonth(month, 1) })}
+          aria-label="Next month"
+          className={buttonClass("secondary", null, "icon")}
+        >
+          <ChevronRight />
+        </Link>
+      </nav>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">
+        <Stat label="Total this month" value={formatUsd(report.totals.total)} hint="AI estimate plus entered costs" />
+        <Stat
+          label="AI (estimated)"
+          value={formatUsd(report.totals.ai)}
+          hint={`${report.totals.searches} web searches`}
+        />
+        <Stat
+          label="Entered costs"
+          value={formatUsd((report.totals.other ?? 0) + (report.totals.networkShare ?? 0))}
+          hint="including network share"
+        />
+        <Stat
+          label="Per published article"
+          value={report.totals.perArticle === null ? "—" : formatUsd(report.totals.perArticle)}
+          hint={`${report.totals.published} published · ${report.totals.drafted} drafted`}
+        />
       </div>
       <FilterTabs
         active={section}
@@ -139,7 +173,7 @@ export default async function CostsPage({ searchParams }) {
                   Website
                 </SortTh>
                 {columns.map(([key, label]) => (
-                  <SortTh key={key} path="/costs" state={state} column={key}>
+                  <SortTh key={key} path="/costs" state={state} column={key} className="text-right">
                     {label}
                   </SortTh>
                 ))}
@@ -155,16 +189,18 @@ export default async function CostsPage({ searchParams }) {
                     {row.archived ? " (archived)" : ""}
                   </Td>
                   {columns.map(([key]) => (
-                    <Td key={key} className="tabular-nums">
+                    <Td key={key} className="text-right tabular-nums">
                       {display(row, key)}
                     </Td>
                   ))}
                 </tr>
               ))}
-              <tr className="font-semibold">
+              <tr className="border-t-2 bg-muted/40 font-semibold">
                 <Td>All websites (unfiltered total)</Td>
                 {columns.map(([key]) => (
-                  <Td key={key}>{display(report.totals, key)}</Td>
+                  <Td key={key} className="text-right tabular-nums">
+                    {display(report.totals, key)}
+                  </Td>
                 ))}
               </tr>
             </tbody>
@@ -187,7 +223,7 @@ export default async function CostsPage({ searchParams }) {
               <tr>
                 <Th>Website</Th>
                 <Th>Category</Th>
-                <Th>Amount</Th>
+                <Th className="text-right">Amount</Th>
                 <Th>Note</Th>
                 <Th>Action</Th>
               </tr>
@@ -197,7 +233,7 @@ export default async function CostsPage({ searchParams }) {
                 <tr key={entry.id}>
                   <Td>{entry.website?.name ?? "Whole network"}</Td>
                   <Td>{entry.category}</Td>
-                  <Td>{formatUsd(entry.amount_usd)}</Td>
+                  <Td className="text-right tabular-nums">{formatUsd(entry.amount_usd)}</Td>
                   <Td className="max-w-md">{entry.note}</Td>
                   <Td>
                     <ActionForm action={deleteCostEntry.bind(null, entry.id)}>
@@ -218,6 +254,7 @@ export default async function CostsPage({ searchParams }) {
         </ListResults>
       )}
       <Card
+        icon={ReceiptText}
         title="Add a cost"
         description="Images, paid sources, extra hosting, editorial time or other costs. Whole-network charges are split among active websites."
       >

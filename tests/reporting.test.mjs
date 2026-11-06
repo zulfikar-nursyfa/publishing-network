@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildCostReport, monthParam, shiftMonth } from "@/lib/cost-report";
+import { buildCostReport, monthParam, reportMonths, shiftMonth } from "@/lib/cost-report";
 import { toCsv } from "@/lib/csv";
 
 test("network costs are shared across active websites", () => {
@@ -30,6 +30,9 @@ test("network costs are shared across active websites", () => {
 test("months come from the query string or the current UTC month", () => {
   assert.equal(monthParam("2026-10"), "2026-10");
   assert.equal(monthParam("2026-13", new Date("2026-10-17T00:00:00Z")), "2026-10");
+  assert.equal(monthParam("2025-12"), "2026-08"); // nothing before FIRST_MONTH
+  assert.deepEqual(reportMonths("2026-09", new Date("2026-10-17T00:00:00Z")), ["2026-10", "2026-09", "2026-08"]);
+  assert.deepEqual(reportMonths("2026-12", new Date("2026-10-17T00:00:00Z"))[0], "2026-12");
   assert.equal(shiftMonth("2026-01", -1), "2025-12");
   assert.equal(shiftMonth("2026-12", 1), "2027-01");
 });

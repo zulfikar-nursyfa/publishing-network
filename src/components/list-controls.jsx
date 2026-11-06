@@ -6,7 +6,7 @@ import { FilterPopover } from "./filter-popover";
 import { humanLabel, sortLabel, dateLabels } from "@/lib/list-labels";
 import { ListForm, DateFilters } from "./list-form";
 
-function HiddenState({ state, except = [] }) {
+export function HiddenState({ state, except = [] }) {
   return Object.keys(state.defaults)
     .filter((key) => !except.includes(key) && key !== "page")
     .map((key) => <input key={key} type="hidden" name={key} value={state[key]} />);

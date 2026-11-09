@@ -58,6 +58,7 @@ export function sortLabel(key, direction, column = key) {
       "networkShare",
       "total",
       "perArticle",
+      "sources",
     ].includes(key)
   )
     return `${label}: ${direction === "desc" ? "High to low" : "Low to high"}`;

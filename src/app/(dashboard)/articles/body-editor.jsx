@@ -88,11 +88,11 @@ export function BodyEditor({ defaultValue, dir, readOnly, articleId, labelledBy,
   );
 }
 
-function Divider() {
+export function Divider() {
   return <span aria-hidden className="mx-1 h-5 w-px bg-border" />;
 }
 
-function Formatting({ editor }) {
+export function Formatting({ editor }) {
   const state = useEditorState({
     editor,
     selector: ({ editor: e }) =>

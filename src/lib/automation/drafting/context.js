@@ -1,5 +1,6 @@
 import "server-only";
 import { serverEnv } from "@/lib/env";
+import { bodyText } from "@/lib/publishing/content";
 import { automationBlockReason } from "../policy";
 import { DeferredJob, LostLease, PermanentJob } from "./errors";
 
@@ -12,7 +13,11 @@ export function textModelFor({ website, network }) {
 }
 
 /** The niche's writing guide for the website's language, or null. */
-export const nicheGuideFor = (website) => website.niche?.[`guide_${website.language}`] ?? null;
+/** The niche's writing guide as plain text for prompts; list items keep a "- " so rules stay separate. */
+export const nicheGuideFor = (website) => {
+  const guide = website.niche?.[`guide_${website.language}`];
+  return guide ? bodyText(guide.replace(/<li[^>]*>/gi, "$&- ")) : null;
+};
 
 /**
  * Loads everything a step needs and re-checks the controls: this worker still holds the job,

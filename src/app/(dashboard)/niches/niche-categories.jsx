@@ -76,7 +76,6 @@ export function NicheCategories({ nicheId, categories }) {
   const [, action] = useActionStateWithNotice(applyNicheCategories.bind(null, nicheId), {});
   return (
     <section className="space-y-4 border-t pt-5">
-      <div className="text-sm font-semibold">Starting categories</div>
       <p className="text-sm text-muted-foreground">
         Copied by website language. Existing website edits and archives are kept. After applying, use Categories → Sync
         with WordPress in each website&apos;s settings.

@@ -71,15 +71,19 @@ export const verificationSchema = z.object({
   checked_claims: z
     .array(
       z.object({
+        // The number of the draft sentence this checks (see draftSentences); 0 in older results.
+        sentence: z.number().int().min(0).max(200).default(0),
         claim: clipped(700),
         supported: z.boolean(),
         source_urls: sourceUrls,
-        // The source sentence the claim rests on, so code can confirm the support exists.
-        source_quote: clipped(500).default(""),
+        // The source sentences the claim rests on, joined by " | ", so code can confirm the support exists.
+        source_quote: clipped(1000).default(""),
+        // Why a sentence is unsupported, shown to the reviewer.
+        note: clipped(300).default(""),
       }),
     )
     .min(3)
-    .max(30),
+    .max(80),
 });
 
 const TITLE_CONNECTORS = new Set("of the and bin bint al el for at to from by on in".split(" "));
@@ -246,21 +250,52 @@ export function checkDraft(draft, research, evidence, categories, language, stri
   };
 }
 
+// Not after an abbreviation ("Dr. Herrmann") or before a lowercase word ("U.S. officials").
+const SENTENCE_END = /(?<!\b(?:Dr|Mr|Mrs|Ms|St|No|Co|Inc|Ltd|Jr|Sr|vs|U\.S|U\.K|e\.g|i\.e)\.)(?<=[.!?؟])\s+(?!\p{Ll})/u;
+
+/** Every sentence a reader sees, in order: headline, excerpt, SEO fields, then each body sentence. */
+export function draftSentences(draft) {
+  return ["title", "excerpt", "seo_title", "meta_description", "body"].flatMap((field) =>
+    (draft[field] ?? "")
+      .split(/\n+/)
+      .flatMap((line) => line.split(SENTENCE_END))
+      .map((text) => text.trim())
+      .filter((text) => /\p{L}{2}/u.test(text))
+      .map((text) => ({ field, text })),
+  );
+}
+
 /**
  * Verifier results as warnings. With the evidence, a claim marked supported whose quote is on no page
- * counts as unsupported: the verifier has to show its support, not only assert it.
+ * counts as unsupported: the verifier has to show its support, not only assert it. With the draft's
+ * sentences, each one needs its own verdict and is reported in the draft's words, never the verifier's.
  */
-export function checkVerification(verification, strictChecks = [], evidence) {
-  const quoted = (claim) =>
-    !evidence || evidence.some((page) => claim.source_quote && quoteFound(claim.source_quote, page.text));
+export function checkVerification(verification, strictChecks = [], evidence, sentences) {
+  const quoted = (claim) => {
+    const parts = (claim.source_quote ?? "")
+      .split("|")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return (
+      !evidence || (parts.length > 0 && parts.every((part) => evidence.some((page) => quoteFound(part, page.text))))
+    );
+  };
   const warnings = [];
   const warn = warnOrBlock(warnings, strictChecks);
   if (!verification.passed) warn("verification_failed", "AI verification did not pass");
   for (const issue of verification.issues) warn("verification_issues", `Verification: ${issue}`);
-  for (const claim of verification.checked_claims) {
-    if (!claim.supported) warn("unsupported_claims", `Unsupported claim: ${claim.claim}`);
+  const checks = sentences
+    ? sentences.map(({ text }, index) => ({
+        text,
+        claim: verification.checked_claims.find((claim) => claim.sentence === index + 1),
+      }))
+    : verification.checked_claims.map((claim) => ({ text: claim.claim, claim }));
+  for (const { text, claim } of checks) {
+    const note = claim?.note ? ` (${claim.note})` : "";
+    if (!claim) warn("unsupported_claims", `Not checked by AI verification: ${text}`);
+    else if (!claim.supported) warn("unsupported_claims", `Unsupported claim: ${text}${note}`);
     else if (!quoted(claim))
-      warn("unsupported_claims", `Unsupported claim: ${claim.claim} (its quoted support is not on the source pages)`);
+      warn("unsupported_claims", `Unsupported claim: ${text} (its quoted support is not on the source pages)`);
   }
   return warnings;
 }
@@ -286,7 +321,8 @@ export function responseSchema(schema) {
     if (!value || typeof value !== "object") return value;
     return Object.fromEntries(
       Object.entries(value)
-        .filter(([key]) => properties || allowed.has(key))
+        // Gemini rejects the whole request for maxItems above 30 (tested November 2026).
+        .filter(([key, item]) => properties || (allowed.has(key) && !(key === "maxItems" && item > 30)))
         .map(([key, item]) => [key, clean(item, key === "properties")]),
     );
   };

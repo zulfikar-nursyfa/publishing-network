@@ -99,15 +99,26 @@ CATEGORIES:
 ${JSON.stringify(categories)}`;
 }
 
-export function verifyPrompt(data, draft) {
+const FIELD_LABELS = {
+  title: "headline",
+  excerpt: "excerpt",
+  seo_title: "SEO title",
+  meta_description: "meta description",
+  body: "body",
+};
+
+/** `sentences` from draftSentences: the verifier judges each one by number and never sees the draft's own flags. */
+export function verifyPrompt(data, sentences, nicheGuide) {
+  const numbered = sentences.map(({ field, text }, index) => `${index + 1}. [${FIELD_LABELS[field]}] ${text}`);
   return `${RULES}
-Independently check EVERY material factual assertion in this draft against the supplied evidence. Check figures, currencies, names, dates, attribution, headline and excerpt, misleading omissions, originality and language. For each figure, confirm the entity, place, period and what it measures, and recount any total of listed items. Check the headline and excerpt as if read alone, and the SEO title and meta description too. Check tense against DATA.today and the evidence dates. Any unsupported assertion, relative date ambiguity, or material issue means passed=false. Also fail any breach of these accuracy rules:
+Independently fact-check this article against the supplied evidence, sentence by sentence. Return one checked_claims entry for EVERY numbered sentence below, in order: its number in sentence, the sentence copied unchanged as claim, supported, its source URLs, and in source_quote the exact source sentence it rests on copied from the evidence (when it combines facts from several source sentences, copy each, separated by " | "). Judge the sentence exactly as written: never correct or soften it before judging. Mark supported=false, with a one-sentence note naming the wording at fault, when any part of it is stronger, broader, more certain or more specific than the quotes, gives a figure another meaning, scope or total, puts a person on another side or in another place, describes a different kind of event, gives other dates or tense than DATA.today and the evidence allow, turns a capacity, target, plan or opportunity into a result, or when no source sentence supports it. Judge meaning, not wording: a paraphrase with the same meaning and certainty is supported ('completed the financial close' for 'reached financial close'). Read the headline, excerpt and SEO fields as if read alone. Recount any total of listed items.
+Also fail any breach of these accuracy rules:
 ${ACCURACY_RULES}
-Report problems only in what the draft states: a missing detail is an issue only when its absence makes a stated claim misleading (an online programme described without saying so is misleading). Keep each issue to one sentence naming the wording at fault. List each material claim in the draft's own wording, with its supporting source URLs and, in source_quote, the exact source sentence it rests on copied from the evidence. Compare the two side by side: mark supported=false when the draft is stronger, broader, more certain or more specific than the quote, puts a person on another side or in another place, describes a different kind of event or briefing, gives other dates, or turns a capacity, target or opportunity into a result, and when no source sentence supports it. Check every person named as attending or in a delegation, every ranking or comparison and every date range this way. Judge meaning, not wording: a paraphrase with the same meaning and certainty is supported ('completed the financial close' for 'reached financial close'). The draft's sensitive flag is not a factual assertion: never fail the draft or report an issue over it; set your own sensitive field from what the draft reports instead. Do not simply repeat the research. Human approval is still required if passed=true.
+${nicheGuide ? `and of this niche guide:\n${nicheGuide}\n` : ""}Set passed=false when any sentence is unsupported or misleading; list each problem once in issues, in one sentence. A missing detail is an issue only when its absence makes a stated sentence misleading (an online programme described without saying so is misleading). Set sensitive from what the article reports (breaking, consequential, allegations, health, financial forecasts), not from unrelated topics in the evidence. Human approval is still required if passed=true.
 DATA:
 ${data}
-DRAFT:
-${JSON.stringify(draft)}`;
+SENTENCES:
+${numbered.join("\n")}`;
 }
 
 export function imagePrompt(draft) {

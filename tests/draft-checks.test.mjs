@@ -8,6 +8,9 @@ import {
   draftSchema,
   DraftCheckError,
   CopiedPassageError,
+  draftSentences,
+  responseSchema,
+  verificationSchema,
 } from "@/lib/automation/draft-checks";
 import { textWarnings, unsourcedFigures } from "@/lib/automation/text-checks";
 import { needsRedraft } from "@/lib/automation/drafting/write";
@@ -262,6 +265,69 @@ test("a claim marked supported needs its quoted support on a source page", () =>
     "Unsupported claim: A new route to Dubai (its quoted support is not on the source pages)",
   ]);
   assert.equal(check("").length, 1);
+});
+
+test("the article is split into numbered sentences, keeping abbreviations whole", () => {
+  const sentences = draftSentences({
+    title: "Dubai opens a route",
+    excerpt: "",
+    seo_title: "Dubai route",
+    body: "Dr. Herrmann met U.S. officials on 3 Nov. The route opens in May!\nIt has 7 ports.",
+  });
+  assert.deepEqual(
+    sentences.map(({ field, text }) => `${field}: ${text}`),
+    [
+      "title: Dubai opens a route",
+      "seo_title: Dubai route",
+      "body: Dr. Herrmann met U.S. officials on 3 Nov.",
+      "body: The route opens in May!",
+      "body: It has 7 ports.",
+    ],
+  );
+});
+
+test("each sentence needs its own verdict and is reported in the draft's words", () => {
+  const sentences = [{ text: "Synopsys began supplying software." }, { text: statement }, { text: "It has 7 ports." }];
+  const verdict = (sentence, supported, extra = {}) => ({
+    sentence,
+    claim: "the verifier's own rewording",
+    supported,
+    source_urls: [official.url],
+    source_quote: statement,
+    note: "",
+    ...extra,
+  });
+  const warnings = checkVerification(
+    {
+      passed: false,
+      issues: [],
+      checked_claims: [verdict(1, false, { note: "the source says it was set to begin" }), verdict(2, true)],
+    },
+    [],
+    [official],
+    sentences,
+  );
+  assert.deepEqual(warnings, [
+    "AI verification did not pass",
+    "Unsupported claim: Synopsys began supplying software. (the source says it was set to begin)",
+    "Not checked by AI verification: It has 7 ports.",
+  ]);
+  // Support from two source sentences is quoted with " | "; every part must be on a page.
+  const joined = (source_quote) =>
+    checkVerification(
+      { passed: true, issues: [], checked_claims: [verdict(1, true, { source_quote })] },
+      [],
+      [official],
+      [sentences[1]],
+    );
+  assert.deepEqual(joined(`${statement} | The company announced`), []);
+  assert.equal(joined(`${statement} | Nothing like this appears anywhere`).length, 1);
+});
+
+test("array limits above Gemini's 30 are left to Zod", () => {
+  const items = responseSchema(verificationSchema).properties.checked_claims;
+  assert.equal(items.maxItems, undefined);
+  assert.equal(items.minItems, 3);
 });
 
 test("each configurable warning keeps its message and becomes a DraftCheckError only when strict", () => {

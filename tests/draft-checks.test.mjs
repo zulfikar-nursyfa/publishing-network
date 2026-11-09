@@ -424,3 +424,13 @@ test("checkDraft warns about figures the sources do not contain", () => {
   );
   assert.ok(checked.warnings.some((warning) => warning.includes("450")));
 });
+
+test("niches sort by source count; website categories keep their manual order", async () => {
+  const { categoryList, nicheList } = await import("@/lib/list-configs");
+  assert.deepEqual(
+    [nicheList.defaultSort, nicheList.defaultDirection, nicheList.sorts.sources],
+    ["sources", "desc", "source_count"],
+  );
+  assert.equal(nicheList.sorts.order, undefined);
+  assert.deepEqual([categoryList.defaultSort, categoryList.sorts.order], ["order", "sort_order"]);
+});

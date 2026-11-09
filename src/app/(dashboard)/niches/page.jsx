@@ -127,7 +127,7 @@ export default async function NichesPage({ searchParams }) {
         </ListEmpty>
       ) : null}
       {error ? (
-        <Alert tone="error">Niches are unavailable. Apply migration 29 before using this page.</Alert>
+        <Alert tone="error">Niches are unavailable. Apply migrations 29 and 52 before using this page.</Alert>
       ) : (
         <>
           <ListLoading>

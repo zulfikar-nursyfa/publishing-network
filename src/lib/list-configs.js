@@ -153,9 +153,10 @@ export const sourceList = {
   },
 };
 export const categoryList = {
-  sorts: { order: "sort_order", name: "name", sources: "source_count" },
-  defaultSort: "order",
-  defaultDirection: "asc",
+  // source_count is a computed field (migration 52).
+  sorts: { sources: "source_count", name: "name" },
+  defaultSort: "sources",
+  defaultDirection: "desc",
   search: ["name", "slug"],
   filters: { archived: enumFilter("Archived", ["all", "yes", "no"]) },
 };

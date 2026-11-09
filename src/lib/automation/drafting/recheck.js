@@ -1,8 +1,9 @@
 import "server-only";
 import { generateForJob } from "@/lib/ai/usage";
-import { checkVerification, verificationSchema } from "../draft-checks";
+import { checkVerification, draftSentences, verificationSchema } from "../draft-checks";
 import { collectEvidence } from "../evidence";
 import { TEXT_WARNINGS, textWarnings } from "../text-checks";
+import { nicheGuideFor } from "./context";
 import { PermanentJob } from "./errors";
 import { aiImage, stopsJob } from "./illustrate";
 import { bodyText } from "@/lib/publishing/content";
@@ -20,6 +21,7 @@ const REPLACED = [
   "AI verification did not pass",
   "Verification: ",
   "Unsupported claim: ",
+  "Not checked by AI verification: ",
   "Re-check ",
   ...TEXT_WARNINGS,
 ];
@@ -86,24 +88,19 @@ async function recollectStep(db, job, worker, { context }) {
 async function reverifyStep(db, job, worker, { context, model, assertControls }) {
   const state = structuredClone(job.state);
   const article = await loadArticle(db, job);
+  const sentences = draftSentences(article);
   state.verification = await generateForJob(db, job, worker, {
     model,
     operation: "verify",
     schema: verificationSchema,
     assertControls,
-    prompt: verifyPrompt(promptData(context, state.recheck_evidence), {
-      title: article.title,
-      excerpt: article.excerpt,
-      body: article.body,
-      seo_title: article.seo_title,
-      meta_description: article.meta_description,
-    }),
+    prompt: verifyPrompt(promptData(context, state.recheck_evidence), sentences, nicheGuideFor(context.website)),
   });
   state.warnings = recheckedWarnings(
     state.warnings,
     [
       ...(state.recheck_skipped ?? []),
-      ...checkVerification(state.verification, [], state.recheck_evidence),
+      ...checkVerification(state.verification, [], state.recheck_evidence, sentences),
       ...textWarnings(article, state.recheck_evidence, { language: context.website.language }),
     ],
     { hasCategory: Boolean(article.category_id), hasImage: article.hasImage },

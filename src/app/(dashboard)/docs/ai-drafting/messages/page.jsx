@@ -97,7 +97,9 @@ export default function DraftMessagesPage() {
           </li>
           <li>
             <strong>AI verification did not pass</strong>, <strong>Verification:</strong> or{" "}
-            <strong>Unsupported claim:</strong>: read the listed issues and compare them with the original pages.
+            <strong>Unsupported claim:</strong>: read the listed issues and compare them with the original pages. The
+            AI checks every sentence of the headline, excerpt, SEO fields and body; a sentence it skipped is listed as{" "}
+            <strong>Not checked by AI verification:</strong> and needs checking by hand.
             Correct or reject the article, or restart a stopped job with better evidence. After correcting, use{" "}
             <strong>Re-check after edits</strong> on the article so the warnings describe the saved version.
           </li>

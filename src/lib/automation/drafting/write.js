@@ -5,6 +5,7 @@ import {
   checkResearch,
   checkVerification,
   CopiedPassageError,
+  draftSentences,
   draftSchema,
   researchSchema,
   verificationSchema,
@@ -117,14 +118,15 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
 
 /** An independent AI fact check of the draft; problems mark it sensitive. Returns warnings. */
 export async function verifyStep(db, job, worker, { state, data, context, model, assertControls }) {
+  const sentences = draftSentences(state.draft);
   state.verification = await generateForJob(db, job, worker, {
     model,
     operation: "verify",
     schema: verificationSchema,
     assertControls,
-    prompt: verifyPrompt(data, state.draft),
+    prompt: verifyPrompt(data, sentences, nicheGuideFor(context.website)),
   });
-  const warnings = checkVerification(state.verification, context.strictChecks, state.evidence ?? []);
+  const warnings = checkVerification(state.verification, context.strictChecks, state.evidence ?? [], sentences);
   state.draft.sensitive ||= state.verification.sensitive || warnings.length > 0;
   state.sources = (state.evidence ?? [])
     .filter((page) => state.draft.source_urls.includes(page.url))

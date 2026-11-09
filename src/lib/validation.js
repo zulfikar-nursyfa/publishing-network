@@ -279,8 +279,8 @@ export const nicheSchema = z.object({
 });
 
 export const nicheGuideSchema = z.object({
-  guide_en: optionalText(3000),
-  guide_ar: optionalText(3000),
+  guide_en: optionalText(8000),
+  guide_ar: optionalText(8000),
 });
 
 export const networkSettingsSchema = z.object({

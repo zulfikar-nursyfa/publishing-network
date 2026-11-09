@@ -153,7 +153,7 @@ export const sourceList = {
   },
 };
 export const categoryList = {
-  sorts: { order: "sort_order", name: "name" },
+  sorts: { order: "sort_order", name: "name", sources: "source_count" },
   defaultSort: "order",
   defaultDirection: "asc",
   search: ["name", "slug"],

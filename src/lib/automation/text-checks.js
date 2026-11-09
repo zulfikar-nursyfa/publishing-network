@@ -15,7 +15,13 @@ const sourceText = (evidence) => evidence.map((page) => page.text).join("\n");
 const list = (items) => [...new Set(items)].slice(0, 10).join(", ");
 
 const ARABIC_DIGITS = /[٠-٩۰-۹]/g;
-/** Arabic digits as Latin ones and thousands separators removed: "1,000" and "١٠٠٠" give "1000". */
+const CURRENCY_CODES = "AED USD SAR QAR OMR KWD BHD JOD EUR GBP CNY RMB INR Dh Dhs SR QR KD BD Rs".split(" ");
+// Sources often write a code against the figure ("AED80,000"), which would otherwise read as one word.
+const STUCK_CURRENCY = new RegExp(`(?<!\\p{L})(${CURRENCY_CODES.join("|")})(?=\\d)`, "gu");
+/**
+ * Arabic digits as Latin ones, thousands separators removed and currency codes split from figures:
+ * "1,000", "١٠٠٠" and "AED1,000" all give "1000".
+ */
 function latinDigits(text) {
   return (
     text
@@ -23,6 +29,7 @@ function latinDigits(text) {
       .replace(ARABIC_DIGITS, (digit) => String(digit.charCodeAt(0) & 0xf))
       .replace(/٫/g, ".")
       .replace(/(\d)[,٬](?=\d{3}\b)/g, "$1")
+      .replace(STUCK_CURRENCY, "$1 ")
   );
 }
 
@@ -152,7 +159,14 @@ export function unknownNames(article, evidence, language) {
     .filter((line) => !isTitleCase(line))
     .flatMap((line) => line.split(/(?<=[.!?:;])\s+|["“”«»]/u))
     .flatMap((sentence) => (sentence.match(/[\p{L}\p{N}]+/gu) ?? []).slice(1))
-    .filter((word) => /^\p{Lu}/u.test(word) && !known.has(normalise(word)) && !TITLE_WORDS.has(normalise(word)));
+    .filter(
+      (word) =>
+        /^\p{Lu}/u.test(word) &&
+        !known.has(normalise(word)) &&
+        !TITLE_WORDS.has(normalise(word)) &&
+        // Currencies are checked by addedCurrencies.
+        !CURRENCY_CODES.includes(word),
+    );
 }
 
 const RELATIVE_DATES = [
@@ -290,6 +304,8 @@ export function droppedFormat(article, evidence) {
 }
 
 // Words that say something happened, or who did it. English only: Arabic drafts are written from English sources too.
+// A pair is [flagged words, source words with the same meaning]: "reached financial close" supports
+// "completed the financial close", but "reached" itself is too common to flag.
 const ACTIONS = [
   /^sign(?:s|ed|ing)?$|^signator(?:y|ies)$/,
   /^agree(?:s|d|ing|ment|ments)?$/,
@@ -297,9 +313,9 @@ const ACTIONS = [
   /^contract(?:s|ed)?$/,
   /^(?:mou|mous|memorandum|memoranda)$/,
   /^launch(?:es|ed|ing)?$/,
-  /^complet(?:e|es|ed|ing|ion)$/,
+  [/^complet(?:e|es|ed|ing|ion)$/, /^reach(?:es|ed|ing)?$/],
   /^finali[sz](?:e|es|ed|ing)$/,
-  /^establish(?:es|ed|ing|ment)?$/,
+  [/^establish(?:es|ed|ing|ment)?$/, /^forg(?:e|es|ed|ing)$/],
   /^secur(?:e|es|ed|ing)$/,
   /^approv(?:e|es|ed|ing|al|als)$/,
   /^award(?:s|ed|ing)?$/,
@@ -308,20 +324,19 @@ const ACTIONS = [
   /^open(?:s|ed|ing)$/,
   /^commenc(?:e|es|ed|ing|ement)$/,
   /^partnerships?$/,
-  /^projects?$/,
   /^commit(?:s|ted|ting|ment|ments)$/,
   /^pledg(?:e|es|ed|ing)$/,
   /^attend(?:s|ed|ing|ance|ees?)$/,
   /^host(?:s|ed|ing)$/,
   /^(?:led|headed|chaired|presided)$/,
   /^tour(?:s|ed|ing)?$/,
-];
+].map((family) => [family].flat());
 
-/** "Signed", "launched", "projects", "attended", "toured": outcomes, roles and presence no source states. */
+/** "Signed", "launched", "attended", "toured": outcomes, roles and presence no source states. */
 export function addedActions(article, evidence) {
   const sourceWords = [...new Set(words(sourceText(evidence)))];
-  const missing = ACTIONS.filter((family) => !sourceWords.some((word) => family.test(word)));
-  return [...new Set(words(readerText(article)))].filter((word) => missing.some((family) => family.test(word)));
+  const missing = ACTIONS.filter((family) => !sourceWords.some((word) => family.some((pattern) => pattern.test(word))));
+  return [...new Set(words(readerText(article)))].filter((word) => missing.some(([flagged]) => flagged.test(word)));
 }
 
 const MONTH =

@@ -132,9 +132,27 @@ test("outcomes, roles and presence no source states are flagged", () => {
     source("The delegation discussed tangible investment opportunities and was briefed on the hospital."),
   ];
   const article = body("The delegation signed deals, toured the hospital and launched direct investment projects.");
-  assert.deepEqual(addedActions(article, evidence), ["signed", "deals", "toured", "launched", "projects"]);
+  assert.deepEqual(addedActions(article, evidence), ["signed", "deals", "toured", "launched"]);
   const signed = [source("Both sides signed a memorandum and toured the projects they launched.")];
   assert.deepEqual(addedActions(body("They signed an MoU, toured projects and launched a fund."), signed), []);
+});
+
+test("a source word with the same meaning supports an action, and is not flagged itself", () => {
+  const evidence = [source("TA'ZIZ reached financial close, and the venue helps leaders forge partnerships.")];
+  const article = body("TA'ZIZ completed the financial close, and the venue helps leaders establish partnerships.");
+  assert.deepEqual(addedActions(article, evidence), []);
+  assert.deepEqual(
+    addedActions(body("Visitors reached 5 million and the project completed."), [source("Visitors rose.")]),
+    ["completed"],
+  );
+});
+
+test("a currency code written against a figure is not a name and does not hide the figure", () => {
+  const evidence = [source("The winner received AED80,000, and TA'ZIZ closed on AED5.1 billion.")];
+  const article = body("The winner received AED 80,000, and TA'ZIZ closed on AED 5.1 billion, with AED 90,000 more.");
+  assert.deepEqual(textWarnings(article, evidence, { language: "en" }), [
+    "Figures not found in the sources (check each one): 90000",
+  ]);
 });
 
 test("dates no source gives are flagged; ranges in the sources cover every day in them", () => {

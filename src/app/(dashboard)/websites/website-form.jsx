@@ -140,7 +140,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
       <Card
         icon={Plug}
         title="WordPress connection"
-        description="Create an application password in WordPress under Users → Profile → Application Passwords, for a user with the Editor role."
+        description="Optional until the site is ready: leave empty to start drafting now, and publishing starts once WordPress is connected. Create an application password in WordPress under Users → Profile → Application Passwords, for a user with the Editor role."
       >
         <div className="grid gap-5 md:grid-cols-3">
           <Field label="WordPress URL" htmlFor="wp_base_url" error={errors.wp_base_url}>
@@ -148,8 +148,8 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
               id="wp_base_url"
               name="wp_base_url"
               type="url"
-              required
-              defaultValue={website?.wp_base_url}
+              required={Boolean(website?.wp_base_url)}
+              defaultValue={website?.wp_base_url ?? ""}
               className={inputClass}
               placeholder="https://publisher.example"
             />
@@ -158,9 +158,9 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
             <input
               id="wp_username"
               name="wp_username"
-              required
+              required={Boolean(website?.wp_base_url)}
               autoComplete="off"
-              defaultValue={website?.wp_username}
+              defaultValue={website?.wp_username ?? ""}
               className={inputClass}
             />
           </Field>
@@ -168,16 +168,19 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
             label="Application password"
             htmlFor="wp_app_password"
             error={errors.wp_app_password}
-            hint={isNew ? "Stored encrypted and never shown again." : "Leave empty to keep the saved password."}
+            hint={
+              website?.wp_base_url
+                ? "Leave empty to keep the saved password."
+                : "Required with a WordPress URL. Stored encrypted and never shown again."
+            }
           >
             <input
               id="wp_app_password"
               name="wp_app_password"
               type="password"
               autoComplete="new-password"
-              required={isNew}
               className={`${inputClass} font-mono`}
-              placeholder={isNew ? "xxxx xxxx xxxx xxxx xxxx xxxx" : "••••••••"}
+              placeholder={website?.wp_base_url ? "••••••••" : "xxxx xxxx xxxx xxxx xxxx xxxx"}
             />
           </Field>
         </div>
@@ -347,7 +350,7 @@ export function WebsiteForm({ action, website, editors, assignedEditorIds = [], 
 
       <div className="sticky bottom-0 z-10 -mx-4 flex justify-end border-t bg-background px-4 py-3 sm:mx-0 sm:rounded-lg sm:border sm:px-4">
         <SubmitButton className="w-full sm:w-auto" pendingLabel={isNew ? "Adding website…" : "Saving…"}>
-          {isNew ? "Add website and test connection" : "Save settings"}
+          {isNew ? "Add website" : "Save settings"}
         </SubmitButton>
       </div>
     </form>

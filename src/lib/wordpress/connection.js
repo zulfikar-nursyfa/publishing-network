@@ -37,6 +37,8 @@ export function assertAllowedWordPressUrl(url) {
  * the WordPress user may publish. Records the outcome on the website row.
  */
 export async function testConnection(website) {
+  // Not connected yet is not a failure; leave the status untouched.
+  if (!website.wp_base_url) return { ok: false, error: "Add the WordPress details in the website settings first." };
   const admin = createAdminClient();
   let result;
 

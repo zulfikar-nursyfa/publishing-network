@@ -63,6 +63,11 @@ export default function DashboardStepPage() {
             never shown again.
           </li>
         </List>
+        <Note title="No WordPress site yet?">
+          Leave all three empty. Stories are found and drafts are written as usual, and nothing is published. When the
+          site is ready, fill them in under <Path>Settings → Edit website</Path>: the connection is tested and the
+          categories are created in WordPress automatically. They cannot be removed again once added.
+        </Note>
 
         <h3 className="font-semibold">Google Analytics and Search Console</h3>
         <p>
@@ -153,8 +158,8 @@ export default function DashboardStepPage() {
             You can rename, add or archive categories here. For Arabic sites, have the editor check the Arabic names.
           </Step>
           <Step title="Click Sync with WordPress">
-            Missing categories are created in WordPress and existing ones are linked. Run it again whenever you change
-            categories.
+            Missing categories are created in WordPress and existing ones are linked. This runs automatically when
+            WordPress is first connected; run it again whenever you change categories.
           </Step>
         </Steps>
         <Note title="Allow auto-publish">

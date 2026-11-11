@@ -84,7 +84,7 @@ const hexColor = z
   .regex(/^(#[0-9a-fA-F]{6})?$/, "Use a hex colour such as #1d4ed8")
   .default("");
 
-export const websiteSettingsSchema = z.object({
+const websiteFields = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
   slug: z
     .string()
@@ -126,9 +126,20 @@ export const websiteSettingsSchema = z.object({
     (value) => value === null || /^(sc-domain:[a-z0-9.-]+|https?:\/\/\S+\/)$/.test(value),
     "sc-domain:example.com, or https://example.com/ with the trailing slash",
   ),
-  wp_base_url: z.string().trim().url("Enter the WordPress site URL, for example https://example.com"),
-  wp_username: z.string().trim().min(1, "WordPress username is required").max(120),
+  // WordPress is optional: a website can draft before its WordPress site exists.
+  wp_base_url: optionalText(300).refine(
+    (value) => value === null || URL.canParse(value),
+    "Enter the WordPress site URL, for example https://example.com",
+  ),
+  wp_username: optionalText(120),
   wp_app_password: z.string().trim().max(200).default(""),
+});
+
+export const websiteSettingsSchema = websiteFields.superRefine((value, ctx) => {
+  if (value.wp_base_url && !value.wp_username)
+    ctx.addIssue({ code: "custom", path: ["wp_username"], message: "Required with a WordPress URL" });
+  if (!value.wp_base_url && (value.wp_username || value.wp_app_password))
+    ctx.addIssue({ code: "custom", path: ["wp_base_url"], message: "Required with a WordPress username or password" });
 });
 
 export const articleSchema = z.object({

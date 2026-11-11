@@ -100,7 +100,7 @@ export default async function WebsitesPage({ searchParams }) {
                   <ArrowRight className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
                 </div>
                 <div className="mt-5 flex flex-wrap gap-1.5">
-                  <ConnectionBadge status={site.wp_connection_status} />
+                  <ConnectionBadge website={site} />
                   {site.automation_paused ? (
                     <Badge dot>paused</Badge>
                   ) : (

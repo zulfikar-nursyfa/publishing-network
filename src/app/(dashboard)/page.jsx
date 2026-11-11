@@ -55,7 +55,7 @@ export default async function OverviewPage() {
       supabase
         .from("websites")
         .select(
-          "id, name, domain, language, timezone, daily_quota, automation_paused, wp_connection_status, archived_at, monthly_ai_budget_usd, ga4_property_id, search_console_site, niche:niches(name)",
+          "id, name, domain, language, timezone, daily_quota, automation_paused, wp_base_url, wp_connection_status, archived_at, monthly_ai_budget_usd, ga4_property_id, search_console_site, niche:niches(name)",
         )
         .is("archived_at", null)
         .order("name")
@@ -212,13 +212,13 @@ export default async function OverviewPage() {
                               .join(" · ")}
                           </div>
                           <div className="mt-1.5 flex flex-wrap gap-1 md:hidden">
-                            <ConnectionBadge status={site.wp_connection_status} />
+                            <ConnectionBadge website={site} />
                           </div>
                         </div>
                       </div>
                     </Td>
                     <Td className="hidden md:table-cell">
-                      <ConnectionBadge status={site.wp_connection_status} />
+                      <ConnectionBadge website={site} />
                     </Td>
                     <Td className="hidden md:table-cell">
                       {site.automation_paused ? (

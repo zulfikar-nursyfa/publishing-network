@@ -277,10 +277,13 @@ export function PublicationStatusBadge({ status }) {
   );
 }
 
-const connectionTone = { untested: "gray", ok: "green", failed: "red" };
+const connectionTone = { none: "gray", untested: "gray", ok: "green", failed: "red" };
+const connectionLabel = { none: "not connected", untested: "not tested", ok: "connected", failed: "connection failed" };
 
-export function ConnectionBadge({ status }) {
-  const label = status === "ok" ? "connected" : status === "failed" ? "connection failed" : "not tested";
+/** Needs the website's wp_base_url and wp_connection_status. */
+export function ConnectionBadge({ website }) {
+  const status = website.wp_base_url ? website.wp_connection_status : "none";
+  const label = connectionLabel[status];
   return (
     <Badge tone={connectionTone[status]} dot>
       {label}

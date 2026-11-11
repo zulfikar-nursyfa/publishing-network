@@ -71,13 +71,17 @@ function CategoryItem({ category, websiteId, isAdmin }) {
   );
 }
 
-export function CategoriesCard({ websiteId, categories, isAdmin, filtered = false }) {
+export function CategoriesCard({ websiteId, connected, categories, isAdmin, filtered = false }) {
   return (
     <Card
       icon={Tags}
       className="mb-6"
       title="Categories"
-      description="Editors and the AI choose from active categories. After applying niche categories, click Sync with WordPress to create them there by slug. Auto-publish is off until allowed here, and only applies in Automatic mode."
+      description={
+        connected
+          ? "Editors and the AI choose from active categories. After applying niche categories, click Sync with WordPress to create them there by slug. Auto-publish is off until allowed here, and only applies in Automatic mode."
+          : "Editors and the AI choose from active categories. They are created in WordPress automatically when the site is connected. Auto-publish is off until allowed here, and only applies in Automatic mode."
+      }
     >
       {categories.length > 0 ? (
         <ul className="mb-5 divide-y rounded-lg border">
@@ -87,12 +91,16 @@ export function CategoriesCard({ websiteId, categories, isAdmin, filtered = fals
         </ul>
       ) : (
         <p className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          {filtered ? "No categories match these filters." : "No categories yet. Add one or sync with WordPress."}
+          {filtered
+            ? "No categories match these filters."
+            : connected
+              ? "No categories yet. Add one or sync with WordPress."
+              : "No categories yet. Add one."}
         </p>
       )}
       {isAdmin ? (
         <div className="space-y-5">
-          <SyncCategoriesButton websiteId={websiteId} />
+          {connected ? <SyncCategoriesButton websiteId={websiteId} /> : null}
           <CategoryForm websiteId={websiteId} />
         </div>
       ) : null}

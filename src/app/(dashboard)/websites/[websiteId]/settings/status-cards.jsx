@@ -6,8 +6,18 @@ import { formatPublishTimes } from "@/lib/schedule";
 import { TestConnectionButton } from "./settings-forms";
 
 export function ConnectionCard({ website }) {
+  if (!website.wp_base_url) {
+    return (
+      <Card icon={Plug} title="WordPress connection" actions={<ConnectionBadge website={website} />}>
+        <p className="text-sm text-muted-foreground">
+          Not connected yet. Stories are found and drafts are written as usual; nothing is published until the WordPress
+          details are added under Edit website.
+        </p>
+      </Card>
+    );
+  }
   return (
-    <Card icon={Plug} title="WordPress connection" actions={<ConnectionBadge status={website.wp_connection_status} />}>
+    <Card icon={Plug} title="WordPress connection" actions={<ConnectionBadge website={website} />}>
       <DescriptionList
         className="mb-5"
         items={[

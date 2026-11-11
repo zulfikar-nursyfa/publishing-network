@@ -80,17 +80,24 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
       />
       {input.created === "1" ? (
         <RedirectNotice
-          params={["created", "niche_sync"]}
+          params={["created", "niche_sync", "wordpress"]}
           result={
             input.niche_sync === "failed"
               ? {
                   error:
                     "Website added, but niche sources/categories could not be copied. Apply pending migrations, then use Niches → Apply to websites.",
                 }
-              : {
-                  ok: true,
-                  message: "Website added. Check its connection, then open Categories and Sync with WordPress.",
-                }
+              : input.wordpress === "failed"
+                ? {
+                    error:
+                      "Website added, but WordPress could not be connected or its categories synced. Check the connection below, then open Categories and Sync with WordPress.",
+                  }
+                : {
+                    ok: true,
+                    message: website.wp_base_url
+                      ? "Website added, WordPress connected and categories synced."
+                      : "Website added. Drafting can start now; add the WordPress details in Edit website when the site is ready.",
+                  }
           }
         />
       ) : input.niche_sync === "failed" ? (
@@ -129,6 +136,7 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
               ) : (
                 <CategoriesCard
                   websiteId={websiteId}
+                  connected={Boolean(website.wp_base_url)}
                   categories={result.data}
                   filtered={state.filtered}
                   isAdmin={user.isAdmin}

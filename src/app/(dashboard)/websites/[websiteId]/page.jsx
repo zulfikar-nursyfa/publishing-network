@@ -119,7 +119,7 @@ export default async function WebsitePage({ params, searchParams }) {
             ) : null}
             <span>{website.timezone}</span>
             <span className="flex w-full flex-wrap gap-1.5 pt-1 sm:w-auto sm:pt-0">
-              <ConnectionBadge status={website.wp_connection_status} />
+              <ConnectionBadge website={website} />
               {website.automation_paused ? (
                 <Badge dot>automation paused</Badge>
               ) : (

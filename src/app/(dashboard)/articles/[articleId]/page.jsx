@@ -82,7 +82,9 @@ export default async function ArticlePage({ params, searchParams }) {
   ] = await Promise.all([
     supabase
       .from("websites")
-      .select("id, name, timezone, publish_times, text_direction, archived_at, ga4_property_id, search_console_site")
+      .select(
+        "id, name, timezone, publish_times, text_direction, archived_at, wp_base_url, ga4_property_id, search_console_site",
+      )
       .eq("id", article.website_id)
       .single(),
     supabase
@@ -269,6 +271,7 @@ export default async function ArticlePage({ params, searchParams }) {
             status={article.status}
             isAdmin={user.isAdmin}
             websiteArchived={Boolean(website.archived_at)}
+            wordpressConnected={Boolean(website.wp_base_url)}
             publication={
               publication
                 ? {

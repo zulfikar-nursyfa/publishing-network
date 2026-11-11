@@ -107,9 +107,18 @@ function ScheduleForm({ articleId, schedule }) {
   );
 }
 
-export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, publication, schedule }) {
+export function WorkflowPanel({
+  articleId,
+  status,
+  isAdmin,
+  websiteArchived,
+  wordpressConnected,
+  publication,
+  schedule,
+}) {
   const [, transitionAction] = useActionStateWithNotice(transitionArticle.bind(null, articleId), {});
   const [, publishAction] = useActionStateWithNotice(publishArticleAction.bind(null, articleId), {});
+  const canPublish = status === "approved" && !websiteArchived && wordpressConnected;
   const exhausted =
     publication !== null && publication.status !== "succeeded" && publication.attemptCount >= publication.maxAttempts;
 
@@ -135,7 +144,14 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
         ) : null}
         {status === "published" ? <UnpublishForm articleId={articleId} /> : null}
 
-        {status === "approved" && !websiteArchived ? (
+        {status === "approved" && !wordpressConnected ? (
+          <Alert tone="info">
+            This website is not connected to WordPress yet. Approved articles publish at the next publishing time once
+            it is.
+          </Alert>
+        ) : null}
+
+        {canPublish ? (
           <form action={publishAction} className="space-y-2">
             <SubmitButton
               variant="success"
@@ -157,9 +173,7 @@ export function WorkflowPanel({ articleId, status, isAdmin, websiteArchived, pub
           </form>
         ) : null}
 
-        {status === "approved" && !websiteArchived && schedule ? (
-          <ScheduleForm articleId={articleId} schedule={schedule} />
-        ) : null}
+        {canPublish && schedule ? <ScheduleForm articleId={articleId} schedule={schedule} /> : null}
 
         {publication?.lastError && status !== "published" ? (
           <Alert tone="error" title="Last publishing error">

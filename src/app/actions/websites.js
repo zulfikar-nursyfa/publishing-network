@@ -9,6 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { syncNicheWebsite } from "@/lib/niche-sync";
 import { prepareLogo, uploadLogo, removeLogo, LogoUploadError } from "@/lib/storage/logos";
+import { syncCategoriesWithWordPress } from "@/lib/wordpress/categories";
 import { assertAllowedWordPressUrl, testConnection } from "@/lib/wordpress/connection";
 import { normaliseBaseUrl } from "@/lib/wordpress/client";
 import { syncTraffic } from "@/lib/traffic/sync";
@@ -39,7 +40,7 @@ function websiteColumns(input, branding = {}) {
     },
     ga4_property_id: input.ga4_property_id,
     search_console_site: input.search_console_site,
-    wp_base_url: normaliseBaseUrl(input.wp_base_url),
+    wp_base_url: input.wp_base_url && normaliseBaseUrl(input.wp_base_url),
     wp_username: input.wp_username,
   };
 }
@@ -96,6 +97,26 @@ async function replaceEditors(supabase, websiteId, editorIds) {
   return { added, removed };
 }
 
+/**
+ * First time a website gets WordPress details: tests the connection and, when it works, links
+ * the website's categories so approved drafts can publish at the next slot.
+ */
+async function connectWordPress(supabase, website, actorId) {
+  const result = await testConnection(website);
+  const categoryError = result.ok ? await syncCategoriesWithWordPress(supabase, website) : null;
+  await recordAudit({
+    action: "website.wordpress_connected",
+    entityType: "website",
+    entityId: website.id,
+    websiteId: website.id,
+    actorId,
+    details: result.ok ? { ok: true, category_sync_error: categoryError } : { ok: false, error: result.error },
+  });
+  if (!result.ok) return `WordPress could not be reached: ${result.error}`;
+  if (categoryError) return `WordPress is connected, but categories could not be synced: ${categoryError}`;
+  return null;
+}
+
 function editorIdsFrom(formData) {
   return formData.getAll("editor_ids").filter((value) => typeof value === "string" && value !== "");
 }
@@ -112,10 +133,12 @@ export async function createWebsite(_prev, formData) {
   } catch (error) {
     return { error: error.message, fieldErrors: { brand_logo: error.message } };
   }
-  const urlProblem = assertAllowedWordPressUrl(input.wp_base_url);
-  if (urlProblem) return { error: urlProblem, fieldErrors: { wp_base_url: urlProblem } };
-  if (!input.wp_app_password) {
-    return { error: "An application password is required", fieldErrors: { wp_app_password: "Required" } };
+  if (input.wp_base_url) {
+    const urlProblem = assertAllowedWordPressUrl(input.wp_base_url);
+    if (urlProblem) return { error: urlProblem, fieldErrors: { wp_base_url: urlProblem } };
+    if (!input.wp_app_password) {
+      return { error: "An application password is required", fieldErrors: { wp_app_password: "Required" } };
+    }
   }
 
   const supabase = await createClient();
@@ -130,7 +153,7 @@ export async function createWebsite(_prev, formData) {
     return { error: error?.message ?? "Could not create website" };
   }
 
-  const credentialError = await saveCredentials(website.id, input.wp_app_password);
+  const credentialError = website.wp_base_url ? await saveCredentials(website.id, input.wp_app_password) : null;
   if (credentialError) {
     await createAdminClient().from("websites").delete().eq("id", website.id);
     return { error: `Could not store credentials: ${credentialError}` };
@@ -180,11 +203,13 @@ export async function createWebsite(_prev, formData) {
       logo_uploaded: Boolean(storedLogo),
       auto_select_stories: website.auto_select_stories,
       niche_sync_error: nicheSyncError,
+      wordpress_connected: Boolean(website.wp_base_url),
     },
   });
 
-  await testConnection(website);
-  redirect(`/websites/${website.id}/settings?created=1${nicheSyncError ? "&niche_sync=failed" : ""}`);
+  const connectError = website.wp_base_url ? await connectWordPress(supabase, website, user.id) : null;
+  const notices = `${nicheSyncError ? "&niche_sync=failed" : ""}${connectError ? "&wordpress=failed" : ""}`;
+  redirect(`/websites/${website.id}/settings?created=1${notices}`);
 }
 
 export async function updateWebsite(websiteId, _prev, formData) {
@@ -199,10 +224,19 @@ export async function updateWebsite(websiteId, _prev, formData) {
   } catch (error) {
     return { error: error.message, fieldErrors: { brand_logo: error.message } };
   }
-  const urlProblem = assertAllowedWordPressUrl(input.wp_base_url);
-  if (urlProblem) return { error: urlProblem, fieldErrors: { wp_base_url: urlProblem } };
-
   const { website: previous } = await requireWebsite(websiteId);
+  // Posts may already live on that WordPress site, so its details can be changed but not removed.
+  if (previous.wp_base_url && !input.wp_base_url) {
+    const message = "WordPress details cannot be removed once added";
+    return { error: message, fieldErrors: { wp_base_url: message } };
+  }
+  if (input.wp_base_url) {
+    const urlProblem = assertAllowedWordPressUrl(input.wp_base_url);
+    if (urlProblem) return { error: urlProblem, fieldErrors: { wp_base_url: urlProblem } };
+    if (!previous.wp_base_url && !input.wp_app_password) {
+      return { error: "An application password is required", fieldErrors: { wp_app_password: "Required" } };
+    }
+  }
   const supabase = await createClient();
   let storedLogo;
   try {
@@ -268,6 +302,7 @@ export async function updateWebsite(websiteId, _prev, formData) {
       automation_mode: website.automation_mode,
       auto_select_stories: website.auto_select_stories,
       monthly_ai_budget_usd: website.monthly_ai_budget_usd,
+      wordpress_added: !previous.wp_base_url && Boolean(website.wp_base_url),
     },
   });
 
@@ -275,14 +310,23 @@ export async function updateWebsite(websiteId, _prev, formData) {
     const syncError = await syncNicheWebsite(supabase, websiteId);
     if (syncError) return { error: `Settings saved, but niche sources/categories could not be updated: ${syncError}` };
   }
-  if (credentialsChanged) await testConnection(website);
+  let connectMessage = null;
+  if (!previous.wp_base_url && website.wp_base_url) {
+    const connectError = await connectWordPress(supabase, website, user.id);
+    connectMessage = connectError
+      ? `Settings saved. ${connectError}`
+      : "Settings saved. WordPress is connected and categories are synced; approved drafts publish at the next publishing time.";
+  } else if (credentialsChanged) await testConnection(website);
   revalidatePath(`/websites/${websiteId}`, "layout");
+  const nextStep = website.wp_base_url
+    ? "If niche categories were added, click Categories → Sync with WordPress."
+    : "Drafting can run now; publishing starts once WordPress is connected.";
   return {
     ok: true,
     branding: website.branding,
-    message: logoCleanupSucceeded
-      ? "Settings saved. If niche categories were added, click Categories → Sync with WordPress."
-      : "Settings saved. The previous logo file could not be removed from storage.",
+    message: !logoCleanupSucceeded
+      ? "Settings saved. The previous logo file could not be removed from storage."
+      : (connectMessage ?? `Settings saved. ${nextStep}`),
   };
 }
 

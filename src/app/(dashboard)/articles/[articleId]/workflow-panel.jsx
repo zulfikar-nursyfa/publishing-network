@@ -1,14 +1,13 @@
 "use client";
 
-import { CalendarClock, Check, CircleCheck, EyeOff, RotateCcw, Send, Undo2, Workflow, X } from "lucide-react";
+import { CalendarClock, Check, CircleCheck, EyeOff, Send, Undo2, Workflow, X } from "lucide-react";
 import {
   publishArticleAction,
-  resetPublicationAttempts,
   scheduleArticle,
   transitionArticle,
   unpublishArticleAction,
 } from "@/app/actions/articles";
-import { ActionForm, useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
+import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, cn, inputClass } from "@/components/ui";
 
 const STEPS = [
@@ -107,20 +106,10 @@ function ScheduleForm({ articleId, schedule }) {
   );
 }
 
-export function WorkflowPanel({
-  articleId,
-  status,
-  isAdmin,
-  websiteArchived,
-  wordpressConnected,
-  publication,
-  schedule,
-}) {
+export function WorkflowPanel({ articleId, status, websiteArchived, wordpressConnected, publication, schedule }) {
   const [, transitionAction] = useActionStateWithNotice(transitionArticle.bind(null, articleId), {});
   const [, publishAction] = useActionStateWithNotice(publishArticleAction.bind(null, articleId), {});
   const canPublish = status === "approved" && !websiteArchived && wordpressConnected;
-  const exhausted =
-    publication !== null && publication.status !== "succeeded" && publication.attemptCount >= publication.maxAttempts;
 
   return (
     <Card icon={Workflow} title="Review and publish">
@@ -179,20 +168,6 @@ export function WorkflowPanel({
           <Alert tone="error" title="Last publishing error">
             <span className="block text-xs whitespace-pre-wrap">{publication.lastError}</span>
           </Alert>
-        ) : null}
-
-        {exhausted && isAdmin ? (
-          <ActionForm action={resetPublicationAttempts.bind(null, articleId)}>
-            <SubmitButton
-              variant="secondary"
-              className="w-full"
-              confirm="Reset the retry counter? Do this after fixing the cause of the failures."
-              confirmLabel="Reset attempts"
-            >
-              <RotateCcw />
-              Reset retry attempts
-            </SubmitButton>
-          </ActionForm>
         ) : null}
 
         {status !== "published" ? (

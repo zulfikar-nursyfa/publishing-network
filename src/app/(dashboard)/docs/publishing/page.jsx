@@ -78,11 +78,12 @@ export default function PublishingPage() {
         <p>
           Open <strong>Last publishing error</strong> on the article. Fix the connection, category or image issue, then
           use <strong>Retry publishing</strong>. Retrying checks for the existing WordPress post before creating one.
-          After five attempts, an administrator must use <strong>Reset retry attempts</strong> after fixing the cause.
+          A failed publication is retried automatically three times, ten minutes apart. After that it stays in the
+          review queue until someone uses <strong>Retry publishing</strong>.
         </p>
         <p>
-          An individually scheduled article with a recorded publishing failure needs attention; it is not repeatedly
-          retried by its schedule. If an attempt is still running, wait and reload rather than creating another article.
+          Automatic retries wait while automation is paused or the WordPress connection needs attention. If an attempt
+          is still running, wait and reload rather than creating another article.
         </p>
       </Section>
       <Section title="Take an article down and correct it">

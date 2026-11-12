@@ -203,7 +203,7 @@ test("over-long AI notes are cut instead of failing the job, and slugs are made 
     passed: true,
     sensitive: false,
     issues: [long],
-    checked_claims: [1, 2, 3].map(() => ({ claim: long, supported: true, source_urls: ["https://a.example.test/"] })),
+    checked_claims: [1, 2, 3].map(() => ({ claim: long, supported: true })),
   });
   assert.equal(verification.issues[0].length, 600);
   assert.equal(verification.checked_claims[0].claim.length, 700);

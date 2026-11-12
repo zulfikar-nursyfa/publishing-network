@@ -26,7 +26,6 @@ export const storyList = {
 export const reviewList = {
   sorts: { submitted: "submitted_at", updated: "updated_at", title: "title" },
   defaultSort: "submitted",
-  defaultDirection: "asc",
   search: ["title"],
   dateColumn: "submitted_at",
   filters: {

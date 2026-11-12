@@ -16,6 +16,12 @@ export class CopiedPassageError extends DraftCheckError {
     this.phrase = wording;
   }
 }
+export class ShortDraftError extends DraftCheckError {
+  constructor(count) {
+    super("Draft is too short for editorial review");
+    this.words = count;
+  }
+}
 export const researchSchema = z.object({
   angle: clipped(800, 20),
   claims: z
@@ -75,7 +81,6 @@ export const verificationSchema = z.object({
         sentence: z.number().int().min(0).max(200).default(0),
         claim: clipped(700),
         supported: z.boolean(),
-        source_urls: sourceUrls,
         // The source sentences the claim rests on, joined by " | ", so code can confirm the support exists.
         source_quote: clipped(1000).default(""),
         // Why a sentence is unsupported, shown to the reviewer.
@@ -191,11 +196,12 @@ const slugify = (value) =>
     .slice(0, 100)
     .replace(/^-+|-+$/g, "");
 
-export function checkDraft(draft, research, evidence, categories, language, strictChecks = []) {
+/** `copiedAllowed`: after the automatic rewrites, a copied passage becomes a reviewer warning instead of failing the job. */
+export function checkDraft(draft, research, evidence, categories, language, strictChecks = [], copiedAllowed = false) {
   if (/<\/?[A-Za-z][^>]*>|https?:\/\/|javascript:/i.test(draft.body))
     throw new DraftCheckError("Draft body must be plain text; sources are attached separately");
   const count = words(draft.body).length;
-  if (count < (language === "ar" ? 130 : 180)) throw new DraftCheckError("Draft is too short for editorial review");
+  if (count < (language === "ar" ? 130 : 180)) throw new ShortDraftError(count);
   const letters = draft.body.match(/\p{L}/gu) ?? [];
   const arabic = draft.body.match(/\p{Script=Arabic}/gu) ?? [];
   if (
@@ -211,17 +217,18 @@ export function checkDraft(draft, research, evidence, categories, language, stri
         .map((_, index) => tokens.slice(index, index + length).join(" ")),
     );
   const phrases = shingles(draftWords, 12);
-  for (const page of evidence) {
-    for (const [phrase, wording] of sourceShingles(page.text, 12)) {
-      if (phrases.has(phrase)) throw new CopiedPassageError(wording);
-    }
-  }
+  const copied = evidence
+    .flatMap((page) => [...sourceShingles(page.text, 12)])
+    .find(([phrase]) => phrases.has(phrase))?.[1];
+  if (copied && !copiedAllowed) throw new CopiedPassageError(copied);
   const shortPhrases = shingles(draftWords, 5);
   const sourcePhrases = new Set(evidence.flatMap((page) => [...sourceShingles(page.text, 5).keys()]));
   if ([...shortPhrases].filter((phrase) => sourcePhrases.has(phrase)).length / Math.max(1, shortPhrases.size) > 0.35)
     throw new DraftCheckError("Draft is too similar to the collected source text");
 
-  const warnings = [];
+  const warnings = copied
+    ? [`The draft still repeats source wording after two automatic rewrites ("${copied.slice(0, 200)}"); reword it`]
+    : [];
   const warn = warnOrBlock(warnings, strictChecks);
   const collected = new Set(evidence.map((page) => page.url));
   const researched = [...new Set(research.claims.flatMap((claim) => claim.source_urls))];

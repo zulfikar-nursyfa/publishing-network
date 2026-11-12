@@ -8,12 +8,20 @@ import {
   draftSchema,
   DraftCheckError,
   CopiedPassageError,
+  ShortDraftError,
   draftSentences,
   responseSchema,
   verificationSchema,
 } from "@/lib/automation/draft-checks";
 import { textWarnings, unsourcedFigures } from "@/lib/automation/text-checks";
-import { needsRedraft } from "@/lib/automation/drafting/write";
+import { needsRedraft, promptData } from "@/lib/automation/drafting/write";
+import {
+  draftOutputSchema,
+  draftWithUrls,
+  researchOutputSchema,
+  researchWithNumbers,
+  researchWithUrls,
+} from "@/lib/automation/drafting/sources";
 import { draftPrompt } from "@/lib/automation/drafting/prompts";
 import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
 import { strictDraftChecksSchema, nicheCategorySchema } from "@/lib/validation";
@@ -220,6 +228,8 @@ test("copied passage rejections request at most two redrafts", () => {
   assert.equal(needsRedraft({ copied_phrases: ["first"] }, error), true);
   assert.equal(needsRedraft({ copied_phrases: ["first", "second"] }, error), false);
   assert.equal(needsRedraft({}, new DraftCheckError("too similar")), false);
+  assert.equal(needsRedraft({}, new ShortDraftError(150)), true);
+  assert.equal(needsRedraft({ short_draft_words: 150 }, new ShortDraftError(160)), false);
   assert.equal(needsRedraft({}, new Error("provider failed")), false);
 });
 
@@ -433,4 +443,57 @@ test("niches sort by source count; website categories keep their manual order", 
   );
   assert.equal(nicheList.sorts.order, undefined);
   assert.deepEqual([categoryList.defaultSort, categoryList.sorts.order], ["order", "sort_order"]);
+});
+
+test("short drafts report their length, and a copy left after the rewrites becomes a warning", () => {
+  const short = { ...draft([official.url]), body: "word ".repeat(150) };
+  assert.throws(
+    () => checkDraft(short, research([official.url]), [official], [], "en"),
+    (error) => error instanceof ShortDraftError && error.words === 150,
+  );
+  const phrase = "Officials confirmed that the new regional service will start operating next month";
+  const page = { ...official, text: phrase };
+  const article = draft([page.url]);
+  article.body += ` ${phrase}`;
+  const checked = checkDraft(article, research([page.url]), [page], [], "en", [], true);
+  assert.ok(checked.warnings.some((warning) => warning.includes(phrase)));
+});
+
+test("the AI cites pages by number and jobs keep URLs", () => {
+  const pages = [official, outletA];
+  const data = JSON.parse(promptData({ website: {}, story: { title: "Route" } }, pages));
+  assert.deepEqual(
+    data.evidence.map((page) => [page.source, page.url]),
+    [
+      [1, undefined],
+      [2, undefined],
+    ],
+  );
+  assert.ok(!JSON.stringify(responseSchema(verificationSchema)).includes("source_urls"));
+
+  const output = researchOutputSchema.parse({
+    angle: "What the new route means for regional travellers",
+    claims: [1, 2, 9].map((source) => ({
+      claim: statement,
+      sources: [source],
+      evidence: [{ source, quote: statement }],
+    })),
+    primary_source: 1,
+    sensitive: false,
+    needs_corroboration: false,
+    unresolved: [],
+  });
+  const withUrls = researchWithUrls(output, pages);
+  assert.equal(withUrls.primary_source_url, official.url);
+  assert.deepEqual(withUrls.claims[1].evidence, [{ url: outletA.url, quote: statement }]);
+  // An unknown page number is dropped like an uncollected URL.
+  assert.equal(checkResearch(withUrls, pages).research.claims.length, 2);
+  assert.deepEqual(researchWithNumbers(withUrls, pages).claims[1], {
+    claim: statement,
+    sources: [2],
+    evidence: [{ source: 2, quote: statement }],
+  });
+
+  const generated = draftOutputSchema.parse({ ...draft([official.url]), sources: [2, 1] });
+  assert.deepEqual(draftWithUrls(generated, pages).source_urls, [outletA.url, official.url]);
 });

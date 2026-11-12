@@ -20,14 +20,21 @@ export default async function ReviewPage({ searchParams }) {
     }),
     readList(
       () =>
-        db.from("article_list").select(ARTICLE_LIST_FIELDS, { count: "exact" }).in("status", ["in_review", "approved"]),
+        db
+          .from("article_list")
+          .select(ARTICLE_LIST_FIELDS, { count: "exact" })
+          // Approved articles leave the queue unless publishing them failed.
+          .or("status.eq.in_review,and(status.eq.approved,publication_status.eq.failed)"),
       state,
       timezone,
     ),
   ]);
   return (
     <>
-      <PageHeader title="Review queue" description={`Articles in review and ready to publish · ${timezone}`} />
+      <PageHeader
+        title="Review queue"
+        description={`Articles waiting for review, and approved articles that failed to publish · ${timezone}`}
+      />
       <ListToolbar
         path="/review"
         state={state}
@@ -44,7 +51,7 @@ export default async function ReviewPage({ searchParams }) {
         path="/review"
         state={state}
         title="Inbox zero"
-        empty="No articles are waiting for review or publishing."
+        empty="No articles are waiting for review, and no publishing has failed."
       >
         <ArticleTable articles={result.data} websites={websites} path="/review" state={state} review />
       </ListResults>

@@ -125,6 +125,40 @@ async function publishScheduled(db, deadline) {
   return results;
 }
 
+const RETRY_DELAY_MS = 10 * 60_000;
+// Matches publications.max_attempts (migration 54); filtered in the query so exhausted rows never fill the batch.
+const AUTO_ATTEMPTS = 4;
+
+/**
+ * Failed publications are retried automatically: one attempt plus three retries, ten minutes apart.
+ * After that they wait in the review queue for a person to press Retry publishing.
+ */
+async function retryFailed(db, websites, network, deadline) {
+  // A pause or broken connection would only burn attempts, so those sites wait until it clears.
+  if (network.automation_paused) return [];
+  const siteIds = websites
+    .filter((site) => !site.automation_paused && site.wp_connection_status === "ok")
+    .map((site) => site.id);
+  const { data: failed, error } = await db
+    .from("publications")
+    .select("article_id, articles!inner(status)")
+    .eq("status", "failed")
+    .lt("attempt_count", AUTO_ATTEMPTS)
+    .eq("articles.status", "approved")
+    .in("website_id", siteIds)
+    .lte("updated_at", new Date(Date.now() - RETRY_DELAY_MS).toISOString())
+    .order("updated_at")
+    .limit(MAX_PER_RUN);
+  failOn(error);
+  const results = [];
+  for (const { article_id: articleId } of failed) {
+    if (Date.now() >= deadline) break;
+    const result = await publishArticle(articleId, null, createSupabasePublishStore(), createWordPressClient);
+    results.push({ articleId, outcome: result.outcome });
+  }
+  return results;
+}
+
 export async function runScheduler(now = new Date()) {
   const deadline = Date.now() + RUN_BUDGET_MS;
   const db = createAdminClient();
@@ -159,5 +193,6 @@ export async function runScheduler(now = new Date()) {
     const result = await runSlot(db, slot.website_id, slot.slot_at);
     if (result) slots.push(result);
   }
-  return { slots, scheduled: await publishScheduled(db, deadline) };
+  const scheduled = await publishScheduled(db, deadline);
+  return { slots, scheduled, retried: await retryFailed(db, websites, network, deadline) };
 }

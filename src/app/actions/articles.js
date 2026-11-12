@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { recordAudit } from "@/lib/audit";
-import { requireAdmin, requireUser, requireWebsite } from "@/lib/auth";
+import { requireUser, requireWebsite } from "@/lib/auth";
 
 import { generateForEditor } from "@/lib/ai/editor";
 import { GeminiError } from "@/lib/ai/gemini";
@@ -346,31 +346,6 @@ export async function recheckArticle(articleId) {
   return { ok: true, message: "Re-check queued. It usually finishes within a few minutes; reload to see the result." };
 }
 
-/** Admin only: clears the retry counter after the cause of repeated failures has been fixed. */
-export async function resetPublicationAttempts(articleId) {
-  const user = await requireAdmin();
-  const admin = createAdminClient();
-  const { data: publication, error } = await admin
-    .from("publications")
-    .update({ attempt_count: 0, status: "failed", locked_until: null })
-    .eq("article_id", articleId)
-    .neq("status", "succeeded")
-    .select("website_id, last_error")
-    .maybeSingle();
-  if (error) return { error: error.message };
-  if (!publication) return { error: "No failed publication is available to reset." };
-  await recordAudit({
-    action: "publication.attempts_reset",
-    entityType: "article",
-    entityId: articleId,
-    websiteId: publication.website_id,
-    actorId: user.id,
-    details: { last_error: publication.last_error },
-  });
-  refresh({ id: articleId, website_id: publication.website_id });
-  return { ok: true, message: "Publication retry counter reset." };
-}
-
 export async function publishArticleAction(articleId, _prev) {
   const { user, article } = await loadArticle(articleId);
   if (!article) return { error: "Article not found" };
@@ -396,7 +371,7 @@ export async function publishArticleAction(articleId, _prev) {
       return { error: "A publishing attempt is already running for this article. Wait a moment and reload." };
     case "attempts_exhausted":
       return {
-        error: `Publishing failed ${result.attempts} times. An administrator must review the error and reset the attempts.`,
+        error: `Publishing failed ${result.attempts} times. Fix the error, then use Retry publishing.`,
       };
     case "blocked":
       return { error: result.reason };

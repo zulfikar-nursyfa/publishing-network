@@ -10,7 +10,7 @@ import { advance, budgetGuard, loadJobContext, textModelFor } from "./drafting/c
 import { DeferredJob, LostLease, PermanentJob } from "./drafting/errors";
 import { illustrateStep } from "./drafting/illustrate";
 import { RECHECK_STEPS, syncReviewNote } from "./drafting/recheck";
-import { draftStep, needsRedraft, promptData, researchStep, verifyStep } from "./drafting/write";
+import { draftStep, needsRedraft, noteRedraft, promptData, researchStep, verifyStep } from "./drafting/write";
 import { EvidenceError } from "./evidence";
 import { waitingKind } from "./drafting/queue-policy";
 
@@ -110,7 +110,7 @@ async function runStep(db, job, worker) {
     warnings = await writing.run(db, job, worker, { state, data, context, model, assertControls });
   } catch (error) {
     if (job.step !== "draft" || !needsRedraft(state, error)) throw error;
-    state.copied_phrases = [...(state.copied_phrases ?? []), error.phrase];
+    noteRedraft(state, error);
     redraft = true;
   }
   // Without an official source or second outlet, research is redone after one more search,

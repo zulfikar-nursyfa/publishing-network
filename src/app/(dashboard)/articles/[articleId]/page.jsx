@@ -269,7 +269,6 @@ export default async function ArticlePage({ params, searchParams }) {
           <WorkflowPanel
             articleId={articleId}
             status={article.status}
-            isAdmin={user.isAdmin}
             websiteArchived={Boolean(website.archived_at)}
             wordpressConnected={Boolean(website.wp_base_url)}
             publication={

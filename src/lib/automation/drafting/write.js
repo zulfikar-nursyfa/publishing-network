@@ -6,14 +6,20 @@ import {
   checkVerification,
   CopiedPassageError,
   draftSentences,
-  draftSchema,
-  researchSchema,
+  ShortDraftError,
   verificationSchema,
 } from "../draft-checks";
 import { nicheGuideFor, storyTime } from "./context";
 import { PermanentJob } from "./errors";
 import { sameStory } from "../titles";
 import { draftPrompt, researchPrompt, verifyPrompt } from "./prompts";
+import {
+  draftOutputSchema,
+  draftWithUrls,
+  researchOutputSchema,
+  researchWithNumbers,
+  researchWithUrls,
+} from "./sources";
 
 // About 12k tokens of English and more of Arabic, leaving room in the 32k input limit for the research.
 const MAX_EVIDENCE_CHARS = 40_000;
@@ -42,9 +48,10 @@ export function promptData(context, evidence) {
       audience: context.website.audience,
     },
     story: { title: context.story.title, published_at: storyTime(context.story) },
-    evidence: fitEvidence(evidence).map(({ text, url, title, primary, publisher, published_at }) => ({
+    // Pages are cited by this number (see ./sources.js).
+    evidence: fitEvidence(evidence).map(({ text, title, primary, publisher, published_at }, index) => ({
+      source: index + 1,
       text,
-      url,
       title,
       primary,
       publisher,
@@ -55,10 +62,10 @@ export function promptData(context, evidence) {
 
 /** Claims, quotes and the primary source, checked against the collected pages. Returns warnings. */
 export async function researchStep(db, job, worker, { state, data, context, model, assertControls }) {
-  const research = await generateForJob(db, job, worker, {
+  const output = await generateForJob(db, job, worker, {
     model,
     operation: "research",
-    schema: researchSchema,
+    schema: researchOutputSchema,
     assertControls,
     prompt: researchPrompt(data, nicheGuideFor(context.website)),
   });
@@ -66,38 +73,51 @@ export async function researchStep(db, job, worker, { state, data, context, mode
   const strict = (context.strictChecks ?? []).filter(
     (key) => state.corroboration_searched || !["sensitive_second_source", "single_unofficial_source"].includes(key),
   );
-  const checked = checkResearch(research, state.evidence ?? [], strict);
+  const checked = checkResearch(researchWithUrls(output, state.evidence ?? []), state.evidence ?? [], strict);
   state.research = checked.research;
   return checked.warnings;
 }
 
 const MAX_REDRAFTS = 2;
 
-/** A copied passage gets up to two fresh drafts on later ticks, each told every phrase copied so far. */
+/**
+ * A copied passage gets up to two fresh drafts on later ticks, each told every phrase copied so far;
+ * after that the copy is a reviewer warning. A short draft gets one more try told its length.
+ */
 export function needsRedraft(state, error) {
-  return error instanceof CopiedPassageError && (state.copied_phrases?.length ?? 0) < MAX_REDRAFTS;
+  if (error instanceof CopiedPassageError) return (state.copied_phrases?.length ?? 0) < MAX_REDRAFTS;
+  return error instanceof ShortDraftError && !state.short_draft_words;
+}
+
+/** Records what the next draft must avoid. */
+export function noteRedraft(state, error) {
+  if (error instanceof ShortDraftError) state.short_draft_words = error.words;
+  else state.copied_phrases = [...(state.copied_phrases ?? []), error.phrase];
 }
 
 /** The article itself, then a duplicate check against this website's automated articles. Returns warnings. */
 export async function draftStep(db, job, worker, { state, data, context, model, assertControls }) {
+  const evidence = state.evidence ?? [];
   const generated = await generateForJob(db, job, worker, {
     model,
     operation: "draft",
-    schema: draftSchema,
+    schema: draftOutputSchema,
     assertControls,
-    prompt: draftPrompt(data, state.research, context.categories, {
+    prompt: draftPrompt(data, researchWithNumbers(state.research, evidence), context.categories, {
       language: context.website.language,
       nicheGuide: nicheGuideFor(context.website),
       copiedPhrases: state.copied_phrases,
+      shortWords: state.short_draft_words,
     }),
   });
   const checked = checkDraft(
-    generated,
+    draftWithUrls(generated, evidence),
     state.research,
-    state.evidence ?? [],
+    evidence,
     context.categories,
     context.website.language,
     context.strictChecks,
+    (state.copied_phrases?.length ?? 0) >= MAX_REDRAFTS,
   );
   state.draft = checked.draft;
 
@@ -113,6 +133,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
   const duplicate = articles.some((article) => sameStory(context.story, article) || sameStory(state.draft, article));
   if (duplicate) throw new PermanentJob("This story or headline already has an article");
   delete state.copied_phrases;
+  delete state.short_draft_words;
   return checked.warnings;
 }
 

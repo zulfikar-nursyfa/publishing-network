@@ -250,12 +250,28 @@ const SUPERLATIVES = [
   /(?:الأكبر|الأضخم|الأسرع|قياسي|تاريخي|غير مسبوق|الأول من نوعه|نقلة نوعية|ضمن أفضل|من بين أكبر|ضمن أكبر|المرتبة)/gu,
 ];
 
+// Arabic wording in a source that supports an English claim, for English drafts of Arabic sources.
+const AR_SUPERLATIVES = [
+  [/largest|biggest/, /أكبر|أضخم/],
+  [/highest/, /أعلى/],
+  [/fastest/, /أسرع/],
+  [/first-ever|pioneering|groundbreaking/, /الأول|لأول مرة|رائد/],
+  [/record/, /قياسي/],
+  [/historic|landmark/, /تاريخي/],
+  [/unprecedented/, /غير مسبوق/],
+  [/(?:one of|among) the (?:most|leading|top|best)/, /من (?:أكثر|أبرز|أهم|أفضل)|من بين|ضمن/],
+  [/top|ranked|ranks|ranking|number one|foremost/, /المرتبة|المركز|أفضل|تصنيف/],
+  [/milestone/, /محطة|إنجاز/],
+];
+
 /** Claims of size, records, rankings or firsts ("largest", "top four") that no source makes. */
 export function addedSuperlatives(article, evidence) {
   const sources = normalise(sourceText(evidence));
   return SUPERLATIVES.flatMap((pattern) => readerText(article).match(pattern) ?? [])
     .map((term) => normalise(term))
-    .filter((term) => !sources.includes(term));
+    .filter(
+      (term) => !sources.includes(term) && !AR_SUPERLATIVES.some(([en, ar]) => en.test(term) && ar.test(sources)),
+    );
 }
 
 // Words that make a figure a capacity, target, estimate or bound rather than a result. Not "may": the month.
@@ -265,14 +281,22 @@ const QUALIFIERS = [
 ];
 const qualifierIn = (context) => QUALIFIERS.map((pattern) => context.match(pattern)?.[0]).find(Boolean);
 
-/** The words around each figure within its clause (years and single digits skipped), keyed by the figure. */
+/**
+ * The words around each figure within its clause (years and single digits skipped), keyed by the figure.
+ * Another figure ends the context: in "over 50 countries across 11 sections", "over" belongs to 50, not 11.
+ */
 function figureContexts(text) {
   const contexts = new Map();
   for (const clause of latinDigits(normalise(text)).split(/[;:!?،؛]|[.,](?=\s|$)/u)) {
     const tokens = clause.match(/\d+(?:\.\d+)?|[\p{L}\p{M}]+/gu) ?? [];
+    const isFigure = (token) => /^\d/.test(token);
     tokens.forEach((token, index) => {
-      if (!/^\d/.test(token) || token.length < 2 || /^(?:19|20)\d\d$/.test(token)) return;
-      const context = tokens.slice(Math.max(0, index - 6), index + 5).join(" ");
+      if (!isFigure(token) || token.length < 2 || /^(?:19|20)\d\d$/.test(token)) return;
+      let start = index;
+      while (start > Math.max(0, index - 6) && !isFigure(tokens[start - 1])) start--;
+      let end = index + 1;
+      while (end < Math.min(tokens.length, index + 5) && !isFigure(tokens[end])) end++;
+      const context = tokens.slice(start, end).join(" ");
       contexts.set(token, [...(contexts.get(token) ?? []), context]);
     });
   }
@@ -303,34 +327,35 @@ export function droppedFormat(article, evidence) {
   return [...new Set(DELIVERY_MODES.flatMap((pattern) => sources.match(pattern) ?? []).map(normalise))];
 }
 
-// Words that say something happened, or who did it. English only: Arabic drafts are written from English sources too.
-// A pair is [flagged words, source words with the same meaning]: "reached financial close" supports
-// "completed the financial close", but "reached" itself is too common to flag.
+// Words that say something happened, or who did it, flagged in English drafts.
+// A family is [flagged words, source words with the same meaning]: "reached financial close" supports
+// "completed the financial close", but "reached" itself is too common to flag. The unanchored Arabic
+// stems match inside prefixed words (واتفق, بالتوقيع) for English drafts of Arabic sources.
 const ACTIONS = [
-  /^sign(?:s|ed|ing)?$|^signator(?:y|ies)$/,
-  /^agree(?:s|d|ing|ment|ments)?$/,
-  /^deals?$/,
-  /^contract(?:s|ed)?$/,
-  /^(?:mou|mous|memorandum|memoranda)$/,
-  /^launch(?:es|ed|ing)?$/,
-  [/^complet(?:e|es|ed|ing|ion)$/, /^reach(?:es|ed|ing)?$/],
-  /^finali[sz](?:e|es|ed|ing)$/,
-  [/^establish(?:es|ed|ing|ment)?$/, /^forg(?:e|es|ed|ing)$/],
-  /^secur(?:e|es|ed|ing)$/,
-  /^approv(?:e|es|ed|ing|al|als)$/,
-  /^award(?:s|ed|ing)?$/,
-  /^confirm(?:s|ed|ing|ation)?$/,
-  /^inaugurat(?:e|es|ed|ing|ion)$/,
-  /^open(?:s|ed|ing)$/,
-  /^commenc(?:e|es|ed|ing|ement)$/,
-  /^partnerships?$/,
-  /^commit(?:s|ted|ting|ment|ments)$/,
-  /^pledg(?:e|es|ed|ing)$/,
-  /^attend(?:s|ed|ing|ance|ees?)$/,
-  /^host(?:s|ed|ing)$/,
-  /^(?:led|headed|chaired|presided)$/,
-  /^tour(?:s|ed|ing)?$/,
-].map((family) => [family].flat());
+  [/^sign(?:s|ed|ing)?$|^signator(?:y|ies)$/, /وقع|توقيع/],
+  [/^agree(?:s|d|ing|ment|ments)?$/, /اتفق|اتفاق|توافق|وافق/],
+  [/^deals?$/, /صفق/],
+  [/^contract(?:s|ed)?$/, /عقد/],
+  [/^(?:mou|mous|memorandum|memoranda)$/, /مذكر/],
+  [/^launch(?:es|ed|ing)?$/, /أطلق|اطلق|إطلاق|اطلاق|دشن|تدشين/],
+  [/^complet(?:e|es|ed|ing|ion)$/, /^reach(?:es|ed|ing)?$/, /أكمل|اكمل|استكمال|إتمام|اتمام|أتم|إنجاز|أنجز/],
+  [/^finali[sz](?:e|es|ed|ing)$/, /إتمام|اتمام|أتم|نهائي/],
+  [/^establish(?:es|ed|ing|ment)?$/, /^forg(?:e|es|ed|ing)$/, /تأسيس|أسس|إنشاء|انشاء|أنشأ/],
+  [/^secur(?:e|es|ed|ing)$/, /حصل|حصول|تأمين/],
+  [/^approv(?:e|es|ed|ing|al|als)$/, /وافق|موافق|اعتمد|اعتماد|أقر|إقرار|صادق|مصادق/],
+  [/^award(?:s|ed|ing)?$/, /منح|ترسية|جائز/],
+  [/^confirm(?:s|ed|ing|ation)?$/, /أكد|تأكيد/],
+  [/^inaugurat(?:e|es|ed|ing|ion)$/, /افتتح|افتتاح|دشن|تدشين/],
+  [/^open(?:s|ed|ing)$/, /افتت|فتح/],
+  [/^commenc(?:e|es|ed|ing|ement)$/, /بدأ|بدء|انطلق|انطلاق|شرع/],
+  [/^partnerships?$/, /شراك/],
+  [/^commit(?:s|ted|ting|ment|ments)$/, /لتزم|لتزام/],
+  [/^pledg(?:e|es|ed|ing)$/, /تعهد/],
+  [/^attend(?:s|ed|ing|ance|ees?)$/, /حضر|حضور|شارك|مشارك/],
+  [/^host(?:s|ed|ing)$/, /ضاف|ضيف/],
+  [/^(?:led|headed|chaired|presided)$/, /رأس|رئاس|قاد|يقود/],
+  [/^tour(?:s|ed|ing)?$/, /جول|تفقد/],
+];
 
 /** "Signed", "launched", "attended", "toured": outcomes, roles and presence no source states. */
 export function addedActions(article, evidence) {

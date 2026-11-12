@@ -133,6 +133,9 @@ export default async function StoriesPage({ searchParams }) {
                       <Badge>{story.status}</Badge>
                       {story.selected_automatically ? <Badge tone="green">Auto-selected</Badge> : null}
                     </div>
+                    {story.status === "skipped" && story.skip_reason ? (
+                      <p className="mt-1 text-xs text-muted-foreground">{story.skip_reason}</p>
+                    ) : null}
                     {story.status === "selected" && !job && !jobsError ? <QueueDraftForm storyId={story.id} /> : null}
                     {job ? (
                       <Link href={`/jobs/${job.id}`} className="mt-2 inline-block text-xs underline underline-offset-4">

@@ -334,6 +334,37 @@ test("each sentence needs its own verdict and is reported in the draft's words",
   assert.equal(joined(`${statement} | Nothing like this appears anywhere`).length, 1);
 });
 
+test("full stops inside a quotation do not split a sentence", () => {
+  const sentences = draftSentences({ body: 'Protesters chanted "Salaries. Housing. Prices." in Madrid. Rents rose.' });
+  assert.deepEqual(
+    sentences.map(({ text }) => text),
+    ['Protesters chanted "Salaries. Housing. Prices." in Madrid.', "Rents rose."],
+  );
+});
+
+test("warnings name the field of each flagged sentence (PM review 12 Nov)", () => {
+  const sentences = draftSentences({
+    title: "Russia posts a trade surplus",
+    meta_description: "The surplus hit a record.",
+  });
+  const warnings = checkVerification(
+    {
+      passed: false,
+      issues: ["Sentence 2 calls the surplus a record."],
+      checked_claims: [{ sentence: 2, claim: "x", supported: false, note: "sentence 2 adds a record" }],
+    },
+    [],
+    undefined,
+    sentences,
+  );
+  assert.deepEqual(warnings, [
+    "AI verification did not pass",
+    'Verification: the meta description "The surplus hit a record." calls the surplus a record.',
+    "Not checked by AI verification: [headline] Russia posts a trade surplus",
+    'Unsupported claim: [meta description] The surplus hit a record. (the meta description "The surplus hit a record." adds a record)',
+  ]);
+});
+
 test("array limits above Gemini's 30 are left to Zod", () => {
   const items = responseSchema(verificationSchema).properties.checked_claims;
   assert.equal(items.maxItems, undefined);

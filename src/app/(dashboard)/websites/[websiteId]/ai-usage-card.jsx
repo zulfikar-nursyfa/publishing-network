@@ -3,6 +3,7 @@ import { Alert, Card } from "@/components/ui";
 import { formatUsd, monthStartUtc, summariseAggregatedUsage } from "@/lib/costs";
 
 const STEPS = [
+  { key: "screen", label: "Story screening" },
   { key: "search", label: "Web search" },
   { key: "research", label: "Research" },
   { key: "draft", label: "Drafting" },

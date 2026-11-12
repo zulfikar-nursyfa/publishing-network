@@ -147,6 +147,25 @@ test("a source word with the same meaning supports an action, and is not flagged
   );
 });
 
+test("Arabic source wording supports an English draft's actions and claims of scale (PM review 12 Nov)", () => {
+  const evidence = [source("واتفق المفاوضون على تبادل الأسرى، وقال الوزير إن القطاع من أكثر القطاعات نموا.")];
+  const article = body("Negotiators agreed on a prisoner exchange; the sector is one of the most dynamic.");
+  assert.deepEqual(addedActions(article, evidence), []);
+  assert.deepEqual(addedSuperlatives(article, evidence), []);
+  assert.deepEqual(addedActions(body("They signed a deal."), evidence), ["signed", "deal"]);
+  assert.deepEqual(addedSuperlatives(body("It is the largest sector."), evidence), ["largest"]);
+});
+
+test("a qualifier belongs to the nearest figure, not every figure in the clause", () => {
+  const evidence = [source("More than 1,300 exhibitors from over 50 countries across 11 sections.")];
+  const exact = body("More than 1,300 exhibitors from over 50 countries take part across 11 sections.");
+  assert.deepEqual(droppedQualifiers(exact, evidence), []);
+  assert.deepEqual(droppedQualifiers(body("1,300 exhibitors from 50 countries attend."), evidence), [
+    '1300 (sources: "more than")',
+    '50 (sources: "over")',
+  ]);
+});
+
 test("a currency code written against a figure is not a name and does not hide the figure", () => {
   const evidence = [source("The winner received AED80,000, and TA'ZIZ closed on AED5.1 billion.")];
   const article = body("The winner received AED 80,000, and TA'ZIZ closed on AED 5.1 billion, with AED 90,000 more.");

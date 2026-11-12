@@ -67,6 +67,11 @@ export default function ChoosingStoriesPage() {
             An editor skipped it, or used <strong>Remove from drafting</strong> to cancel its job and skip the story.
           </li>
           <li>
+            Automatic selection judged it outside the website&apos;s topic. Before choosing stories, the AI reads each
+            new story&apos;s headline and summary once against the website&apos;s topic, categories and niche guide.
+            Off-topic stories are skipped with the reason shown under the story; an editor can still select one.
+          </li>
+          <li>
             An untouched job still waiting to collect sources reached 48 hours from the story&apos;s publication time,
             or discovery time when no publication date is known. It is cancelled with{" "}
             <strong>Story went stale while waiting</strong>.

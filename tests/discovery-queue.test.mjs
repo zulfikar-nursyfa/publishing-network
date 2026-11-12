@@ -23,6 +23,8 @@ const candidate = (id, website_id, source_id, title, extra = {}) => ({
   created_at: new Date().toISOString(),
   ...extra,
 });
+const fitsAll = async (_db, _website, _network, stories) =>
+  new Map(stories.map((story) => [story.id, { fits: true, reason: "On topic" }]));
 const fixture = (auto = false) =>
   automationFixture({
     network_settings: [{ automation_paused: false, monthly_ai_budget_usd: null }],
@@ -103,10 +105,10 @@ test("discovery suppresses cross-feed titles, recent legacy rows and automated a
 
 test("automatic selection is off by default and manual selections still queue", async () => {
   const db = fixture();
-  assert.equal(await queueSelectedStories(db), 0);
+  assert.equal(await queueSelectedStories(db, { screen: fitsAll }), 0);
   assert.deepEqual(db.rpcCalls, []);
   db.tables.story_candidates[0].status = "selected";
-  assert.equal(await queueSelectedStories(db), 1);
+  assert.equal(await queueSelectedStories(db, { screen: fitsAll }), 1);
   assert.equal(db.rpcCalls[0].name, "queue_story_draft");
 });
 
@@ -118,13 +120,13 @@ test("enabled selection fills only the remaining review buffer and reuses the qu
     status: "in_review",
     title: "Unrelated aviation report",
   });
-  assert.equal(await queueSelectedStories(db), 1);
+  assert.equal(await queueSelectedStories(db, { screen: fitsAll }), 1);
   assert.deepEqual(
     db.rpcCalls.map((call) => call.name),
     ["auto_select_stories", "queue_story_draft"],
   );
   assert.equal(db.tables.story_candidates[0].selected_automatically, true);
-  assert.equal(await queueSelectedStories(db), 0);
+  assert.equal(await queueSelectedStories(db, { screen: fitsAll }), 0);
 });
 
 test("automatic selection leaves existing selected stories first and skips blocked websites", async () => {
@@ -132,7 +134,7 @@ test("automatic selection leaves existing selected stories first and skips block
   db.tables.story_candidates[0].status = "selected";
   db.tables.websites[0].daily_quota = 1;
   db.tables.articles.push({ website_id: "one", origin: "automated", status: "approved", title: "Different report" });
-  await queueSelectedStories(db);
+  await queueSelectedStories(db, { screen: fitsAll });
   assert.deepEqual(
     db.rpcCalls.map((call) => call.name),
     ["queue_story_draft"],
@@ -140,12 +142,12 @@ test("automatic selection leaves existing selected stories first and skips block
   for (const patch of [{ automation_paused: true }, { automation_mode: "off" }, { monthly_ai_budget_usd: 0 }]) {
     const blocked = fixture(true);
     Object.assign(blocked.tables.websites[0], patch);
-    assert.equal(await queueSelectedStories(blocked), 0);
+    assert.equal(await queueSelectedStories(blocked, { screen: fitsAll }), 0);
     assert.deepEqual(blocked.rpcCalls, []);
   }
   const networkPaused = fixture(true);
   networkPaused.tables.network_settings[0].automation_paused = true;
-  assert.equal(await queueSelectedStories(networkPaused), 0);
+  assert.equal(await queueSelectedStories(networkPaused, { screen: fitsAll }), 0);
 });
 
 test("selection checks article history beyond the first database page", async () => {
@@ -158,7 +160,7 @@ test("selection checks article history beyond the first database page", async ()
     origin: "manual",
   }));
   db.tables.articles[500].title = db.tables.story_candidates[0].title;
-  assert.equal(await queueSelectedStories(db), 0);
+  assert.equal(await queueSelectedStories(db, { screen: fitsAll }), 0);
   assert.deepEqual(db.rpcCalls, []);
 });
 
@@ -166,9 +168,46 @@ test("with selection off, the existing manually selected queue behavior remains 
   const db = fixture(false);
   db.tables.websites[0].monthly_ai_budget_usd = 0;
   db.tables.story_candidates[0].status = "selected";
-  assert.equal(await queueSelectedStories(db), 1);
+  assert.equal(await queueSelectedStories(db, { screen: fitsAll }), 1);
   assert.deepEqual(
     db.rpcCalls.map((call) => call.name),
     ["queue_story_draft"],
   );
+});
+
+test("automatic selection skips off-topic stories with the AI's reason and screens each story once", async () => {
+  const db = fixture(true);
+  db.tables.story_candidates.push(candidate("oil", "one", "news", "Oil prices rise after prisoner exchange deal"));
+  const screened = [];
+  const screen = async (_db, _website, _network, stories) => {
+    screened.push(...stories.map((story) => story.id));
+    return new Map([
+      ["a", { fits: true, reason: "Savings rates" }],
+      ["oil", { fits: false, reason: "An oil price update, not housing." }],
+    ]);
+  };
+  assert.equal(await queueSelectedStories(db, { screen }), 1);
+  const [savings, oil] = db.tables.story_candidates;
+  assert.equal(savings.status, "selected");
+  assert.equal(oil.status, "skipped");
+  assert.equal(oil.skip_reason, "Outside the website's topic: An oil price update, not housing.");
+  assert.ok(savings.topic_checked_at && oil.topic_checked_at);
+  await queueSelectedStories(db, { screen });
+  assert.deepEqual(screened.sort(), ["a", "oil"]);
+});
+
+test("a failed screening call selects nothing rather than unscreened stories", async () => {
+  const db = fixture(true);
+  const failing = async () => {
+    throw new Error("Gemini unavailable");
+  };
+  const error = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await queueSelectedStories(db, { screen: failing }), 0);
+  } finally {
+    console.error = error;
+  }
+  assert.equal(db.tables.story_candidates[0].status, "new");
+  assert.equal(db.rpcCalls.length, 0);
 });

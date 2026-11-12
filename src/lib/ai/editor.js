@@ -7,11 +7,15 @@ import { responseSchema } from "@/lib/automation/draft-checks";
 const MAX_OUTPUT_TOKENS = 1024;
 
 /**
- * One budgeted Gemini call an editor asked for (no draft job), parsed with `schema`. Reserved and
+ * One budgeted Gemini call without a draft job (an editor's request, or screening stories), parsed with `schema`. Reserved and
  * settled in ai_usage like job calls, so it counts against the website and network budgets.
  * `db` is the secret-key client; check the editor's access to the website first.
  */
-export async function generateForEditor(db, websiteId, { model, operation, prompt, schema }) {
+export async function generateForEditor(
+  db,
+  websiteId,
+  { model, operation, prompt, schema, maxOutputTokens = MAX_OUTPUT_TOKENS },
+) {
   const contents = [{ role: "user", parts: [{ text: prompt }] }];
   const jsonSchema = responseSchema(schema);
   const client = createGeminiClient({ apiKey: serverEnv().GEMINI_API_KEY });
@@ -23,7 +27,7 @@ export async function generateForEditor(db, websiteId, { model, operation, promp
     operation_name: operation,
     prompt_hash: createHash("sha256").update(JSON.stringify({ model, operation, contents })).digest("hex"),
     prompt_tokens: count,
-    maximum_output_tokens: MAX_OUTPUT_TOKENS,
+    maximum_output_tokens: maxOutputTokens,
   });
   if (error) throw new GeminiError(error.message);
   const usage = data?.[0];
@@ -44,7 +48,7 @@ export async function generateForEditor(db, websiteId, { model, operation, promp
 
   let response;
   try {
-    response = await client.generate(model, contents, jsonSchema, MAX_OUTPUT_TOKENS);
+    response = await client.generate(model, contents, jsonSchema, maxOutputTokens);
   } catch (error) {
     // A lost response stays reserved; never assume a timeout was free.
     await settle(error instanceof GeminiError && error.uncertain ? "uncertain" : "failed", {

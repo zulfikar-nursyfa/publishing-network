@@ -260,15 +260,52 @@ export function checkDraft(draft, research, evidence, categories, language, stri
 // Not after an abbreviation ("Dr. Herrmann") or before a lowercase word ("U.S. officials").
 const SENTENCE_END = /(?<!\b(?:Dr|Mr|Mrs|Ms|St|No|Co|Inc|Ltd|Jr|Sr|vs|U\.S|U\.K|e\.g|i\.e)\.)(?<=[.!?؟])\s+(?!\p{Ll})/u;
 
+export const FIELD_LABELS = {
+  title: "headline",
+  excerpt: "excerpt",
+  seo_title: "SEO title",
+  meta_description: "meta description",
+  body: "body",
+};
+
+const openQuote = (text) =>
+  (text.match(/"/g)?.length ?? 0) % 2 === 1 || (text.match(/[“«]/g)?.length ?? 0) > (text.match(/[”»]/g)?.length ?? 0);
+
+/** A line's sentences; full stops inside a quotation ("Salaries. Housing. Prices.") do not end one. */
+function lineSentences(line) {
+  const sentences = [];
+  for (const part of line.split(SENTENCE_END)) {
+    if (sentences.length && openQuote(sentences.at(-1))) sentences[sentences.length - 1] += ` ${part}`;
+    else sentences.push(part);
+  }
+  return sentences;
+}
+
 /** Every sentence a reader sees, in order: headline, excerpt, SEO fields, then each body sentence. */
 export function draftSentences(draft) {
-  return ["title", "excerpt", "seo_title", "meta_description", "body"].flatMap((field) =>
+  return Object.keys(FIELD_LABELS).flatMap((field) =>
     (draft[field] ?? "")
       .split(/\n+/)
-      .flatMap((line) => line.split(SENTENCE_END))
+      .flatMap(lineSentences)
       .map((text) => text.trim())
       .filter((text) => /\p{L}{2}/u.test(text))
       .map((text) => ({ field, text })),
+  );
+}
+
+/** The verifier's "sentence 5" as the field and wording a reviewer can find: 'the meta description "…"'. */
+function sentenceNames(text, sentences) {
+  if (!sentences) return text;
+  return text.replace(/\bsentences?\s+(\d+(?:\s*(?:,|&|and)\s*\d+)*)/gi, (match, numbers) =>
+    numbers
+      .match(/\d+/g)
+      .map((number) => {
+        const sentence = sentences[Number(number) - 1];
+        if (!sentence) return `sentence ${number}`;
+        const wording = sentence.text.length > 100 ? `${sentence.text.slice(0, 100)}…` : sentence.text;
+        return `${sentence.field ? `the ${FIELD_LABELS[sentence.field]} ` : ""}"${wording}"`;
+      })
+      .join(" and "),
   );
 }
 
@@ -290,15 +327,16 @@ export function checkVerification(verification, strictChecks = [], evidence, sen
   const warnings = [];
   const warn = warnOrBlock(warnings, strictChecks);
   if (!verification.passed) warn("verification_failed", "AI verification did not pass");
-  for (const issue of verification.issues) warn("verification_issues", `Verification: ${issue}`);
+  for (const issue of verification.issues)
+    warn("verification_issues", `Verification: ${sentenceNames(issue, sentences)}`);
   const checks = sentences
-    ? sentences.map(({ text }, index) => ({
-        text,
+    ? sentences.map(({ field, text }, index) => ({
+        text: field ? `[${FIELD_LABELS[field]}] ${text}` : text,
         claim: verification.checked_claims.find((claim) => claim.sentence === index + 1),
       }))
     : verification.checked_claims.map((claim) => ({ text: claim.claim, claim }));
   for (const { text, claim } of checks) {
-    const note = claim?.note ? ` (${claim.note})` : "";
+    const note = claim?.note ? ` (${sentenceNames(claim.note, sentences)})` : "";
     if (!claim) warn("unsupported_claims", `Not checked by AI verification: ${text}`);
     else if (!claim.supported) warn("unsupported_claims", `Unsupported claim: ${text}${note}`);
     else if (!quoted(claim))

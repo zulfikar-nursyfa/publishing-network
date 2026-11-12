@@ -42,8 +42,8 @@ async function storiesWithoutJobs(db, website) {
   return stories.filter((story) => !queuedStories.has(story.id));
 }
 
-/** Selected stories fill a two-day review buffer; launch drafts can be queued explicitly. */
-export async function queueSelectedStories(db) {
+/** Selected stories fill a two-day review buffer; launch drafts can be queued explicitly. `screen` is for tests. */
+export async function queueSelectedStories(db, { screen } = {}) {
   const { data: network, error: networkError } = await db.from("network_settings").select("*").single();
   if (networkError) throw new Error(networkError.message);
   const { data: websites, error } = await db.from("websites").select("*").is("archived_at", null).limit(100);
@@ -63,7 +63,7 @@ export async function queueSelectedStories(db) {
     const needed = await draftsNeeded(db, website);
     if (needed <= 0) continue;
     if (website.auto_select_stories && !automationBlockReason(website, network, spend))
-      await autoSelectStories(db, website, needed);
+      await autoSelectStories(db, website, needed, { network, screen });
 
     for (const story of (await storiesWithoutJobs(db, website)).slice(0, needed)) {
       const { data: jobId, error: queueError } = await db.rpc("queue_story_draft", {

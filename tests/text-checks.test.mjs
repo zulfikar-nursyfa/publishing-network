@@ -5,6 +5,7 @@ import { fitEvidence } from "@/lib/automation/drafting/write";
 import { collectEvidence } from "@/lib/automation/evidence";
 import {
   addedActions,
+  addedCausalLinks,
   addedCurrencies,
   addedSuperlatives,
   droppedFormat,
@@ -53,6 +54,20 @@ test("capitalised words no source uses are flagged, but not sentence starts or t
   assert.deepEqual(unknownNames(article, evidence, "en"), ["Garmin", "Emirati"]);
   assert.deepEqual(unknownNames(article, evidence, "ar"), []);
   assert.deepEqual(unknownNames(article, [source("وقعت الهيئة عقدا مع شركة هايبرميديا في دبي")], "en"), []);
+});
+
+test("spelt-out acronyms and plurals of source words are not unknown names (PM review 14 Nov)", () => {
+  const evidence = [source("It will appear as a regular listing on the MLS. Rechat Text is a Mac application.")];
+  const article = body(
+    "Listings then become active on the Multiple Listing Service. The app runs on Macs, and Garmin Listing Partners joined.",
+  );
+  assert.deepEqual(unknownNames(article, evidence, "en"), ["Garmin", "Partners"]);
+  assert.deepEqual(unknownNames(article, [source("A Mac app; listings appear on the portal.")], "en"), [
+    "Multiple",
+    "Service",
+    "Garmin",
+    "Partners",
+  ]);
 });
 
 test("title-case headlines are not read as names, but the body still is", () => {
@@ -135,6 +150,26 @@ test("outcomes, roles and presence no source states are flagged", () => {
   assert.deepEqual(addedActions(article, evidence), ["signed", "deals", "toured", "launched"]);
   const signed = [source("Both sides signed a memorandum and toured the projects they launched.")];
   assert.deepEqual(addedActions(body("They signed an MoU, toured projects and launched a fund."), signed), []);
+});
+
+test("deals are supported by the transactions a source reports (PM review 14 Nov)", () => {
+  const evidence = [source("Real estate transactions reached AED171.26 billion through 38,483 transactions.")];
+  assert.deepEqual(addedActions(body("Sharjah recorded AED46.8 billion in deals."), evidence), []);
+});
+
+test("a cause or link between facts that no source states is flagged (PM review 14 Nov)", () => {
+  const evidence = [
+    source("Transactions rose 76 percent. Separately, 104 projects were completed, supported by Dubai Holding."),
+  ];
+  const article = body(
+    "Transactions rose 76 percent, supported by new project completions. Orders were driven by data centres. Training was supported by Sharjah Islamic Bank.",
+  );
+  assert.deepEqual(addedCausalLinks(article, evidence), ["supported by", "driven by"]);
+  assert.deepEqual(
+    addedCausalLinks(body("Orders rose, driven by data centres."), [source("Demand was driven by data centres.")]),
+    [],
+  );
+  assert.deepEqual(addedCausalLinks(body("Sales rose due to demand."), [source("ارتفعت المبيعات بسبب الطلب")]), []);
 });
 
 test("a source word with the same meaning supports an action, and is not flagged itself", () => {

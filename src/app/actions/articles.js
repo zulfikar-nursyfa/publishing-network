@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { recordAudit } from "@/lib/audit";
 import { requireUser, requireWebsite } from "@/lib/auth";
 
@@ -199,6 +200,75 @@ export async function deletePrivateDraft(articleId) {
   });
   refresh(article);
   redirect(`/websites/${article.website_id}`);
+}
+
+/**
+ * Moves an article that never reached WordPress to another website the user can access, keeping its
+ * text, SEO fields, sources and images (migration 57). Image files are copied to the new website's
+ * folder before the move and the old ones removed after it, so a failure never loses an image.
+ */
+export async function moveArticle(articleId, formData) {
+  const { user, supabase, article } = await loadArticle(articleId);
+  if (!article) return { error: "Article not found" };
+  if (!EDITABLE.includes(article.status) || article.wp_post_id) {
+    return { error: "Only drafts, articles in review and rejected articles that were never published can be moved." };
+  }
+  const targetId = String(formData.get("website_id") ?? "");
+  // RLS returns only websites the user is assigned to.
+  const { data: target } = z.uuid().safeParse(targetId).success
+    ? await supabase.from("websites").select("id, name").eq("id", targetId).maybeSingle()
+    : { data: null };
+  if (!target) return { error: "Choose a website you can access." };
+
+  const admin = createAdminClient();
+  const { data: images, error: imageError } = await admin
+    .from("article_images")
+    .select("storage_path")
+    .eq("article_id", articleId)
+    .not("storage_path", "is", null);
+  if (imageError) return { error: imageError.message };
+  const files = images.map(({ storage_path: from }) => ({ from, to: from.replace(/^[^/]+\//, `${target.id}/`) }));
+  const bucket = admin.storage.from(ARTICLE_IMAGE_BUCKET);
+  const copied = [];
+  for (const { from, to } of files) {
+    const { error } = await bucket.copy(from, to);
+    if (error) {
+      if (copied.length) await bucket.remove(copied);
+      return { error: `Could not copy the article's images: ${error.message}` };
+    }
+    copied.push(to);
+  }
+  const { error } = await admin.rpc("move_article", {
+    target_article: articleId,
+    target_website: target.id,
+    expected_version: article.version,
+    actor: user.id,
+  });
+  if (error) {
+    if (copied.length) await bucket.remove(copied);
+    return { error: error.message };
+  }
+  // Left-over old files are harmless, so a failed removal does not fail the move.
+  if (files.length) await bucket.remove(files.map(({ from }) => from));
+
+  const { data: moved } = await supabase.from("articles").select("category_id").eq("id", articleId).maybeSingle();
+  await recordAudit({
+    action: "article.moved",
+    entityType: "article",
+    entityId: articleId,
+    websiteId: article.website_id,
+    actorId: user.id,
+    details: { to_website_id: target.id, to_website: target.name, images: files.length },
+  });
+  refresh(article);
+  revalidatePath(`/websites/${target.id}`);
+  return {
+    ok: true,
+    message:
+      article.category_id && !moved?.category_id
+        ? `Moved to ${target.name}. Choose a category from that website before publishing.`
+        : `Moved to ${target.name}.`,
+  };
 }
 
 /**

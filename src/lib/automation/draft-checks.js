@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { textWarnings, words } from "./text-checks";
+import { datesIn, publishedKey, textWarnings, words } from "./text-checks";
 
 const sourceUrls = z.array(z.url()).min(1).max(4);
 // Gemini does not enforce string lengths, so over-long notes are cut rather than failing the job.
@@ -315,14 +315,27 @@ function sentenceNames(text, sentences) {
  * sentences, each one needs its own verdict and is reported in the draft's words, never the verifier's.
  */
 export function checkVerification(verification, strictChecks = [], evidence, sentences) {
-  const quoted = (claim) => {
-    const parts = (claim.source_quote ?? "")
+  const quoteParts = (claim) =>
+    (claim.source_quote ?? "")
       .split("|")
       .map((part) => part.trim())
       .filter(Boolean);
+  const quoted = (claim) => {
+    const parts = quoteParts(claim);
     return (
       !evidence || (parts.length > 0 && parts.every((part) => evidence.some((page) => quoteFound(part, page.text))))
     );
+  };
+  // Every quoted part must show the sentence's date, in its words or as its page's publication date:
+  // a roundup must not give several announcements one source's date (PM review 14 Nov).
+  const undated = (claim, text) => {
+    const dates = datesIn(text, false).map(({ key }) => key);
+    if (!evidence || !dates.length) return false;
+    return quoteParts(claim).some((part) => {
+      const shown = new Set(datesIn(part, true).map(({ key }) => key));
+      for (const page of evidence) if (quoteFound(part, page.text) && publishedKey(page)) shown.add(publishedKey(page));
+      return dates.some((key) => !shown.has(key));
+    });
   };
   const warnings = [];
   const warn = warnOrBlock(warnings, strictChecks);
@@ -341,6 +354,8 @@ export function checkVerification(verification, strictChecks = [], evidence, sen
     else if (!claim.supported) warn("unsupported_claims", `Unsupported claim: ${text}${note}`);
     else if (!quoted(claim))
       warn("unsupported_claims", `Unsupported claim: ${text} (its quoted support is not on the source pages)`);
+    else if (undated(claim, text))
+      warn("unsupported_claims", `Unsupported claim: ${text} (the source it rests on does not give this date for it)`);
   }
   return warnings;
 }

@@ -277,6 +277,42 @@ test("a claim marked supported needs its quoted support on a source page", () =>
   assert.equal(check("").length, 1);
 });
 
+test("each dated item needs its date from the source it rests on (PM review 14 Nov)", () => {
+  const roundup = {
+    url: "https://news.example.test/roundup",
+    published_at: "2026-11-12T15:00:00Z",
+    text: "RealScout activated Preview listings. Rechat released a beta of Rechat Text.",
+  };
+  const guide = {
+    url: "https://help.example.test/rechat",
+    published_at: "2026-11-10T19:00:00Z",
+    text: "Rechat Text is a Mac application that syncs calls and texts.",
+  };
+  const nahb = {
+    url: "https://nahb.example.test/calculator",
+    published_at: null,
+    text: "On 11 November NAHB released its priced-out calculator.",
+  };
+  const check = (sentence, source_quote) =>
+    checkVerification(
+      { passed: true, issues: [], checked_claims: [{ sentence: 1, claim: sentence, supported: true, source_quote }] },
+      [],
+      [roundup, guide, nahb],
+      [{ text: sentence }],
+    );
+  const summary = "RealScout, Rechat and NAHB announced new tools on November 12, 2026.";
+  assert.deepEqual(
+    check(
+      summary,
+      "RealScout activated Preview listings. | Rechat Text is a Mac application that syncs calls and texts.",
+    ),
+    [`Unsupported claim: ${summary} (the source it rests on does not give this date for it)`],
+  );
+  assert.deepEqual(check("RealScout activated Preview listings on 12 November.", roundup.text), []);
+  assert.deepEqual(check("NAHB released a calculator on 11 November.", nahb.text), []);
+  assert.equal(check("NAHB released a calculator on 12 November.", nahb.text).length, 1);
+});
+
 test("the article is split into numbered sentences, keeping abbreviations whole", () => {
   const sentences = draftSentences({
     title: "Dubai opens a route",

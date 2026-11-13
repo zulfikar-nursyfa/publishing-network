@@ -143,6 +143,29 @@ function isTitleCase(line) {
   return long.length >= 3 && long.filter((word) => /^\p{Lu}/u.test(word)).length >= long.length * 0.8;
 }
 
+// A run of capitalised words, which may hold connectors ("Department of Land and Property").
+const CAPITALISED_RUN = /\p{Lu}[\p{L}\p{N}]*(?:(?:\s+(?:of|and|for|the|&))*\s+\p{Lu}[\p{L}\p{N}]*)+/gu;
+
+/** Words of a spelt-out acronym the sources use ("Multiple Listing Service" where they say "MLS"). */
+function expandedAcronyms(text, sources) {
+  const acronyms = new Set(
+    (sources.match(/(?<![\p{L}\p{N}])\p{Lu}{2,6}(?=s?(?![\p{L}\p{N}]))/gu) ?? []).map(normalise),
+  );
+  return (text.match(CAPITALISED_RUN) ?? []).flatMap((run) => {
+    const capitalised = run.match(/\p{Lu}[\p{L}\p{N}]*/gu);
+    return acronyms.has(normalise(capitalised.map((word) => word[0]).join(""))) ? capitalised.map(normalise) : [];
+  });
+}
+
+/** "Macs" where the sources say "Mac", or "Mac" where they say "Macs". */
+const wordForms = (word) => [
+  word,
+  `${word}s`,
+  word.replace(/s$/, ""),
+  word.replace(/es$/, ""),
+  word.replace(/ies$/, "y"),
+];
+
 /**
  * Capitalised words (outside sentence starts) that no source uses in any form: misspelt or invented
  * names, places and organisations. English only, and skipped when the sources are mostly in another script.
@@ -153,8 +176,9 @@ export function unknownNames(article, evidence, language) {
   const letters = sources.match(/\p{L}/gu)?.length ?? 0;
   const latin = sources.match(/\p{Script=Latin}/gu)?.length ?? 0;
   if (language === "ar" || latin < letters / 2) return [];
-  const known = new Set(words(sources));
-  return readerText(article)
+  const text = readerText(article);
+  const known = new Set([...words(sources), ...expandedAcronyms(text, sources)]);
+  return text
     .split("\n")
     .filter((line) => !isTitleCase(line))
     .flatMap((line) => line.split(/(?<=[.!?:;])\s+|["“”«»]/u))
@@ -162,7 +186,7 @@ export function unknownNames(article, evidence, language) {
     .filter(
       (word) =>
         /^\p{Lu}/u.test(word) &&
-        !known.has(normalise(word)) &&
+        !wordForms(normalise(word)).some((form) => known.has(form)) &&
         !TITLE_WORDS.has(normalise(word)) &&
         // Currencies are checked by addedCurrencies.
         !CURRENCY_CODES.includes(word),
@@ -274,6 +298,26 @@ export function addedSuperlatives(article, evidence) {
     );
 }
 
+// Wording that makes one fact the cause of another, with the next word's first letter. "<verb> by" counts
+// only before a lowercase word: "supported by new completions" is a cause, "supported by Sharjah Islamic Bank" a sponsor.
+const CAUSAL =
+  /\b((?:driven|fuell?ed|supported|underpinned|boosted|spurred|propelled|lifted|helped|buoyed|powered) by|due to|thanks to|owing to|as a result of|on the back of|because of|led to|resulting in|contributed to)\b(?:\s+(?:the\s+)?(\p{L}))?/giu;
+const AR_CAUSAL = /بسبب|نتيجة|بفضل|مدفوع|مدعوم|ساهم|أسهم|أدى|يعود إلى|بدعم من/u;
+
+/** "Growth supported by new project completions" where the sources give the two facts separately. */
+export function addedCausalLinks(article, evidence) {
+  const causes = (text) =>
+    new Set(
+      [...text.matchAll(CAUSAL)]
+        .filter(([, term, next = ""]) => !/ by$/i.test(term) || !/\p{Lu}/u.test(next))
+        .map(([, term]) => normalise(term)),
+    );
+  const sources = sourceText(evidence);
+  if (AR_CAUSAL.test(sources)) return [];
+  const known = causes(sources);
+  return [...causes(readerText(article))].filter((term) => !known.has(term));
+}
+
 // Words that make a figure a capacity, target, estimate or bound rather than a result. Not "may": the month.
 const QUALIFIERS = [
   /\b(?:up to|as many as|capacity|capable|able to|aims?|aiming|aimed|targets?|targeting|targeted|goals?|expected|expects?|projected|forecasts?|planned|plans?|potential|estimated|estimates?|could|might|about|around|approximately|nearly|almost|roughly|more than|over|at least|less than|fewer than|under)\b/u,
@@ -334,7 +378,8 @@ export function droppedFormat(article, evidence) {
 const ACTIONS = [
   [/^sign(?:s|ed|ing)?$|^signator(?:y|ies)$/, /وقع|توقيع/],
   [/^agree(?:s|d|ing|ment|ments)?$/, /اتفق|اتفاق|توافق|وافق/],
-  [/^deals?$/, /صفق/],
+  // Property and market reports count sales as "transactions"; "deals" for them is not an added agreement.
+  [/^deals?$/, /^transactions?$/, /صفق/],
   [/^contract(?:s|ed)?$/, /عقد/],
   [/^(?:mou|mous|memorandum|memoranda)$/, /مذكر/],
   [/^launch(?:es|ed|ing)?$/, /أطلق|اطلق|إطلاق|اطلاق|دشن|تدشين/],
@@ -375,7 +420,7 @@ const DATES = [
 ];
 
 /** Each day-and-month date in the text with its wording; a range ("10-12 November") gives every day in it. */
-function datesIn(text, everyDay) {
+export function datesIn(text, everyDay) {
   const found = [];
   for (const { pattern, groups, ar } of DATES) {
     for (const match of latinDigits(text).matchAll(pattern)) {
@@ -394,13 +439,16 @@ function datesIn(text, everyDay) {
   return found;
 }
 
+/** A page's publication date in the form datesIn keys dates, or null. */
+export function publishedKey(page) {
+  const date = page.published_at && new Date(page.published_at);
+  return date && !Number.isNaN(date.getTime()) ? `${date.getUTCMonth()}-${date.getUTCDate()}` : null;
+}
+
 /** Event dates in the article that no source gives, such as a summit's dates moved or widened. */
 export function unsourcedDates(article, evidence) {
   const known = new Set(datesIn(sourceText(evidence), true).map(({ key }) => key));
-  for (const page of evidence) {
-    const date = page.published_at && new Date(page.published_at);
-    if (date && !Number.isNaN(date.getTime())) known.add(`${date.getUTCMonth()}-${date.getUTCDate()}`);
-  }
+  for (const page of evidence) if (publishedKey(page)) known.add(publishedKey(page));
   return datesIn(readerText(article), false)
     .filter(({ key }) => !known.has(key))
     .map(({ wording }) => wording);
@@ -433,6 +481,7 @@ export const TEXT_WARNINGS = [
   "Online or remote format not stated",
   "Actions not found in the sources",
   "Dates not found in the sources",
+  "Causal links not found in the sources",
 ];
 
 /** All of the checks above as reviewer warnings. */
@@ -451,6 +500,7 @@ export function textWarnings(article, evidence, { language, today } = {}) {
     [TEXT_WARNINGS[10], "say so as the sources do", droppedFormat(article, evidence)],
     [TEXT_WARNINGS[11], "check the sources say this happened and who did it", addedActions(article, evidence)],
     [TEXT_WARNINGS[12], "check the source's dates", unsourcedDates(article, evidence)],
+    [TEXT_WARNINGS[13], "keep facts the sources give separately apart", addedCausalLinks(article, evidence)],
   ];
   return checks
     .filter(([, , found]) => found.length)

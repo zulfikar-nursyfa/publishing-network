@@ -128,7 +128,9 @@ export default function DraftMessagesPage() {
             <strong>Relative dates</strong> and <strong>Weekday does not match the date</strong>: replace
             &ldquo;yesterday&rdquo; or &ldquo;next week&rdquo; with the calendar date, and check a weekday against the
             source. <strong>Claims of scale not found in the sources</strong>: words such as &ldquo;largest&rdquo; or
-            &ldquo;historic&rdquo; that no source uses. <strong>AI wording or placeholders left in the draft</strong>:
+            &ldquo;historic&rdquo; that no source uses. <strong>Causal links not found in the sources</strong>:
+            wording such as &ldquo;driven by&rdquo; or &ldquo;supported by&rdquo; that makes one fact the cause of
+            another when no source says so. <strong>AI wording or placeholders left in the draft</strong>:
             text such as &ldquo;the provided sources&rdquo; or &ldquo;[company name]&rdquo; that must not be published.
           </li>
           <li>

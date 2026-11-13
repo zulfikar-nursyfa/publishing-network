@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, Eye, History, Info, Lock, RefreshCw, Trash2 } from "lucide-react";
-import { deletePrivateDraft, recheckArticle, saveArticle } from "@/app/actions/articles";
+import { ArrowRightLeft, ExternalLink, Eye, History, Info, Lock, RefreshCw, Trash2 } from "lucide-react";
+import { deletePrivateDraft, moveArticle, recheckArticle, saveArticle } from "@/app/actions/articles";
 import { RedirectNotice } from "@/components/action-notice";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
 import {
@@ -17,6 +17,7 @@ import {
   PublicationStatusBadge,
   buttonClass,
   formatDateTime,
+  inputClass,
 } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { formatUsd, summariseAggregatedUsage } from "@/lib/costs";
@@ -83,7 +84,7 @@ export default async function ArticlePage({ params, searchParams }) {
     supabase
       .from("websites")
       .select(
-        "id, name, timezone, publish_times, text_direction, archived_at, wp_base_url, ga4_property_id, search_console_site",
+        "id, name, language, timezone, publish_times, text_direction, archived_at, wp_base_url, ga4_property_id, search_console_site",
       )
       .eq("id", article.website_id)
       .single(),
@@ -125,11 +126,23 @@ export default async function ArticlePage({ params, searchParams }) {
       ),
     ),
   ];
-  const [{ data: usage }, { data: signed }, { data: actors }, schedule] = await Promise.all([
+  const editable = ["draft", "in_review", "rejected"].includes(article.status);
+  // Only an article that never reached WordPress moves (migration 57); RLS lists the user's websites.
+  const movable = editable && !article.wp_post_id && !publication;
+  const [{ data: usage }, { data: signed }, { data: actors }, schedule, { data: moveTargets }] = await Promise.all([
     draftJob ? supabase.rpc("job_usage_summary", { target_job: draftJob.id }) : { data: null },
     paths.length ? supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600) : { data: [] },
     actorIds.length ? supabase.from("profiles").select("id, email, full_name").in("id", actorIds) : { data: [] },
     article.status === "approved" ? scheduleFor(supabase, article, website) : null,
+    movable
+      ? supabase
+          .from("websites")
+          .select("id, name")
+          .eq("language", website.language)
+          .is("archived_at", null)
+          .neq("id", website.id)
+          .order("name")
+      : { data: [] },
   ]);
   const withPreview = (images ?? []).map((row) => ({
     ...row,
@@ -142,7 +155,6 @@ export default async function ArticlePage({ params, searchParams }) {
   };
 
   const officialSource = sources?.find((source) => source.official);
-  const editable = ["draft", "in_review", "rejected"].includes(article.status);
   const rtl = website.text_direction === "rtl";
 
   return (
@@ -297,6 +309,33 @@ export default async function ArticlePage({ params, searchParams }) {
                 Delete draft
               </SubmitButton>
             </ActionForm>
+          ) : null}
+
+          {moveTargets?.length ? (
+            <Card icon={ArrowRightLeft} title="Move to another website">
+              <ActionForm action={moveArticle.bind(null, articleId)} className="space-y-3">
+                <select name="website_id" aria-label="Website" required defaultValue="" className={inputClass}>
+                  <option value="" disabled>
+                    Choose a website
+                  </option>
+                  {moveTargets.map((target) => (
+                    <option key={target.id} value={target.id}>
+                      {target.name}
+                    </option>
+                  ))}
+                </select>
+                <SubmitButton
+                  variant="secondary"
+                  size="sm"
+                  pendingLabel="Moving…"
+                  confirm="Move this article with its edits, SEO fields, sources and images? Save your edits first. Its category is kept only if the other website has one with the same slug."
+                  confirmLabel="Move"
+                >
+                  <ArrowRightLeft />
+                  Move article
+                </SubmitButton>
+              </ActionForm>
+            </Card>
           ) : null}
 
           <Card icon={Info} title="Details">

@@ -8,7 +8,17 @@ import { allRows, readList } from "@/lib/lists";
 import { parseListParams, listHref } from "@/lib/list-params";
 import { ARTICLE_LIST_FIELDS, articleList, slotList, articleStatuses } from "@/lib/list-configs";
 import Link from "next/link";
-import { CircleCheck, ClipboardCheck, ExternalLink, Plus, Send, Settings, TriangleAlert, Upload } from "lucide-react";
+import {
+  ArrowRightLeft,
+  CircleCheck,
+  ClipboardCheck,
+  ExternalLink,
+  Plus,
+  Send,
+  Settings,
+  TriangleAlert,
+  Upload,
+} from "lucide-react";
 import {
   Badge,
   ButtonLink,
@@ -136,6 +146,10 @@ export default async function WebsitePage({ params, searchParams }) {
             <ButtonLink href={`/websites/${websiteId}/settings`} variant="secondary">
               <Settings />
               {user.isAdmin ? "Settings" : "Details"}
+            </ButtonLink>
+            <ButtonLink href={`/websites/${websiteId}/move`} variant="secondary">
+              <ArrowRightLeft />
+              Move articles
             </ButtonLink>
             {!website.archived_at ? (
               <ButtonLink href={`/websites/${websiteId}/articles/new`}>

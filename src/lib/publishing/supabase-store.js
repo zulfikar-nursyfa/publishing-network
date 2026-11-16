@@ -67,6 +67,7 @@ export function createSupabasePublishStore() {
           excerpt: article.excerpt,
           body: article.body,
           tags: article.tags ?? [],
+          originalPublishedAt: article.original_published_at,
           seo: {
             seoTitle: article.seo_title,
             metaDescription: article.meta_description,
@@ -82,7 +83,7 @@ export function createSupabasePublishStore() {
       };
     },
 
-    async markSucceeded({ publicationId, articleId, post }) {
+    async markSucceeded({ publicationId, articleId, post, publishedAt }) {
       const now = new Date().toISOString();
       const { error: articleError } = await db
         .from("articles")
@@ -90,7 +91,7 @@ export function createSupabasePublishStore() {
           status: "published",
           wp_post_id: post.id,
           wp_post_url: post.link,
-          published_at: now,
+          published_at: publishedAt ?? now,
           unpublished_at: null,
         })
         .eq("id", articleId);

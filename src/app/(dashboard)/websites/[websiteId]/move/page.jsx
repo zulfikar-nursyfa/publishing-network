@@ -44,7 +44,7 @@ export default async function MoveArticlesPage({ params }) {
       .from("articles")
       .select("id, title, status, wp_post_id, published_at, created_at")
       .eq("website_id", websiteId)
-      .in("status", ["published", "draft", "in_review", "rejected"])
+      .in("status", ["published", "approved", "draft", "in_review", "rejected"])
       .order("published_at", { nullsFirst: false })
       .order("created_at"),
   ]);
@@ -80,7 +80,9 @@ export default async function MoveArticlesPage({ params }) {
           <Alert title="How it works">
             Published articles are copied and approved without review. Their posts stay live on {website.name}, and the
             copies are published with their original date, images, sources and SEO fields. Drafts, articles in review
-            and rejected articles that never reached WordPress move with their status and still need review.
+            and rejected articles that never reached WordPress move with their status and still need review; approved
+            ones move and are published like the copies. Each article keeps its category: categories the other website
+            lacks are added there and linked to WordPress.
           </Alert>
 
           <Card icon={ArrowRightLeft} title="Where to">
@@ -100,12 +102,10 @@ export default async function MoveArticlesPage({ params }) {
               <Field
                 label="Category"
                 htmlFor="category_id"
-                hint="Used when the other website has no category with the same slug."
+                hint="Only for articles without a category. When an admin moves, missing categories are created."
               >
-                <select id="category_id" name="category_id" required defaultValue="" className={inputClass}>
-                  <option value="" disabled>
-                    Choose a category
-                  </option>
+                <select id="category_id" name="category_id" defaultValue="" className={inputClass}>
+                  <option value="">Keep each article&apos;s category</option>
                   {targets.map((target) => (
                     <optgroup key={target.id} label={target.name}>
                       {categories
@@ -158,6 +158,9 @@ export default async function MoveArticlesPage({ params }) {
             <Field label="Which articles" htmlFor="scope" className="mb-4 max-w-xs">
               <select id="scope" name="scope" defaultValue="all" className={inputClass}>
                 <option value="all">All articles</option>
+                <option value="published">Only published</option>
+                <option value="approved">Only approved</option>
+                <option value="other">Only drafts, in review and rejected</option>
                 <option value="selected">Only the ticked ones</option>
               </select>
             </Field>

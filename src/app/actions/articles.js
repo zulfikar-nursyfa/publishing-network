@@ -204,14 +204,14 @@ export async function deletePrivateDraft(articleId) {
 
 /**
  * Moves an article that never reached WordPress to another website the user can access, keeping its
- * text, SEO fields, sources and images (migration 57). Image files are copied to the new website's
+ * text, SEO fields, sources and images (migrations 57 and 59). Image files are copied to the new website's
  * folder before the move and the old ones removed after it, so a failure never loses an image.
  */
 export async function moveArticle(articleId, formData) {
   const { user, supabase, article } = await loadArticle(articleId);
   if (!article) return { error: "Article not found" };
-  if (!EDITABLE.includes(article.status) || article.wp_post_id) {
-    return { error: "Only drafts, articles in review and rejected articles that were never published can be moved." };
+  if (![...EDITABLE, "approved"].includes(article.status) || article.wp_post_id) {
+    return { error: "Only articles that were never published can be moved." };
   }
   const targetId = String(formData.get("website_id") ?? "");
   // RLS returns only websites the user is assigned to.

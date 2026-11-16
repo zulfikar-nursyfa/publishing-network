@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { syncNicheWebsite } from "@/lib/niche-sync";
 import { prepareLogo, uploadLogo, removeLogo, LogoUploadError } from "@/lib/storage/logos";
-import { syncCategoriesWithWordPress } from "@/lib/wordpress/categories";
+import { pushNicheCategoryNames, syncCategoriesWithWordPress } from "@/lib/wordpress/categories";
 import { assertAllowedWordPressUrl, testConnection } from "@/lib/wordpress/connection";
 import { normaliseBaseUrl } from "@/lib/wordpress/client";
 import { syncTraffic } from "@/lib/traffic/sync";
@@ -309,6 +309,10 @@ export async function updateWebsite(websiteId, _prev, formData) {
   if (website.niche_id !== previous.niche_id || website.language !== previous.language) {
     const syncError = await syncNicheWebsite(supabase, websiteId);
     if (syncError) return { error: `Settings saved, but niche sources/categories could not be updated: ${syncError}` };
+  }
+  if (website.language !== previous.language && previous.wp_base_url) {
+    const renameError = await pushNicheCategoryNames(supabase, website);
+    if (renameError) return { error: `Settings saved, but WordPress category names were not updated: ${renameError}` };
   }
   let connectMessage = null;
   if (!previous.wp_base_url && website.wp_base_url) {

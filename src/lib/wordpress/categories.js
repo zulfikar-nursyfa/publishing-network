@@ -4,6 +4,27 @@ import { loadConnection } from "@/lib/wordpress/connection";
 
 export const CATEGORY_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+/** After a language switch renamed niche categories here, gives their WordPress terms the same names. */
+export async function pushNicheCategoryNames(supabase, website) {
+  if (!website.wp_base_url) return null;
+  const connection = await loadConnection(website);
+  if (!connection) return "No WordPress credentials are saved for this website.";
+  const wordpress = createWordPressClient(connection);
+  const { data: local, error } = await supabase
+    .from("categories")
+    .select("name, slug, description, wp_term_id")
+    .eq("website_id", website.id)
+    .not("niche_category_id", "is", null)
+    .not("wp_term_id", "is", null);
+  if (error) return error.message;
+  try {
+    for (const { wp_term_id, ...category } of local) await wordpress.updateCategory(wp_term_id, category);
+    return null;
+  } catch (wordpressError) {
+    return wordpressError instanceof Error ? wordpressError.message : String(wordpressError);
+  }
+}
+
 /**
  * Links unlinked categories to the WordPress category with the same slug, creating it when
  * missing, and imports WordPress categories the dashboard does not have yet.

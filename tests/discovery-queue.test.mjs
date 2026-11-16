@@ -103,6 +103,22 @@ test("discovery suppresses cross-feed titles, recent legacy rows and automated a
   );
 });
 
+test("discovery skips paused websites and stops when the network is paused", async () => {
+  const db = fixture();
+  db.tables.content_sources = [source("news", "one"), source("second", "two")];
+  db.tables.content_sources[0].websites.automation_paused = true;
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    return new Response("<rss><channel></channel></rss>");
+  };
+  assert.equal((await discoverStories({ db, fetchImpl })).sources, 1);
+  assert.deepEqual(calls, ["https://second.test/feed"]);
+  db.tables.network_settings[0].automation_paused = true;
+  assert.equal((await discoverStories({ db, fetchImpl })).paused, true);
+  assert.equal(calls.length, 1);
+});
+
 test("automatic selection is off by default and manual selections still queue", async () => {
   const db = fixture();
   assert.equal(await queueSelectedStories(db, { screen: fitsAll }), 0);

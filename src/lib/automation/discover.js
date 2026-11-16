@@ -91,15 +91,19 @@ async function checkSource(db, source, history, fetchImpl) {
   }
 }
 
-/** Reads every active source feed of every active website and stores stories not seen before. */
+/** Reads every active source feed of every active, unpaused website and stores stories not seen before. */
 export async function discoverStories({ db = createAdminClient(), fetchImpl = fetch } = {}) {
-  const { data: sources, error } = await db
+  const { data: network, error: networkError } = await db.from("network_settings").select("automation_paused").single();
+  if (networkError) throw new Error(`Could not load network settings: ${networkError.message}`);
+  if (network.automation_paused) return { sources: 0, failed: 0, newStories: 0, paused: true };
+  const { data: activeSources, error } = await db
     .from("content_sources")
-    .select("id, website_id, feed_url, websites!inner(archived_at)")
+    .select("id, website_id, feed_url, websites!inner(archived_at, automation_paused)")
     .eq("active", true)
     .not("feed_url", "is", null)
     .is("websites.archived_at", null);
   if (error) throw new Error(`Could not load sources: ${error.message}`);
+  const sources = activeSources.filter((source) => !source.websites.automation_paused);
 
   const results = [];
   const websiteIds = [...new Set(sources.map((source) => source.website_id))];

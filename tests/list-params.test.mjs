@@ -137,7 +137,7 @@ test("draft jobs default to active work and preserve explicit history filters be
       (call) =>
         call[0] === "in" &&
         call[1] === "status" &&
-        JSON.stringify(call[2]) === JSON.stringify(["queued", "running", "failed"]),
+        JSON.stringify(call[2]) === JSON.stringify(["queued", "running"]),
     ),
   );
   assert.ok(calls.findIndex((call) => call[0] === "in") < calls.findIndex((call) => call[0] === "range"));

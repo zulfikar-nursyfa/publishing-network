@@ -1,7 +1,7 @@
 import "server-only";
 import { groundingResults } from "@/lib/ai/gemini";
 import { generateForJob } from "@/lib/ai/usage";
-import { collectEvidence, hostOf, isFetchableUrl } from "../evidence";
+import { collectEvidence, hostOf, isFetchableUrl, SEARCH_REDIRECT_HOST } from "../evidence";
 import { storyTime } from "./context";
 import { PermanentJob } from "./errors";
 import { corroborationPrompt, searchPrompt } from "./prompts";
@@ -26,20 +26,20 @@ export function startCorroboration(state) {
 export async function searchStep(db, job, worker, { context, model, assertControls }) {
   const state = structuredClone(job.state);
   const known = [...new Set((state.evidence ?? []).map((page) => hostOf(page.url)))];
+  // A corroboration pass, or a second search after nothing could be read, looks only at other sites.
+  const others = known.length > 0 || Boolean(state.coverage_retried);
   const publishedAt = storyTime(context.story);
   const response = await generateForJob(db, job, worker, {
     model,
     operation: "search",
     search: true,
     assertControls,
-    prompt: known.length
-      ? corroborationPrompt(context.story, publishedAt, known)
+    prompt: others
+      ? corroborationPrompt(context.story, publishedAt, [...known, ...(state.unreadable_hosts ?? [])])
       : searchPrompt(context.story, publishedAt),
   });
   const found = groundingResults(response).urls;
-  state.candidate_urls = [
-    ...new Set(known.length ? found : [...(state.pending_urls ?? []), context.story.url, ...found]),
-  ]
+  state.candidate_urls = [...new Set(others ? found : [...(state.pending_urls ?? []), context.story.url, ...found])]
     .filter(isFetchableUrl)
     .slice(0, MAX_CANDIDATES);
   state.searched = true;
@@ -91,6 +91,15 @@ export async function collectStep(job, context) {
       .join("; ");
     const summary = `No readable coverage found (${reasons})`;
     if (skipped.some((page) => page.retryable)) throw new Error(summary);
+    if (!state.coverage_retried) {
+      // One more search, away from the sites that blocked or paywalled us, before a person has to add URLs.
+      state.coverage_retried = true;
+      state.searched = false;
+      state.unreadable_hosts = [...new Set(state.candidate_urls.map(hostOf))].filter(
+        (host) => host !== SEARCH_REDIRECT_HOST,
+      );
+      return state;
+    }
     throw new PermanentJob(`${summary}. Add supporting URLs and retry.`);
   }
   // Official pages first; the rest keep search order.

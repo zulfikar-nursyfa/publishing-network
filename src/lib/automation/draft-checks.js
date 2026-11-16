@@ -49,7 +49,8 @@ export const draftSchema = z.object({
   // Made URL-safe in checkDraft: an Arabic or capitalised slug must not fail the draft.
   slug: z.string().trim().default(""),
   excerpt: z.string().trim().min(50).max(500),
-  body: z.string().trim().min(800).max(25000),
+  // No minimum here: checkDraft counts words, so a short draft is rewritten once instead of failing validation.
+  body: z.string().trim().max(25000),
   category_id: z.uuid().nullable(),
   sensitive: z.boolean(),
   source_urls: sourceUrls,

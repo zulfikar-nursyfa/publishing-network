@@ -2,19 +2,64 @@
 /**
  * Plugin Name: Publishing Network Connector
  * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button embeds X and Instagram posts pasted on their own line, and reports clicks on phone, email and WhatsApp links to Google Analytics.
- * Version: 1.3.0
+ * Version: 2.0.0
+ * Requires at least: 5.8
  * Author: Publishing Network
+ * Update URI: __PN_DASHBOARD_URL__/api/connector/info
  *
- * Install by copying this file into wp-content/mu-plugins/ (create the folder if needed).
- * Must-use plugins load automatically and cannot be deactivated from the admin screen.
+ * Install the zip from the dashboard (Plugins → Add New Plugin → Upload Plugin). The dashboard fills in
+ * its own address above when it builds the zip, and the plugin then updates itself from there.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const PN_CONNECTOR_VERSION = '1.3.0';
+// The old must-use copy (1.x) loads first; running both would register everything twice.
+if ( defined( 'PN_CONNECTOR_VERSION' ) ) {
+	return;
+}
+
+const PN_CONNECTOR_VERSION = '2.0.0';
 const PN_ARTICLE_META      = 'pn_article_id';
+const PN_UPDATE_INFO_URL   = '__PN_DASHBOARD_URL__/api/connector/info';
+
+// WordPress asks this filter about plugins whose Update URI points at the dashboard's host (WP 5.8+).
+// WordPress caches the answer and checks about twice a day.
+add_filter(
+	'update_plugins_' . wp_parse_url( PN_UPDATE_INFO_URL, PHP_URL_HOST ),
+	static function ( $update, $plugin_data, $plugin_file ) {
+		if ( plugin_basename( __FILE__ ) !== $plugin_file ) {
+			return $update;
+		}
+		$response = wp_remote_get( PN_UPDATE_INFO_URL, array( 'timeout' => 10 ) );
+		if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+			return $update;
+		}
+		$info = json_decode( wp_remote_retrieve_body( $response ), true );
+		if ( ! is_array( $info ) || empty( $info['version'] ) || empty( $info['package'] ) ) {
+			return $update;
+		}
+		return array(
+			'slug'       => 'publishing-network',
+			'version'    => $info['version'],
+			'package'    => $info['package'],
+			'url'        => PN_UPDATE_INFO_URL,
+		);
+	},
+	10,
+	3
+);
+
+// Always auto-update this plugin (shown as "Auto-updates enabled" on the Plugins screen).
+add_filter(
+	'auto_update_plugin',
+	static function ( $update, $item ) {
+		return isset( $item->plugin ) && plugin_basename( __FILE__ ) === $item->plugin ? true : $update;
+	},
+	10,
+	2
+);
 
 add_action(
 	'init',

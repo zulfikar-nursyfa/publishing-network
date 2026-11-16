@@ -5,7 +5,7 @@
  * Kept free of Next.js and Supabase imports so it can be unit tested with a fake fetch.
  */
 
-export const REQUIRED_PLUGIN_VERSION = "1.2.0";
+export const REQUIRED_PLUGIN_VERSION = "2.0.0";
 
 /**
  * @typedef {{baseUrl: string, username: string, appPassword: string}} WordPressConnection
@@ -106,12 +106,20 @@ export function createWordPressClient(connection, options = {}) {
         pn_article_id: articleId,
         status: "publish,future,draft,pending,private",
         context: "edit",
-        _fields: "id,status,link,slug",
+        _fields: "id,status,link,slug,meta",
         per_page: "2",
       });
       const posts = await request("GET", `/wp/v2/posts?${query}`);
       if (!Array.isArray(posts) || posts.length === 0) return null;
-      return posts[0];
+      // Without the connector WordPress ignores the filter and lists the latest posts instead.
+      const post = posts.find((candidate) => candidate.meta?.pn_article_id === articleId);
+      if (!post) {
+        throw new WordPressError(
+          "The Publishing Network connector plugin is not active on this WordPress site, so the article's post cannot be found safely.",
+          { code: "connector_inactive", retryable: true },
+        );
+      }
+      return { id: post.id, status: post.status, link: post.link, slug: post.slug };
     },
 
     async createPost(post) {
@@ -240,7 +248,7 @@ function describeError(status, error) {
     case "application_passwords_disabled":
       return "Application passwords are disabled on this WordPress site (they require HTTPS).";
     case "rest_no_route":
-      return `WordPress does not recognise this API route (${status}). Check that the Publishing Network connector is installed in wp-content/mu-plugins.`;
+      return `WordPress does not recognise this API route (${status}). Check that the Publishing Network connector plugin is installed and active.`;
     case "rest_forbidden":
     case "rest_cannot_create":
     case "rest_cannot_edit":

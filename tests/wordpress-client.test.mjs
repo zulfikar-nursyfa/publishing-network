@@ -37,3 +37,24 @@ test("a copied article's original date is sent as UTC", async () => {
     ["2024-03-05T10:00:00", undefined],
   );
 });
+
+test("finding a post refuses posts that are not marked with the article", async () => {
+  const respond = (posts) =>
+    createWordPressClient(
+      { baseUrl: "https://wp.example", username: "u", appPassword: "p" },
+      { fetch: async () => new Response(JSON.stringify(posts)) },
+    );
+  const marked = { id: 7, status: "publish", link: "l", slug: "s", meta: { pn_article_id: "a" } };
+  assert.deepEqual(await respond([marked]).findPostByArticleId("a"), {
+    id: 7,
+    status: "publish",
+    link: "l",
+    slug: "s",
+  });
+  assert.equal(await respond([]).findPostByArticleId("a"), null);
+  // Connector inactive: WordPress ignores the filter and returns the latest posts.
+  await assert.rejects(respond([{ id: 9, status: "publish", meta: {} }]).findPostByArticleId("a"), {
+    name: "WordPressError",
+    retryable: true,
+  });
+});

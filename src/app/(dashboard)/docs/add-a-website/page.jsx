@@ -61,13 +61,13 @@ export default function AddWebsiteOverviewPage() {
             An <strong>administrator login</strong> for that WordPress site.
           </li>
           <li>
-            The <strong>connector plugin file</strong>: download{" "}
+            The <strong>connector plugin</strong>: download{" "}
             <a
-              href="/docs/downloads/publishing-network"
-              download="publishing-network.php"
+              href="/api/connector/download"
+              download="publishing-network.zip"
               className="font-medium text-foreground underline underline-offset-4"
             >
-              publishing-network.php
+              publishing-network.zip
             </a>
             .
           </li>

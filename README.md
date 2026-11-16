@@ -50,7 +50,7 @@ supabase/
   migrations/             database schema, access policies, publication lock
   templates/              invitation and recovery email templates
 wordpress/
-  mu-plugins/             connector plugin to install on every WordPress site
+  plugins/                connector plugin; sites install the zip from /api/connector/download and self-update
 tests/                    unit tests (npm test)
 docs/                     handoff, setup, automation pipeline, WordPress/SiteGround checklist, operations
 ```

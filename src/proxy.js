@@ -49,6 +49,8 @@ export async function proxy(request) {
 }
 
 export const config = {
-  // Cron endpoints authenticate with their own secret, not a user session.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  // Cron endpoints authenticate with their own secret; WordPress sites fetch connector updates without a session.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|api/cron|api/connector|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };

@@ -111,6 +111,11 @@ export const DOC_TOPICS = [
         summary: "Read alerts, recover a draft or remove work that is no longer needed.",
       },
       { href: "/docs/traffic", title: "Traffic", summary: "Visitors, Google searches and when the numbers update." },
+      {
+        href: "/docs/connector",
+        title: "WordPress connector plugin",
+        summary: "Automatic updates, moving older sites and releasing a new version.",
+      },
     ],
   },
 ];

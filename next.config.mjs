@@ -1,7 +1,8 @@
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   outputFileTracingIncludes: {
-    "/docs/downloads/publishing-network": ["./wordpress/mu-plugins/publishing-network.php"],
+    "/api/connector/info": ["./wordpress/plugins/publishing-network/publishing-network.php"],
+    "/api/connector/download": ["./wordpress/plugins/publishing-network/publishing-network.php"],
   },
   experimental: {
     serverActions: { bodySizeLimit: "4mb" },

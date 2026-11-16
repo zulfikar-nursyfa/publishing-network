@@ -137,8 +137,8 @@ export default function DashboardStepPage() {
               <Path>Settings → Edit website</Path>.
             </li>
             <li>
-              Connector shows &quot;unknown&quot;: the plugin file is missing or in the wrong folder. It must be
-              directly inside <Code>wp-content/mu-plugins</Code>.
+              Connector shows &quot;unknown&quot;: the connector plugin is not installed or not active. Check{" "}
+              <Path>Plugins → Installed Plugins</Path> in WordPress.
             </li>
             <li>
               A &quot;forbidden&quot; or blocked request: a security plugin or SiteGround setting is blocking the

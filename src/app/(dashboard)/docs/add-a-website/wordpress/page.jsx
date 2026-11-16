@@ -1,4 +1,4 @@
-import { Code, DocPage, List, Note, Path, Section, Step, Steps } from "../../doc-parts";
+import { Code, DocLink, DocPage, List, Note, Path, Section, Step, Steps } from "../../doc-parts";
 
 export const metadata = { title: "Prepare WordPress" };
 
@@ -59,33 +59,31 @@ export default function WordPressStepPage() {
       <Section title="A. Install the connector plugin">
         <p>
           This small plugin lets the dashboard publish safely: it stops the same article from being posted twice and
-          powers the Test connection button. It is a &quot;must-use&quot; plugin, so it is uploaded as a file instead of
-          from the Plugins screen, and it cannot be switched off by accident.
+          powers the Test connection button. You install it once; after that it updates itself from the dashboard.
         </p>
         <Steps>
-          <Step title="Open SiteGround's File Manager">
-            Log in to SiteGround, open <Path>Websites</Path>, click <Path>Site Tools</Path> next to the site, then go to{" "}
-            <Path>Site → File Manager</Path>.
-          </Step>
-          <Step title="Go to the wp-content folder">
-            Open <Code>public_html</Code> (or the folder for this domain), then <Code>wp-content</Code>.
-          </Step>
-          <Step title="Create the mu-plugins folder if it is missing">
-            If there is no folder called <Code>mu-plugins</Code>, create one with exactly that name (lowercase, with
-            the dash).
-          </Step>
-          <Step title="Upload the plugin file">
+          <Step title="Download the plugin">
             Download{" "}
-            <a href="/docs/downloads/publishing-network" download="publishing-network.php" className="font-medium text-foreground underline underline-offset-4">
-              publishing-network.php
-            </a>, then open <Code>mu-plugins</Code> and upload the downloaded file. Do not put it inside another folder.
+            <a href="/api/connector/download" download="publishing-network.zip" className="font-medium text-foreground underline underline-offset-4">
+              publishing-network.zip
+            </a>
+            . Do not unzip it.
+          </Step>
+          <Step title="Upload it to WordPress">
+            In WordPress, go to <Path>Plugins → Add New Plugin</Path>, click <strong>Upload Plugin</strong>, choose the
+            zip and click <strong>Install Now</strong>, then <strong>Activate Plugin</strong>.
           </Step>
           <Step title="Check it is active">
-            In WordPress, go to <Path>Plugins → Installed Plugins</Path>. A <strong>Must-Use</strong> tab should show{" "}
-            <strong>Publishing Network Connector</strong>. The version should be 1.2.0 or newer;
-            1.3.0 adds contact-click tracking for the Traffic tab.
+            In <Path>Plugins → Installed Plugins</Path>, <strong>Publishing Network Connector</strong> should be listed
+            as active with version 2.0.0 or newer and <strong>Auto-updates enabled</strong>. Do not deactivate it.
           </Step>
         </Steps>
+        <Note tone="warning" title="Site set up before version 2.0.0?">
+          The old connector was a single file in <Code>wp-content/mu-plugins</Code>. Delete{" "}
+          <Code>mu-plugins/publishing-network.php</Code> in SiteGround&apos;s <Path>Site → File Manager</Path>, then
+          install the zip as above. Until the old file is gone the new plugin stays idle and Test connection warns
+          that the connector is out of date. See <DocLink href="/docs/connector">WordPress connector plugin</DocLink>.
+        </Note>
       </Section>
 
       <Section title="B. Install Yoast SEO">

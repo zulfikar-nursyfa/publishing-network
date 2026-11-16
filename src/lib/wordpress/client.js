@@ -12,7 +12,7 @@ export const REQUIRED_PLUGIN_VERSION = "1.2.0";
  * @typedef {"publish"|"future"|"draft"|"pending"|"private"|"trash"} WordPressPostStatus
  * @typedef {{id: number, status: WordPressPostStatus, link: string, slug: string}} WordPressPost
  * @typedef {{seoTitle?: string|null, metaDescription?: string|null, focusKeyword?: string|null}} PostSeo
- * @typedef {{articleId: string, title: string, content: string, excerpt?: string|null, slug?: string|null, status: "publish"|"draft", categoryIds?: number[], tagIds?: number[], featuredMediaId?: number|null, seo?: PostSeo}} NewPost
+ * @typedef {{articleId: string, title: string, content: string, excerpt?: string|null, slug?: string|null, status: "publish"|"draft", categoryIds?: number[], tagIds?: number[], featuredMediaId?: number|null, seo?: PostSeo, date?: string|null}} NewPost
  * @typedef {{id: number, name: string, slug: string}} WordPressCategory
  * @typedef {ReturnType<typeof createWordPressClient>} WordPressClient
  */
@@ -202,6 +202,8 @@ function postBody(post) {
     categories: post.categoryIds?.length ? post.categoryIds : undefined,
     tags: post.tagIds ?? [],
     featured_media: post.featuredMediaId ?? 0,
+    // A copied article keeps its original date (UTC, without the zone WordPress does not accept here).
+    date_gmt: post.date ? new Date(post.date).toISOString().slice(0, 19) : undefined,
     // Yoast SEO fields; empty values let Yoast fall back to the post title and excerpt.
     meta: {
       pn_article_id: post.articleId,

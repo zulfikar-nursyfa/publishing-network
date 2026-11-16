@@ -5,7 +5,7 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @typedef {{id: string, attemptCount: number, maxAttempts: number}} ClaimedPublication
  * @typedef {{status: "pending"|"in_progress"|"succeeded"|"failed", attemptCount: number, maxAttempts: number, wpPostUrl: string|null}} PublicationSnapshot
  * @typedef {Object} PublishContext
- * @property {{id: string, websiteId: string, status: string, title: string, slug: string|null, excerpt: string|null, body: string, tags?: string[], seo?: import("../wordpress/client").PostSeo}} article
+ * @property {{id: string, websiteId: string, status: string, title: string, slug: string|null, excerpt: string|null, body: string, tags?: string[], seo?: import("../wordpress/client").PostSeo, originalPublishedAt?: string|null}} article
  * @property {{id: string, language: "en"|"ar", archived: boolean}} website
  * @property {import("./content").ArticleSourceRef[]} sources
  * @property {{name: string, wpTermId: number|null}|null} category
@@ -19,7 +19,7 @@ import { WordPressError } from "@/lib/wordpress/client";
  * @property {(articleId: string, actorId: string|null) => Promise<ClaimedPublication|null>} claim
  * @property {(articleId: string) => Promise<PublicationSnapshot|null>} getPublication
  * @property {(articleId: string) => Promise<PublishContext|null>} loadContext
- * @property {(input: {publicationId: string, articleId: string, post: import("../wordpress/client").WordPressPost}) => Promise<void>} markSucceeded
+ * @property {(input: {publicationId: string, articleId: string, post: import("../wordpress/client").WordPressPost, publishedAt?: string|null}) => Promise<void>} markSucceeded
  * @property {(input: {publicationId: string, error: string}) => Promise<void>} markFailed
  * @property {(image: FeaturedImage) => Promise<{bytes: Buffer, contentType: string, filename: string}>} loadImageFile
  * @property {(imageId: string, wpMediaId: number) => Promise<void>} markImageUploaded
@@ -114,6 +114,7 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
         tagIds: await wordpress.ensureTags(context.article.tags ?? []),
         featuredMediaId: context.image ? await uploadImage(context.image, context, store, wordpress) : null,
         seo: context.article.seo,
+        date: context.article.originalPublishedAt ?? null,
       };
       post = post ? await wordpress.updatePost(post.id, fields) : await wordpress.createPost(fields);
     }
@@ -123,7 +124,12 @@ export async function publishArticle(articleId, actorId, store, wordpressFor, op
       return fail(`WordPress reports post ${confirmed.id} as "${confirmed.status}" instead of published`, true);
     }
 
-    await store.markSucceeded({ publicationId: claim.id, articleId, post: confirmed });
+    await store.markSucceeded({
+      publicationId: claim.id,
+      articleId,
+      post: confirmed,
+      publishedAt: context.article.originalPublishedAt ?? null,
+    });
     // Scheduled ("future") posts are not visible yet, so only live posts are checked.
     const live = confirmed.status === "publish" ? await store.checkLive?.(articleId, confirmed.link) : null;
     await store.audit({

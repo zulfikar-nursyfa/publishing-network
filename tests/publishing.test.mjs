@@ -12,11 +12,12 @@ function setup({
   existing = null,
   postStatus = "publish",
   category = { name: "News", wpTermId: 7 },
+  originalPublishedAt,
 } = {}) {
   const calls = { created: 0, updated: 0, confirmed: 0, unpublished: 0 };
   const post = { id: 42, status: postStatus, link: "https://example.test/post" };
   const context = {
-    article: { id: "a", websiteId: "s", status, title: "Title", body: "Body" },
+    article: { id: "a", websiteId: "s", status, title: "Title", body: "Body", originalPublishedAt },
     website: { id: "s", language: "en", archived: false },
     sources: [],
     connection: {},
@@ -26,8 +27,9 @@ function setup({
     claim: async () => ({ id: "p", attemptCount: 1, maxAttempts: 5 }),
     loadContext: async () => context,
     markFailed: async () => {},
-    markSucceeded: async () => {
+    markSucceeded: async (input) => {
       calls.confirmed++;
+      calls.publishedAt = input.publishedAt;
     },
     markUnpublished: async () => {
       calls.unpublished++;
@@ -38,8 +40,9 @@ function setup({
   const wordpress = {
     findPostByArticleId: async () => existing && post,
     ensureTags: async () => [],
-    createPost: async () => {
+    createPost: async (fields) => {
       calls.created++;
+      calls.date = fields.date;
       return post;
     },
     updatePost: async () => {
@@ -83,6 +86,15 @@ test("unpublishing turns the post into a draft and records it", async () => {
   assert.equal((await unpublish()).outcome, "unpublished");
   assert.equal(calls.unpublished, 1);
   assert.equal((await setup({ status: "approved" }).unpublish()).outcome, "failed");
+});
+
+test("a copied article is published with its original date", async () => {
+  const { calls, publish } = setup({ originalPublishedAt: "2024-03-05T10:00:00+00:00" });
+  assert.equal((await publish()).outcome, "published");
+  assert.deepEqual([calls.date, calls.publishedAt], ["2024-03-05T10:00:00+00:00", "2024-03-05T10:00:00+00:00"]);
+  const fresh = setup();
+  await fresh.publish();
+  assert.deepEqual([fresh.calls.date, fresh.calls.publishedAt], [null, null]);
 });
 
 test("a published article without its WordPress post needs a person", async () => {

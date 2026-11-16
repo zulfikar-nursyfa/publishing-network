@@ -67,7 +67,7 @@ SUMMARY: ${story.summary ?? ""}`;
 
 export function corroborationPrompt(story, publishedAt, knownSites) {
   return `${RULES}
-Find independent coverage of this news story published around ${publishedAt}: the original official announcement (company, government or regulator) or a report from an established news outlet. Exclude these sites, already collected: ${knownSites.join(", ")}. Briefly list what you found.
+Find independent coverage of this news story published around ${publishedAt}: the original official announcement (company, government or regulator) or a report from an established news outlet. ${knownSites.length ? `Exclude these sites: ${knownSites.join(", ")}. ` : ""}Briefly list what you found.
 HEADLINE: ${story.title}
 SUMMARY: ${story.summary ?? ""}`;
 }

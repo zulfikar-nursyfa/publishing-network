@@ -86,7 +86,8 @@ async function runStep(db, job, worker) {
     const state = job.state.searched
       ? await collectStep(job, context)
       : await searchStep(db, job, worker, { context, model, assertControls });
-    const step = job.state.searched ? "research" : "collect";
+    // collectStep can send the job back to search once more (state.searched cleared).
+    const step = job.state.searched && state.searched ? "research" : "collect";
     await loadJobContext(db, job, worker);
     return advance(db, job, worker, { state, step, ...queuedNow() });
   }

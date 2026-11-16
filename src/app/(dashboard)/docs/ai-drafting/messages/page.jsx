@@ -41,7 +41,7 @@ const failures = [
   ],
   [
     "No readable coverage found",
-    "Expand the skipped-page reasons. Add accessible article pages rather than homepages, login pages or blocked reports. A temporary page error may retry automatically; a stopped job needs a person.",
+    "Before stopping, the job searched once more for coverage on other sites. Expand the skipped-page reasons. Add accessible article pages rather than homepages, login pages or blocked reports. A temporary page error may retry automatically; a stopped job needs a person.",
   ],
   [
     "AI response failed structured validation; review the job before retrying",

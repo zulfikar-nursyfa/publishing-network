@@ -7,7 +7,7 @@ export { paywallBlockReason, plainEvidence, publishedAt } from "./page-text";
 export { EvidenceError, fetchPublicImage, isFetchableUrl, isPublicIPv4, readResearchResponse } from "./public-fetch";
 
 // Grounded search results are Google redirect links; the destination is checked on the next hop.
-const SEARCH_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
+export const SEARCH_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
 
 export const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
 

@@ -55,8 +55,8 @@ export default function AlertsAndJobsGuidePage() {
       <Section title="Read a draft job before retrying">
         <Steps>
           <Step title="Open Draft jobs">
-            The initial Active view includes queued, running and failed work. Use other status filters to find cancelled
-            or completed jobs.
+            The initial Active view shows queued and running work. Failed jobs are under Failed; use the other status
+            filters to find cancelled or completed jobs.
           </Step>
           <Step title="Read the state and reason">
             <strong>Waiting for budget</strong> or <strong>Waiting: automation paused</strong> includes a reason and

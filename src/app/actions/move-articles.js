@@ -7,26 +7,19 @@ import { moveArticle } from "@/app/actions/articles";
 import { recordAudit } from "@/lib/audit";
 import { requireWebsite } from "@/lib/auth";
 import { syncCategoriesWithWordPress } from "@/lib/wordpress/categories";
+import { MOVABLE_STATUSES, MOVE_SCOPES, canMove } from "@/lib/move-scopes";
 import { zonedTimeToUtc } from "@/lib/schedule";
 import { ARTICLE_IMAGE_BUCKET } from "@/lib/storage/article-images";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-const UNPUBLISHED = ["draft", "in_review", "rejected"];
-const SCOPES = {
-  all: () => true,
-  published: (article) => article.status === "published",
-  approved: (article) => article.status === "approved",
-  published_approved: (article) => ["published", "approved"].includes(article.status),
-  other: (article) => UNPUBLISHED.includes(article.status),
-};
 // Stays under the page's maxDuration; what is left is picked up by running the move again.
 const RUN_BUDGET_MS = 240_000;
 
 const inputSchema = z.object({
   website_id: z.uuid({ error: "Choose a website." }),
   category_id: z.union([z.uuid(), z.literal("")]).transform((value) => value || null),
-  scope: z.enum(["all", "published", "approved", "published_approved", "other", "selected"]),
+  scope: z.enum(Object.keys(MOVE_SCOPES)),
   article_ids: z.array(z.uuid()),
   mode: z.enum(["now", "schedule"]),
   approved: z.enum(["keep", "publish"]).default("keep"),
@@ -83,7 +76,7 @@ export async function moveArticles(sourceId, formData) {
         .from("articles")
         .select("id, status, wp_post_id, published_at, category_id")
         .eq("website_id", source.id)
-        .in("status", ["published", "approved", ...UNPUBLISHED])
+        .in("status", MOVABLE_STATUSES)
         .order("published_at", { nullsFirst: false })
         .order("created_at"),
       supabase.from("articles").select("copied_from").eq("website_id", target.id).not("copied_from", "is", null),
@@ -99,13 +92,14 @@ export async function moveArticles(sourceId, formData) {
   if (error || copiesError || queuedError) return { error: (error ?? copiesError ?? queuedError).message };
   const copied = new Set(copies.map((row) => row.copied_from));
   const picked = new Set(input.article_ids);
-  const inScope = input.scope === "selected" ? (article) => picked.has(article.id) : SCOPES[input.scope];
-  // Published articles are copied; the others move only if they never reached WordPress.
-  const todo = articles.filter(
-    (article) =>
-      !copied.has(article.id) && inScope(article) && (article.status === "published") === Boolean(article.wp_post_id),
-  );
-  if (!todo.length) return { error: "Nothing left to move." };
+  const chosen = articles.filter((article) => canMove(article) && MOVE_SCOPES[input.scope].includes(article, picked));
+  const todo = chosen.filter((article) => !copied.has(article.id));
+  if (!todo.length)
+    return {
+      error: chosen.length
+        ? `Nothing left to move: these articles are already on ${target.name}.`
+        : "No articles match that choice.",
+    };
 
   // A continued run schedules after what an earlier run already queued.
   const interval = input.interval * 60_000;

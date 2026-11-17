@@ -138,7 +138,7 @@ function isPermanent(error) {
     (error instanceof GeminiError && !error.retryable) ||
     (error instanceof EvidenceError && !error.retryable) ||
     error.name === "ZodError" ||
-    /Configure model pricing|already has this headline/.test(error.message)
+    /Configure model pricing|already has this headline|already has an article/.test(error.message)
   );
 }
 

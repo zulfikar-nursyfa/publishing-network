@@ -3,6 +3,7 @@ import { moveArticles } from "@/app/actions/move-articles";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { Alert, Card, Field, PageHeader, formatDateTime, inputClass } from "@/components/ui";
 import { requireWebsite } from "@/lib/auth";
+import { MOVABLE_STATUSES, canMove } from "@/lib/move-scopes";
 import { toLocalInput } from "@/lib/schedule";
 import { createClient } from "@/lib/supabase/server";
 import { ArticlePicker } from "./article-picker";
@@ -33,28 +34,33 @@ export default async function MoveArticlesPage({ params }) {
       .from("articles")
       .select("id, title, status, wp_post_id, published_at, created_at")
       .eq("website_id", websiteId)
-      .in("status", ["published", "approved", "draft", "in_review", "rejected"])
+      .in("status", MOVABLE_STATUSES)
       .order("published_at", { nullsFirst: false })
       .order("created_at"),
   ]);
-  const { data: categories } = targets?.length
-    ? await db
-        .from("categories")
-        .select("id, name, website_id")
-        .in(
-          "website_id",
-          targets.map((target) => target.id),
-        )
-        .is("archived_at", null)
-        .order("sort_order")
-        .order("name")
-    : { data: [] };
-  const movable = (articles ?? [])
-    .filter((article) => (article.status === "published") === Boolean(article.wp_post_id))
-    .map((article) => ({
-      ...article,
-      publishedLabel: article.published_at ? formatDateTime(article.published_at, website.timezone) : "—",
-    }));
+  const targetIds = (targets ?? []).map((target) => target.id);
+  const [{ data: categories }, { data: copies }] = targetIds.length
+    ? await Promise.all([
+        db
+          .from("categories")
+          .select("id, name, website_id")
+          .in("website_id", targetIds)
+          .is("archived_at", null)
+          .order("sort_order")
+          .order("name"),
+        db
+          .from("articles")
+          .select("copied_from, website_id")
+          .in("website_id", targetIds)
+          .not("copied_from", "is", null),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const movable = (articles ?? []).filter(canMove).map((article) => ({
+    ...article,
+    publishedLabel: article.published_at ? formatDateTime(article.published_at, website.timezone) : "—",
+    // Websites that already have a copy; moveArticles skips it for those.
+    copiedTo: (copies ?? []).filter((copy) => copy.copied_from === article.id).map((copy) => copy.website_id),
+  }));
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -157,17 +163,7 @@ export default async function MoveArticlesPage({ params }) {
           </Card>
 
           <Card title={`Articles (${movable.length})`}>
-            <Field label="Which articles" htmlFor="scope" className="mb-4 max-w-xs">
-              <select id="scope" name="scope" defaultValue="all" className={inputClass}>
-                <option value="all">All articles</option>
-                <option value="published">Only published</option>
-                <option value="approved">Only approved</option>
-                <option value="published_approved">Published and approved</option>
-                <option value="other">Only drafts, in review and rejected</option>
-                <option value="selected">Only the ticked ones</option>
-              </select>
-            </Field>
-            <ArticlePicker articles={movable} />
+            <ArticlePicker articles={movable} targets={targets} />
           </Card>
 
           <SubmitButton

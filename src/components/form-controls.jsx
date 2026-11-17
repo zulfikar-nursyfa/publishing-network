@@ -66,7 +66,13 @@ export function SubmitButton({
   // The hidden submitter carries name/value into FormData when the dialog confirms.
   return (
     <AlertDialog.Root open={open} onOpenChange={setOpen}>
-      <AlertDialog.Trigger asChild>
+      <AlertDialog.Trigger
+        asChild
+        onClick={(event) => {
+          // Checked before the dialog: once it closes, focus returns here and hides the browser's message.
+          if (submitterRef.current?.form?.reportValidity() === false) event.preventDefault();
+        }}
+      >
         <button type="button" disabled={pending || disabled} className={buttonClass(variant, className, size)}>
           {label}
         </button>

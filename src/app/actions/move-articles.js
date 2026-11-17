@@ -17,6 +17,7 @@ const SCOPES = {
   all: () => true,
   published: (article) => article.status === "published",
   approved: (article) => article.status === "approved",
+  published_approved: (article) => ["published", "approved"].includes(article.status),
   other: (article) => UNPUBLISHED.includes(article.status),
 };
 // Stays under the page's maxDuration; what is left is picked up by running the move again.
@@ -25,9 +26,10 @@ const RUN_BUDGET_MS = 240_000;
 const inputSchema = z.object({
   website_id: z.uuid({ error: "Choose a website." }),
   category_id: z.union([z.uuid(), z.literal("")]).transform((value) => value || null),
-  scope: z.enum(["all", "published", "approved", "other", "selected"]),
+  scope: z.enum(["all", "published", "approved", "published_approved", "other", "selected"]),
   article_ids: z.array(z.uuid()),
   mode: z.enum(["now", "schedule"]),
+  approved: z.enum(["keep", "publish"]).default("keep"),
   start: z.string(),
   interval: z.coerce.number().int().min(1).max(1440),
 });
@@ -36,7 +38,8 @@ const inputSchema = z.object({
  * Moves a website's articles to another website of the same niche and language. Published articles
  * are copied (copy_article, migration 58): the old post stays live, the copy is approved without
  * review and published at once or on a schedule with its original date. Articles that never reached
- * WordPress move with moveArticle and keep their status; approved ones get the same schedule.
+ * WordPress move with moveArticle and keep their status; approved ones stay approved and unscheduled,
+ * or get the same schedule when approved is "publish".
  * Categories the other website lacks are created there (admins only), so every article keeps its
  * category; the chosen category is only for articles still without one. Running it again continues.
  */
@@ -139,7 +142,11 @@ export async function moveArticles(sourceId, formData) {
       continue;
     }
     result.moved += 1;
-    const fields = article.status === "approved" ? { scheduled_for: queueNext().toISOString() } : {};
+    // A schedule kept from the old website would publish a "keep" article at once, so it is cleared.
+    const fields =
+      article.status !== "approved"
+        ? {}
+        : { scheduled_for: input.approved === "publish" ? queueNext().toISOString() : null };
     const { data: moved } = await admin.from("articles").select("category_id").eq("id", article.id).single();
     if (!moved.category_id && input.category_id) fields.category_id = input.category_id;
     if (Object.keys(fields).length) {
@@ -160,6 +167,7 @@ export async function moveArticles(sourceId, formData) {
       to_website: target.name,
       scope: input.scope,
       mode: input.mode,
+      approved: input.approved,
       categories_added: categories.added,
       ...result,
       left,

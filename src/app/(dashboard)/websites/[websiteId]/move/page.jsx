@@ -1,22 +1,11 @@
 import { ArrowRightLeft } from "lucide-react";
 import { moveArticles } from "@/app/actions/move-articles";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
-import {
-  Alert,
-  ArticleStatusBadge,
-  Card,
-  Field,
-  PageHeader,
-  RowCheckbox,
-  Table,
-  Td,
-  Th,
-  formatDateTime,
-  inputClass,
-} from "@/components/ui";
+import { Alert, Card, Field, PageHeader, formatDateTime, inputClass } from "@/components/ui";
 import { requireWebsite } from "@/lib/auth";
 import { toLocalInput } from "@/lib/schedule";
 import { createClient } from "@/lib/supabase/server";
+import { ArticlePicker } from "./article-picker";
 
 // Server actions on this page get the same time; moveArticles stops at 240s and can be run again.
 export const maxDuration = 300;
@@ -60,9 +49,12 @@ export default async function MoveArticlesPage({ params }) {
         .order("sort_order")
         .order("name")
     : { data: [] };
-  const movable = (articles ?? []).filter(
-    (article) => (article.status === "published") === Boolean(article.wp_post_id),
-  );
+  const movable = (articles ?? [])
+    .filter((article) => (article.status === "published") === Boolean(article.wp_post_id))
+    .map((article) => ({
+      ...article,
+      publishedLabel: article.published_at ? formatDateTime(article.published_at, website.timezone) : "—",
+    }));
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -81,8 +73,8 @@ export default async function MoveArticlesPage({ params }) {
             Published articles are copied and approved without review. Their posts stay live on {website.name}, and the
             copies are published with their original date, images, sources and SEO fields. Drafts, articles in review
             and rejected articles that never reached WordPress move with their status and still need review; approved
-            ones move and are published like the copies. Each article keeps its category: categories the other website
-            lacks are added there and linked to WordPress.
+            ones move and stay approved, or are published like the copies if you choose that below. Each article keeps
+            its category: categories the other website lacks are added there and linked to WordPress.
           </Alert>
 
           <Card icon={ArrowRightLeft} title="Where to">
@@ -123,7 +115,7 @@ export default async function MoveArticlesPage({ params }) {
           </Card>
 
           <Card title="Publishing the copies">
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Field label="When" htmlFor="mode">
                 <select id="mode" name="mode" defaultValue="now" className={inputClass}>
                   <option value="now">At once, one by one</option>
@@ -138,6 +130,16 @@ export default async function MoveArticlesPage({ params }) {
                   defaultValue={inAnHour(targets[0].timezone)}
                   className={inputClass}
                 />
+              </Field>
+              <Field
+                label="Approved articles"
+                htmlFor="approved"
+                hint="Automated ones can still take the other website's publishing slots."
+              >
+                <select id="approved" name="approved" defaultValue="keep" className={inputClass}>
+                  <option value="keep">Stay approved, not scheduled</option>
+                  <option value="publish">Publish with the copies</option>
+                </select>
               </Field>
               <Field label="Minutes between posts" htmlFor="interval" hint="Only for a schedule.">
                 <input
@@ -160,36 +162,12 @@ export default async function MoveArticlesPage({ params }) {
                 <option value="all">All articles</option>
                 <option value="published">Only published</option>
                 <option value="approved">Only approved</option>
+                <option value="published_approved">Published and approved</option>
                 <option value="other">Only drafts, in review and rejected</option>
                 <option value="selected">Only the ticked ones</option>
               </select>
             </Field>
-            <Table>
-              <thead>
-                <tr>
-                  <Th className="w-10">
-                    <span className="sr-only">Move</span>
-                  </Th>
-                  <Th>Title</Th>
-                  <Th>Status</Th>
-                  <Th>Published</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {movable.map((article) => (
-                  <tr key={article.id}>
-                    <Td>
-                      <RowCheckbox name="article_id" value={article.id} aria-label={`Move ${article.title}`} />
-                    </Td>
-                    <Td>{article.title}</Td>
-                    <Td>
-                      <ArticleStatusBadge status={article.status} />
-                    </Td>
-                    <Td>{article.published_at ? formatDateTime(article.published_at, website.timezone) : "—"}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <ArticlePicker articles={movable} />
           </Card>
 
           <SubmitButton

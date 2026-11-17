@@ -42,6 +42,7 @@ export function ArticleTable({ articles, websites, path, state, review = false }
                   {article.sensitive ? <Badge tone="amber">sensitive</Badge> : null}
                   {article.has_warnings ? <Badge tone="amber">reviewer warnings</Badge> : null}
                   {article.publication_status === "failed" ? <Badge tone="red">publishing failed</Badge> : null}
+                  {site?.archived_at ? <Badge tone="gray">website archived</Badge> : null}
                 </div>
               </Td>
               <Td>{site?.name ?? "—"}</Td>

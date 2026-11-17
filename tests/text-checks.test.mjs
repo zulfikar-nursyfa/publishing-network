@@ -290,3 +290,35 @@ test("the article with most text is read, not a teaser card, and asides are drop
   assert.ok(page.text.startsWith("The port authority"));
   assert.ok(!page.text.includes("unrelated"));
 });
+
+test("full official names, other spellings and currency against figures are not unknown names (PM review 17 Nov)", () => {
+  const evidence = [source("The OECD said the Organization will report again. Tickets cost AED 240.")];
+  const article = body(
+    "The report by the Organisation for Economic Co-operation and Development follows. Tickets cost AED240, and Garmin joined.",
+  );
+  assert.deepEqual(unknownNames(article, evidence, "en"), ["Garmin"]);
+});
+
+test('"over" a period is not "more than" (PM review 17 Nov)', () => {
+  const evidence = [source("Construction costs rose 32.9% over the past five years and 13.2% over 2025.")];
+  assert.deepEqual(droppedQualifiers(body("Costs rose 32.9% since 2020 and 13.2% in 2025."), evidence), []);
+  const bounded = [source("The fund backed over 500 projects.")];
+  assert.deepEqual(droppedQualifiers(body("The fund backed 500 projects."), bounded), ['500 (sources: "over")']);
+});
+
+test("a proposed figure written as a result is flagged (PM review 17 Nov)", () => {
+  const evidence = [source("The proposed platform would serve 2,500 students.")];
+  assert.deepEqual(droppedQualifiers(body("The platform serves 2,500 students."), evidence), [
+    '2500 (sources: "proposed")',
+  ]);
+});
+
+test("launches and awards supported by other source wording are not flagged (PM review 17 Nov)", () => {
+  const evidence = [source("The authority will start new projects. Winners were honoured by the Future Council.")];
+  assert.deepEqual(
+    addedActions(body("The authority will launch new projects; the council awarded winners."), evidence),
+    [],
+  );
+  const arabic = [source("طرح مشروعات جديدة وتكريم الفائزين")];
+  assert.deepEqual(addedActions(body("It will launch projects and awarded the winners."), arabic), []);
+});

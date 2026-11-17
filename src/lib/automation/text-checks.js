@@ -144,7 +144,9 @@ function isTitleCase(line) {
 }
 
 // A run of capitalised words, which may hold connectors ("Department of Land and Property").
-const CAPITALISED_RUN = /\p{Lu}[\p{L}\p{N}]*(?:(?:\s+(?:of|and|for|the|&))*\s+\p{Lu}[\p{L}\p{N}]*)+/gu;
+// Hyphenated words stay whole, so "Economic Co-operation" gives the C of OECD.
+const CAPITALISED_RUN =
+  /\p{Lu}[\p{L}\p{N}]*(?:-[\p{L}\p{N}]+)*(?:(?:\s+(?:of|and|for|the|&))*\s+\p{Lu}[\p{L}\p{N}]*(?:-[\p{L}\p{N}]+)*)+/gu;
 
 /** Words of a spelt-out acronym the sources use ("Multiple Listing Service" where they say "MLS"). */
 function expandedAcronyms(text, sources) {
@@ -164,6 +166,8 @@ const wordForms = (word) => [
   word.replace(/s$/, ""),
   word.replace(/es$/, ""),
   word.replace(/ies$/, "y"),
+  // "Organisation" where the sources say "Organization", and the reverse.
+  word.replace(/i([sz])(?=ations?$|e[sd]?$|ing$)/, (_, letter) => (letter === "s" ? "iz" : "is")),
 ];
 
 /**
@@ -176,7 +180,8 @@ export function unknownNames(article, evidence, language) {
   const letters = sources.match(/\p{L}/gu)?.length ?? 0;
   const latin = sources.match(/\p{Script=Latin}/gu)?.length ?? 0;
   if (language === "ar" || latin < letters / 2) return [];
-  const text = readerText(article);
+  // "AED240" splits into the currency and the figure, so it is not read as a name.
+  const text = latinDigits(readerText(article));
   const known = new Set([...words(sources), ...expandedAcronyms(text, sources)]);
   return text
     .split("\n")
@@ -320,7 +325,8 @@ export function addedCausalLinks(article, evidence) {
 
 // Words that make a figure a capacity, target, estimate or bound rather than a result. Not "may": the month.
 const QUALIFIERS = [
-  /\b(?:up to|as many as|capacity|capable|able to|aims?|aiming|aimed|targets?|targeting|targeted|goals?|expected|expects?|projected|forecasts?|planned|plans?|potential|estimated|estimates?|could|might|about|around|approximately|nearly|almost|roughly|more than|over|at least|less than|fewer than|under)\b/u,
+  // "Over" and "under" only before a figure: "rose 32.9% over the past year" names a period, not "more than".
+  /\b(?:up to|as many as|capacity|capable|able to|aims?|aiming|aimed|targets?|targeting|targeted|goals?|expected|expects?|projected|forecasts?|planned|plans?|proposed|potential|estimated|estimates?|could|might|about|around|approximately|nearly|almost|roughly|more than|at least|less than|fewer than)\b|\b(?:over|under)(?= \d)/u,
   /(?:حتى|نحو|حوالي|قرابة|أكثر من|ما يزيد|أقل من|ما يصل|طاقة|قدرة|استيعاب|يستهدف|تستهدف|هدف|متوقع|يتوقع|مخطط|تقدير|محتمل)/u,
 ];
 const qualifierIn = (context) => QUALIFIERS.map((pattern) => context.match(pattern)?.[0]).find(Boolean);
@@ -382,13 +388,21 @@ const ACTIONS = [
   [/^deals?$/, /^transactions?$/, /صفق/],
   [/^contract(?:s|ed)?$/, /عقد/],
   [/^(?:mou|mous|memorandum|memoranda)$/, /مذكر/],
-  [/^launch(?:es|ed|ing)?$/, /أطلق|اطلق|إطلاق|اطلاق|دشن|تدشين/],
+  [
+    /^launch(?:es|ed|ing)?$/,
+    /^(?:unveil(?:s|ed|ing)?|introduc(?:e|es|ed|ing|tion)|debut(?:s|ed)?|rollout|start(?:s|ed|ing)?|initiat(?:e|es|ed|ing))$/,
+    /أطلق|اطلق|إطلاق|اطلاق|دشن|تدشين|طرح|انطلق|انطلاق|بدء|بدأ|إنشاء|انشاء/,
+  ],
   [/^complet(?:e|es|ed|ing|ion)$/, /^reach(?:es|ed|ing)?$/, /أكمل|اكمل|استكمال|إتمام|اتمام|أتم|إنجاز|أنجز/],
   [/^finali[sz](?:e|es|ed|ing)$/, /إتمام|اتمام|أتم|نهائي/],
   [/^establish(?:es|ed|ing|ment)?$/, /^forg(?:e|es|ed|ing)$/, /تأسيس|أسس|إنشاء|انشاء|أنشأ/],
   [/^secur(?:e|es|ed|ing)$/, /حصل|حصول|تأمين/],
   [/^approv(?:e|es|ed|ing|al|als)$/, /وافق|موافق|اعتمد|اعتماد|أقر|إقرار|صادق|مصادق/],
-  [/^award(?:s|ed|ing)?$/, /منح|ترسية|جائز/],
+  [
+    /^award(?:s|ed|ing)?$/,
+    /^(?:won|wins?|winners?|winning|prizes?|honou?r(?:s|ed|ing|ees?)?|recipients?|accolades?|grant(?:s|ed|ing)?)$/,
+    /منح|ترسية|جائز|فاز|فوز|تكريم|كرم|تتويج/,
+  ],
   [/^confirm(?:s|ed|ing|ation)?$/, /أكد|تأكيد/],
   [/^inaugurat(?:e|es|ed|ing|ion)$/, /افتتح|افتتاح|دشن|تدشين/],
   [/^open(?:s|ed|ing)$/, /افتت|فتح/],

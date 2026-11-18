@@ -4,6 +4,24 @@ import { loadConnection } from "@/lib/wordpress/connection";
 
 export const CATEGORY_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
+/** WordPress returns term names HTML-escaped ("Tech &amp; AI"); this compares them as plain text. */
+const plainText = (text) =>
+  text
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#039;", "'")
+    .replaceAll("&amp;", "&");
+
+/** Linked WordPress terms whose name differs from the dashboard's, with the name they should have. */
+export function staleTermNames(local, remote) {
+  const byId = new Map(remote.map((term) => [term.id, term]));
+  return local.flatMap(({ wp_term_id, name }) => {
+    const term = byId.get(wp_term_id);
+    return term && plainText(term.name) !== name ? [{ term, name }] : [];
+  });
+}
+
 /** After a language switch renamed niche categories here, gives their WordPress terms the same names. */
 export async function pushNicheCategoryNames(supabase, website) {
   if (!website.wp_base_url) return null;
@@ -27,7 +45,8 @@ export async function pushNicheCategoryNames(supabase, website) {
 
 /**
  * Links unlinked categories to the WordPress category with the same slug, creating it when
- * missing, and imports WordPress categories the dashboard does not have yet.
+ * missing, renames linked WordPress categories whose name differs from the dashboard's, and
+ * imports WordPress categories the dashboard does not have yet.
  * Returns an error message, or null. Callers must have checked admin access to the website.
  */
 export async function syncCategoriesWithWordPress(supabase, website) {
@@ -51,7 +70,13 @@ export async function syncCategoriesWithWordPress(supabase, website) {
         .update({ wp_term_id: term.id })
         .eq("id", category.id);
       if (linkError) return linkError.message;
+      category.wp_term_id = term.id;
       linked.add(term.id);
+    }
+    // A term linked by slug keeps the name it was created with (an English one, before the site
+    // switched to Arabic); the dashboard's name wins. Only the name changes: slug and description stay.
+    for (const { term, name } of staleTermNames(local, remote)) {
+      await wordpress.updateCategory(term.id, { name, slug: term.slug, description: term.description });
     }
     // Arabic WordPress slugs are percent-encoded; those categories must be added here with a Latin slug.
     const slugs = new Set(local.map((category) => category.slug));

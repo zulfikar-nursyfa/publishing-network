@@ -79,7 +79,7 @@ export function CategoriesCard({ websiteId, connected, categories, isAdmin, filt
       title="Categories"
       description={
         connected
-          ? "Editors and the AI choose from active categories. After applying niche categories, click Sync with WordPress to create them there by slug. Auto-publish is off until allowed here, and only applies in Automatic mode."
+          ? "Editors and the AI choose from active categories. After applying niche categories, click Sync with WordPress to create them there by slug and bring their WordPress names up to date. Auto-publish is off until allowed here, and only applies in Automatic mode."
           : "Editors and the AI choose from active categories. They are created in WordPress automatically when the site is connected. Auto-publish is off until allowed here, and only applies in Automatic mode."
       }
     >

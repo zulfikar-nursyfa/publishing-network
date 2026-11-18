@@ -13,7 +13,7 @@ export const REQUIRED_PLUGIN_VERSION = "2.0.0";
  * @typedef {{id: number, status: WordPressPostStatus, link: string, slug: string}} WordPressPost
  * @typedef {{seoTitle?: string|null, metaDescription?: string|null, focusKeyword?: string|null}} PostSeo
  * @typedef {{articleId: string, title: string, content: string, excerpt?: string|null, slug?: string|null, status: "publish"|"draft", categoryIds?: number[], tagIds?: number[], featuredMediaId?: number|null, seo?: PostSeo, date?: string|null}} NewPost
- * @typedef {{id: number, name: string, slug: string}} WordPressCategory
+ * @typedef {{id: number, name: string, slug: string, description?: string}} WordPressCategory
  * @typedef {ReturnType<typeof createWordPressClient>} WordPressClient
  */
 
@@ -147,7 +147,7 @@ export function createWordPressClient(connection, options = {}) {
 
     /** @returns {Promise<WordPressCategory[]>} The first 100 categories, enough for one site's sections. */
     async listCategories() {
-      return request("GET", "/wp/v2/categories?per_page=100&_fields=id,name,slug");
+      return request("GET", "/wp/v2/categories?per_page=100&_fields=id,name,slug,description");
     },
 
     /** @param {{name: string, slug: string, description?: string|null}} category @returns {Promise<WordPressCategory>} */

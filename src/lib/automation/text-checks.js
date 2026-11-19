@@ -42,7 +42,8 @@ const figures = (text) => latinDigits(text).match(FIGURE) ?? [];
  * calculated numbers. Single digits are skipped (often days of the month or spelled out in sources).
  */
 export function unsourcedFigures(article, evidence) {
-  const known = new Set(evidence.flatMap((page) => figures(page.text)));
+  // Any digits in a source count, even inside a word: "Hub71" supports "هوب 71", and Arabic "و26%" means "and 26%".
+  const known = new Set(evidence.flatMap((page) => latinDigits(page.text).match(/\d+(?:\.\d+)?/g) ?? []));
   const used = figures(readerText(article)).filter((figure) => figure.length > 1);
   return [...new Set(used.filter((figure) => !known.has(figure)))];
 }
@@ -114,14 +115,28 @@ export function addedCurrencies(article, evidence) {
 // Straight, curly and Arabic (guillemet) quotation marks.
 const QUOTED = /["“«„]([^"“”«»„\n]{10,400}?)["”»]/gu;
 
-/** Words in quotation marks (four or more) that no source contains in that order: invented or altered quotes. */
+const isArabic = (text) => {
+  const letters = text.match(/\p{L}/gu)?.length ?? 0;
+  return (text.match(/\p{Script=Arabic}/gu)?.length ?? 0) > letters / 2;
+};
+
+/**
+ * Words in quotation marks (four or more) that no source in the same script contains in that order:
+ * invented or altered quotes. A quote with no source in its script is a translation, such as an English
+ * strategy's name in Arabic guillemets, which only the AI verifier can judge (PM review 19 Nov).
+ */
 export function unsourcedQuotes(article, evidence) {
-  const pages = evidence.map((page) => ` ${words(page.text).join(" ")} `);
+  const pages = evidence.map((page) => ({ arabic: isArabic(page.text), text: ` ${words(page.text).join(" ")} ` }));
   return [...readerText(article).matchAll(QUOTED)]
     .map((match) => match[1].trim())
     .filter((quote) => {
       const quoteWords = words(quote);
-      return quoteWords.length >= 4 && !pages.some((page) => page.includes(` ${quoteWords.join(" ")} `));
+      const sameScript = pages.filter((page) => page.arabic === isArabic(quote));
+      return (
+        quoteWords.length >= 4 &&
+        sameScript.length > 0 &&
+        !sameScript.some((page) => page.text.includes(` ${quoteWords.join(" ")} `))
+      );
     });
 }
 
@@ -427,20 +442,40 @@ const MONTH =
   "(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\.?(?!\\p{L})";
 const DAYS =
   "(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*(?:-|–|—|to|and|until|through|إلى|الى|و|حتى)\\s*(\\d{1,2})(?:st|nd|rd|th)?)?";
+// shortcut: French is the only other Latin-script source language seen so far (Carmila, 17 Nov); add others as they appear.
+const FR_MONTHS = [
+  "janvier",
+  "février|fevrier",
+  "mars",
+  "avril",
+  "mai",
+  "juin",
+  "juillet",
+  "août|aout",
+  "septembre",
+  "octobre",
+  "novembre",
+  "décembre|decembre",
+];
 const DATES = [
   { pattern: new RegExp(`(?<!\\d)${DAYS}\\s+(?:of\\s+)?${MONTH}`, "giu"), groups: [1, 2, 3] },
   { pattern: new RegExp(`${MONTH}\\s+${DAYS}(?!\\d)`, "giu"), groups: [2, 3, 1] },
-  { pattern: new RegExp(`(?<!\\d)${DAYS}\\s+(${AR_MONTHS.join("|")})`, "gu"), groups: [1, 2, 3], ar: true },
+  { pattern: new RegExp(`(?<!\\d)${DAYS}\\s+(${AR_MONTHS.join("|")})`, "gu"), groups: [1, 2, 3], names: AR_MONTHS },
+  {
+    pattern: new RegExp(`(?<!\\d)${DAYS}\\s+(${FR_MONTHS.join("|")})(?!\\p{L})`, "giu"),
+    groups: [1, 2, 3],
+    names: FR_MONTHS,
+  },
 ];
 
 /** Each day-and-month date in the text with its wording; a range ("10-12 November") gives every day in it. */
 export function datesIn(text, everyDay) {
   const found = [];
-  for (const { pattern, groups, ar } of DATES) {
+  for (const { pattern, groups, names } of DATES) {
     for (const match of latinDigits(text).matchAll(pattern)) {
       const [first, last, monthName] = groups.map((group) => match[group]);
-      const month = ar
-        ? indexIn(AR_MONTHS, monthName)
+      const month = names
+        ? indexIn(names, monthName.toLowerCase())
         : MONTHS.findIndex((name) => name.startsWith(monthName.toLowerCase().slice(0, 3)));
       const [start, end] = [Number(first), Number(last ?? first)];
       if (start < 1 || end > 31 || end < start) continue;

@@ -197,6 +197,23 @@ const slugify = (value) =>
     .slice(0, 100)
     .replace(/^-+|-+$/g, "");
 
+const shingles = (tokens, length) =>
+  new Set(
+    tokens
+      .slice(0, Math.max(0, tokens.length - length + 1))
+      .map((_, index) => tokens.slice(index, index + length).join(" ")),
+  );
+const draftWords = (draft) => words(`${draft.title} ${draft.excerpt ?? ""} ${draft.body}`);
+
+/** The first 12-word source passage the draft repeats, in the source's wording, or undefined. */
+export function copiedPassage(draft, evidence) {
+  const phrases = shingles(draftWords(draft), 12);
+  return evidence.flatMap((page) => [...sourceShingles(page.text, 12)]).find(([phrase]) => phrases.has(phrase))?.[1];
+}
+
+export const COPIED_WARNING = "The draft still repeats source wording";
+export const copiedWarning = (copied) => `${COPIED_WARNING} ("${copied.slice(0, 200)}"); reword it`;
+
 /** `copiedAllowed`: after the automatic rewrites, a copied passage becomes a reviewer warning instead of failing the job. */
 export function checkDraft(draft, research, evidence, categories, language, strictChecks = [], copiedAllowed = false) {
   if (/<\/?[A-Za-z][^>]*>|https?:\/\/|javascript:/i.test(draft.body))
@@ -210,26 +227,14 @@ export function checkDraft(draft, research, evidence, categories, language, stri
     (language === "ar" ? arabic.length / letters.length < 0.5 : arabic.length / letters.length > 0.2)
   )
     throw new DraftCheckError("Draft language does not match the website");
-  const draftWords = words(`${draft.title} ${draft.excerpt} ${draft.body}`);
-  const shingles = (tokens, length) =>
-    new Set(
-      tokens
-        .slice(0, Math.max(0, tokens.length - length + 1))
-        .map((_, index) => tokens.slice(index, index + length).join(" ")),
-    );
-  const phrases = shingles(draftWords, 12);
-  const copied = evidence
-    .flatMap((page) => [...sourceShingles(page.text, 12)])
-    .find(([phrase]) => phrases.has(phrase))?.[1];
+  const copied = copiedPassage(draft, evidence);
   if (copied && !copiedAllowed) throw new CopiedPassageError(copied);
-  const shortPhrases = shingles(draftWords, 5);
+  const shortPhrases = shingles(draftWords(draft), 5);
   const sourcePhrases = new Set(evidence.flatMap((page) => [...sourceShingles(page.text, 5).keys()]));
   if ([...shortPhrases].filter((phrase) => sourcePhrases.has(phrase)).length / Math.max(1, shortPhrases.size) > 0.35)
     throw new DraftCheckError("Draft is too similar to the collected source text");
 
-  const warnings = copied
-    ? [`The draft still repeats source wording after two automatic rewrites ("${copied.slice(0, 200)}"); reword it`]
-    : [];
+  const warnings = copied ? [copiedWarning(copied)] : [];
   const warn = warnOrBlock(warnings, strictChecks);
   const collected = new Set(evidence.map((page) => page.url));
   const researched = [...new Set(research.claims.flatMap((claim) => claim.source_urls))];
@@ -327,16 +332,19 @@ export function checkVerification(verification, strictChecks = [], evidence, sen
       !evidence || (parts.length > 0 && parts.every((part) => evidence.some((page) => quoteFound(part, page.text))))
     );
   };
-  // Every quoted part must show the sentence's date, in its words or as its page's publication date:
-  // a roundup must not give several announcements one source's date (PM review 14 Nov).
+  // A date a quoted source sentence states covers the claim, even when another source gives its figure
+  // (PM review 19 Nov). A page's publication date dates only its own part: a roundup must not give
+  // several announcements one source's date (PM review 14 Nov).
   const undated = (claim, text) => {
     const dates = datesIn(text, false).map(({ key }) => key);
     if (!evidence || !dates.length) return false;
-    return quoteParts(claim).some((part) => {
-      const shown = new Set(datesIn(part, true).map(({ key }) => key));
-      for (const page of evidence) if (quoteFound(part, page.text) && publishedKey(page)) shown.add(publishedKey(page));
-      return dates.some((key) => !shown.has(key));
-    });
+    const parts = quoteParts(claim);
+    const stated = new Set(parts.flatMap((part) => datesIn(part, true).map(({ key }) => key)));
+    return dates.some(
+      (key) =>
+        !stated.has(key) &&
+        parts.some((part) => !evidence.some((page) => quoteFound(part, page.text) && publishedKey(page) === key)),
+    );
   };
   const warnings = [];
   const warn = warnOrBlock(warnings, strictChecks);

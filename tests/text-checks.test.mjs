@@ -16,6 +16,7 @@ import {
   textWarnings,
   unknownNames,
   unsourcedDates,
+  unsourcedFigures,
   unsourcedQuotes,
   wrongWeekdays,
 } from "@/lib/automation/text-checks";
@@ -321,4 +322,36 @@ test("launches and awards supported by other source wording are not flagged (PM 
   );
   const arabic = [source("طرح مشروعات جديدة وتكريم الفائزين")];
   assert.deepEqual(addedActions(body("It will launch projects and awarded the winners."), arabic), []);
+});
+
+test("figures inside source words and after Arabic prefixes count as sourced (PM review 19 Nov)", () => {
+  assert.deepEqual(
+    unsourcedFigures(body("أطلقت هوب 71 برنامجاً جديداً."), [source("Hub71 launched a programme.")]),
+    [],
+  );
+  assert.deepEqual(
+    unsourcedFigures(body("Italy would make up 26% of rental income."), [
+      source("بواقع 55% في فرنسا، و26% في إيطاليا"),
+    ]),
+    [],
+  );
+  assert.deepEqual(unsourcedFigures(body("Rents rose 26%."), [source("Rents rose sharply.")]), ["26"]);
+});
+
+test("a translated name in quotation marks is not checked against sources in another script (PM review 19 Nov)", () => {
+  const english = source("Dubai Customs launched the Dubai Customs AI Strategy 2030 this week.");
+  assert.deepEqual(
+    unsourcedQuotes(body("أطلقت جمارك دبي «استراتيجية جمارك دبي للذكاء الاصطناعي 2030» هذا الأسبوع."), [english]),
+    [],
+  );
+  assert.equal(
+    unsourcedQuotes(body('It launched the "Dubai Customs Smart Plan 2040" this week.'), [english]).length,
+    1,
+  );
+});
+
+test("French source dates are read (PM review 19 Nov)", () => {
+  const french = source("Le portefeuille est valorisé à 6,8 milliards d'euros au 30 juin 2026.");
+  assert.deepEqual(unsourcedDates(body("Its value stood at €6.8 billion on 30 June 2026."), [french]), []);
+  assert.deepEqual(unsourcedDates(body("Its value stood at €6.8 billion on 30 July 2026."), [french]), ["30 July"]);
 });

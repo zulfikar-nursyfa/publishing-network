@@ -212,6 +212,18 @@ test("automatic selection skips off-topic stories with the AI's reason and scree
   assert.deepEqual(screened.sort(), ["a", "oil"]);
 });
 
+test("an opinion piece is skipped as one, not as off-topic (PM review 19 Nov)", async () => {
+  const db = fixture(true);
+  db.tables.story_candidates.push(candidate("op", "one", "news", "COMMENTARY: War clouds a post-oil future"));
+  const screen = async () =>
+    new Map([
+      ["a", { fits: true, reason: "Savings rates" }],
+      ["op", { fits: false, opinion: true, reason: "A commentary on the economy." }],
+    ]);
+  await queueSelectedStories(db, { screen });
+  assert.equal(db.tables.story_candidates[1].skip_reason, "Opinion or commentary piece: A commentary on the economy.");
+});
+
 test("a failed screening call selects nothing rather than unscreened stories", async () => {
   const db = fixture(true);
   const failing = async () => {

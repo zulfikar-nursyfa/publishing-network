@@ -1,6 +1,13 @@
 import "server-only";
 import { generateForJob } from "@/lib/ai/usage";
-import { checkVerification, draftSentences, verificationSchema } from "../draft-checks";
+import {
+  checkVerification,
+  COPIED_WARNING,
+  copiedPassage,
+  copiedWarning,
+  draftSentences,
+  verificationSchema,
+} from "../draft-checks";
 import { collectEvidence } from "../evidence";
 import { TEXT_WARNINGS, textWarnings } from "../text-checks";
 import { nicheGuideFor } from "./context";
@@ -23,18 +30,29 @@ const REPLACED = [
   "Unsupported claim: ",
   "Not checked by AI verification: ",
   "Re-check ",
+  COPIED_WARNING,
   ...TEXT_WARNINGS,
 ];
 const IMAGE_WARNING = /^(AI image not generated|Source image not added): /;
 const NO_CATEGORY = "The draft has no category";
+// checkResearch's corroboration warnings; two outlets meet the rule even for a sensitive story.
+const SINGLE_SOURCE = [
+  "Sensitive or consequential story without a second independent source",
+  "No official source and only one outlet supports the story",
+];
+
+/** Distinct sites among the pages a re-check read. */
+export const outletCount = (pages) =>
+  new Set(pages.map((page) => new URL(page.url).hostname.replace(/^www\./, ""))).size;
 
 /** Warnings after a re-check: the old verification results give way to the new ones; fixed problems go. */
-export function recheckedWarnings(previous, fresh, { hasCategory, hasImage }) {
+export function recheckedWarnings(previous, fresh, { hasCategory, hasImage, outlets = 0 }) {
   const kept = (previous ?? []).filter(
     (warning) =>
       !REPLACED.some((prefix) => warning.startsWith(prefix)) &&
       !(hasCategory && warning.startsWith(NO_CATEGORY)) &&
-      !(hasImage && IMAGE_WARNING.test(warning)),
+      !(hasImage && IMAGE_WARNING.test(warning)) &&
+      !(outlets >= 2 && SINGLE_SOURCE.includes(warning)),
   );
   return [...new Set([...kept, ...fresh])];
 }
@@ -96,14 +114,20 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
     assertControls,
     prompt: verifyPrompt(promptData(context, state.recheck_evidence), sentences, nicheGuideFor(context.website)),
   });
+  const copied = copiedPassage(article, state.recheck_evidence);
   state.warnings = recheckedWarnings(
     state.warnings,
     [
       ...(state.recheck_skipped ?? []),
+      ...(copied ? [copiedWarning(copied)] : []),
       ...checkVerification(state.verification, [], state.recheck_evidence, sentences),
       ...textWarnings(article, state.recheck_evidence, { language: context.website.language }),
     ],
-    { hasCategory: Boolean(article.category_id), hasImage: article.hasImage },
+    {
+      hasCategory: Boolean(article.category_id),
+      hasImage: article.hasImage,
+      outlets: outletCount(state.recheck_evidence),
+    },
   );
   delete state.recheck_evidence;
   delete state.recheck_skipped;

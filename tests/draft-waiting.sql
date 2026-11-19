@@ -1,4 +1,4 @@
--- Disposable PostgreSQL only, with migrations 00–42 applied. Everything rolls back.
+-- Disposable PostgreSQL only, with migrations 00–64 applied. Everything rolls back.
 begin;
 create function pg_temp.check_true(ok boolean, message text) returns void language plpgsql as $$
 begin if ok is distinct from true then raise exception 'Assertion failed: %', message; end if; end; $$;
@@ -30,7 +30,7 @@ values ('10000000-0000-4000-8000-000000000042','30000000-0000-4000-8000-00000000
   'gemini-test','research','old-generation','uncertain',0.01,0.3,2.5);
 
 select pg_temp.check_true(public.cancel_draft_job('30000000-0000-4000-8000-000000000001',true,now()-interval '48 hours'),'stale queued story removed');
-select pg_temp.check_true((select status='skipped' from public.story_candidates where id='20000000-0000-4000-8000-000000000001'),'stale story skipped');
+select pg_temp.check_true((select status='skipped' and skip_reason='Story went stale while waiting' from public.story_candidates where id='20000000-0000-4000-8000-000000000001'),'stale story skipped with its reason');
 select pg_temp.check_true((select status='cancelled' and waiting_kind is null and waiting_since is null and last_error='Story went stale while waiting' from public.jobs where id='30000000-0000-4000-8000-000000000001'),'stale reason persisted and waiting cleared');
 select pg_temp.check_true(not public.cancel_draft_job('30000000-0000-4000-8000-000000000002',true,now()-interval '48 hours'),'stale rule protects running job');
 select pg_temp.check_true(not public.cancel_draft_job('30000000-0000-4000-8000-000000000005',true,now()-interval '48 hours'),'stale rule protects recent story');
@@ -46,6 +46,7 @@ exception when others then
   if sqlerrm <> 'Draft lease lost' then raise; end if;
 end $$;
 select pg_temp.check_true(public.cancel_draft_job('30000000-0000-4000-8000-000000000003',true),'failed removal accepted');
+select pg_temp.check_true((select skip_reason='Removed from drafting by an editor' from public.story_candidates where id='20000000-0000-4000-8000-000000000003'),'removed story says why it was skipped');
 select pg_temp.check_true(public.cancel_draft_job('30000000-0000-4000-8000-000000000004',true),'already cancelled story can be dropped');
 select pg_temp.check_true(not public.cancel_draft_job('30000000-0000-4000-8000-000000000004',true),'repeated removal is idempotent');
 select pg_temp.check_true(not public.cancel_draft_job('30000000-0000-4000-8000-000000000009',true),'completed article protected');

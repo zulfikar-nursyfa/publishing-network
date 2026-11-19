@@ -9,6 +9,7 @@ import {
   readResearchResponse,
   robotsAllows,
 } from "@/lib/automation/evidence";
+import { plainEvidence } from "@/lib/automation/page-text";
 
 const text = "A publicly available statement about the announcement. ".repeat(10);
 const page = (body, headers = {}) => ({ status: 200, headers: { "content-type": "text/html", ...headers }, body });
@@ -112,5 +113,12 @@ test("downloads over 8 MiB are rejected without being treated as retryable", asy
   await assert.rejects(
     readResearchResponse(response(Array.from({ length: 9 }, () => Buffer.alloc(1024 * 1024)))),
     oversize,
+  );
+});
+
+test("page text decodes HTML entities (PM review 19 Nov)", () => {
+  assert.equal(
+    plainEvidence("<p>valoris&#233; &#xE0; 6,8 milliards &ndash; MBA&rsquo;s report &amp;#233; &bogus; &#0;</p>"),
+    "valorisé à 6,8 milliards – MBA’s report &#233; &bogus; &#0;",
   );
 });

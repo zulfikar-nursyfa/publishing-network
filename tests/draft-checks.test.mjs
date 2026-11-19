@@ -313,6 +313,33 @@ test("each dated item needs its date from the source it rests on (PM review 14 N
   assert.equal(check("NAHB released a calculator on 12 November.", nahb.text).length, 1);
 });
 
+test("a date one source states covers a figure another source gives (PM review 19 Nov)", () => {
+  const prices = {
+    url: "https://prices.example.test/a",
+    published_at: "2026-11-17T08:00:00Z",
+    text: "The average asking price was 364,270 pounds.",
+  };
+  const reuters = {
+    url: "https://reuters.example.test/b",
+    published_at: "2026-11-17T09:00:00Z",
+    text: "The survey covered the four weeks to Nov. 7.",
+  };
+  const sentence = "The average asking price was £364,270 in the four weeks to 7 November.";
+  const result = checkVerification(
+    {
+      passed: true,
+      issues: [],
+      checked_claims: [
+        { sentence: 1, claim: sentence, supported: true, source_quote: `${prices.text} | ${reuters.text}` },
+      ],
+    },
+    [],
+    [prices, reuters],
+    [{ text: sentence }],
+  );
+  assert.deepEqual(result, []);
+});
+
 test("the article is split into numbered sentences, keeping abbreviations whole", () => {
   const sentences = draftSentences({
     title: "Dubai opens a route",

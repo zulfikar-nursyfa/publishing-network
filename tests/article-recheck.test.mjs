@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { draftReviewNote, recheckedWarnings } from "@/lib/automation/drafting/recheck";
+import { draftReviewNote, outletCount, recheckedWarnings } from "@/lib/automation/drafting/recheck";
+import { copiedPassage, copiedWarning } from "@/lib/automation/draft-checks";
 
 const previous = [
   "No official source and only one outlet supports the story",
@@ -36,4 +37,29 @@ test("the rewritten review note matches the one complete_draft_job writes", () =
   const prefix = draftReviewNote([]);
   assert.ok(sql.includes(`'${prefix}'`));
   assert.equal(draftReviewNote(["One", "Two"]), `${prefix}\n\nCheck these warnings:\n- One\n- Two`);
+});
+
+test("a re-check reading two outlets clears the single-source warning (PM review 19 Nov)", () => {
+  const warnings = ["Sensitive or consequential story without a second independent source"];
+  const pages = [{ url: "https://www.thenationalnews.com/a" }, { url: "https://wam.ae/b" }];
+  assert.equal(outletCount(pages), 2);
+  assert.deepEqual(recheckedWarnings(warnings, [], { hasCategory: true, hasImage: true, outlets: 2 }), []);
+  assert.deepEqual(recheckedWarnings(warnings, [], { hasCategory: true, hasImage: true, outlets: 1 }), warnings);
+});
+
+test("a re-check replaces the copied-wording warning with the current draft's (PM review 19 Nov)", () => {
+  const page = {
+    url: "https://news.example.test/dxb",
+    text: "India led the traffic, followed by Saudi Arabia with 1.4 million and the UK with 1.1 million passengers.",
+  };
+  const old = {
+    title: "DXB traffic",
+    excerpt: "",
+    body: `India led, followed by Saudi Arabia with 1.4 million and the UK with 1.1 million.`,
+  };
+  const edited = { ...old, body: "India was the largest market. Saudi Arabia and the UK came next." };
+  const copied = copiedPassage(old, [page]);
+  assert.ok(copied);
+  assert.equal(copiedPassage(edited, [page]), undefined);
+  assert.deepEqual(recheckedWarnings([copiedWarning(copied)], [], { hasCategory: true, hasImage: true }), []);
 });

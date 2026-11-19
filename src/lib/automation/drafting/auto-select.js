@@ -3,6 +3,9 @@ import { selectStories, SELECTION_MAX_AGE_MS } from "../selection";
 import { storyRows } from "../story-history";
 import { SCREEN_BATCH, screenStories } from "./screen";
 
+const OFF_TOPIC = "Outside the website's topic";
+const OPINION = "Opinion or commentary piece";
+
 /**
  * Off-topic stories among the best-ranked unscreened ones are skipped with the AI's reason; the rest are
  * marked screened. A failed screening call selects nothing new this run rather than unscreened stories.
@@ -26,7 +29,7 @@ async function screenTopStories(db, website, network, rank, screen) {
       : {
           topic_checked_at: checkedAt,
           status: "skipped",
-          skip_reason: `Outside the website's topic: ${verdict.reason}`.slice(0, 500),
+          skip_reason: `${verdict.opinion ? OPINION : OFF_TOPIC}: ${verdict.reason}`.slice(0, 500),
         };
     const { error } = await db
       .from("story_candidates")

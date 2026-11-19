@@ -16,7 +16,7 @@ export async function changeStories({ db, ids, status, authorize, audit, cancelJ
   for (const websiteId of websiteIds) await authorize(websiteId);
   const { data: changed, error: updateError } = await db
     .from("story_candidates")
-    .update({ status })
+    .update({ status, skip_reason: status === "skipped" ? "Skipped by an editor" : null })
     .in("id", parsed.data.ids)
     .neq("status", "used")
     .select("id, website_id");

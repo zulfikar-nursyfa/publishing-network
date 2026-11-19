@@ -40,6 +40,7 @@ test("bulk changes authorize every website, audit per website and cancel only th
   );
   assert.deepEqual(cancelled, [a, b]);
   assert.ok(db.tables.story_candidates.every((row) => row.status === "skipped"));
+  assert.ok(db.tables.story_candidates.every((row) => row.skip_reason === "Skipped by an editor"));
 });
 
 test("a denied website prevents all writes and cancellations, including earlier authorized websites", async () => {

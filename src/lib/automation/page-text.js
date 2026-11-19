@@ -1,6 +1,24 @@
 /** Readable text, publication date and paywall detection for fetched HTML pages. */
 
 const MAX_TEXT = 10_000;
+// Typographic entities news sites use; accented letters usually arrive as numeric entities.
+const NAMED_ENTITIES = {
+  ndash: "–",
+  mdash: "—",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  laquo: "«",
+  raquo: "»",
+  hellip: "…",
+  euro: "€",
+  pound: "£",
+  eacute: "é",
+  egrave: "è",
+  agrave: "à",
+  ccedil: "ç",
+};
 
 export function plainEvidence(html) {
   return (
@@ -9,9 +27,15 @@ export function plainEvidence(html) {
       .replace(/<(script|style|nav|header|footer|aside|noscript|svg|template)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/gi, " ")
-      .replace(/&amp;/gi, "&")
       .replace(/&quot;/gi, '"')
-      .replace(/&#39;|&apos;/gi, "'")
+      .replace(/&apos;/gi, "'")
+      .replace(/&(\w+);/g, (entity, name) => NAMED_ENTITIES[name] ?? entity)
+      // "valoris&#233;" on French pages: an undecoded accent splits words and hides dates and quotes.
+      .replace(/&#(x[0-9a-f]+|\d+);/gi, (entity, code) => {
+        const point = code[0].toLowerCase() === "x" ? parseInt(code.slice(1), 16) : Number(code);
+        return point > 0 && point <= 0x10ffff ? String.fromCodePoint(point) : entity;
+      })
+      .replace(/&amp;/gi, "&")
       // Postgres jsonb rejects \u0000, and other control characters are never useful evidence.
       .replace(/[\u0000-\u001F\u007F]/g, " ")
       .replace(/\s+/g, " ")

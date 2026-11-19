@@ -13,6 +13,8 @@ const screenSchema = z.object({
       z.object({
         story: z.int().min(1).max(SCREEN_BATCH),
         fits: z.boolean(),
+        // Opinion, commentary, column or editorial: shown as its own skip reason.
+        opinion: z.boolean().default(false),
         reason: z
           .string()
           .trim()
@@ -24,7 +26,7 @@ const screenSchema = z.object({
 
 /**
  * One budgeted AI call judging whether each story fits the website's niche, from its headline and summary.
- * Returns story id → { fits, reason }; a story the AI left out is missing and is screened again next time.
+ * Returns story id → { fits, opinion, reason }; a story the AI left out is missing and is screened again next time.
  */
 export async function screenStories(db, website, network, stories) {
   const [niche, categories] = await Promise.all([
@@ -44,6 +46,6 @@ export async function screenStories(db, website, network, stories) {
   return new Map(
     output.stories
       .filter(({ story }) => stories[story - 1])
-      .map(({ story, fits, reason }) => [stories[story - 1].id, { fits, reason }]),
+      .map(({ story, fits, opinion, reason }) => [stories[story - 1].id, { fits, opinion, reason }]),
   );
 }

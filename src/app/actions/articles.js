@@ -363,6 +363,18 @@ export async function transitionArticle(articleId, _prev, formData) {
   if (error) return { error: error.message };
   if (!updated) return { error: "The article changed while you were working. Reload and try again." };
 
+  // Re-approval is a fresh decision: give a failed publication its automatic slot retries back.
+  let warning = "";
+  if (name === "approve") {
+    const { error: resetError } = await createAdminClient()
+      .from("publications")
+      .update({ attempt_count: 0 })
+      .eq("article_id", articleId)
+      .eq("status", "failed");
+    if (resetError)
+      warning = ` Its publishing retries could not be reset (${resetError.message}); use Retry publishing.`;
+  }
+
   await recordAudit({
     action: transition.action,
     entityType: "article",
@@ -372,7 +384,7 @@ export async function transitionArticle(articleId, _prev, formData) {
     details: { from: article.status, to: transition.to, note },
   });
   refresh(article);
-  return { ok: true, message: `Article is now ${transition.to.replace("_", " ")}.` };
+  return { ok: true, message: `Article is now ${transition.to.replace("_", " ")}.${warning}` };
 }
 
 /**

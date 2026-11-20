@@ -21,9 +21,10 @@ export default function PublishingPage() {
           automatic drafting supply and slots.
         </p>
         <p>
-          The publishing check runs every five minutes. An approved AI article scheduled for that exact slot gets
-          priority. Otherwise the slot chooses the AI article that has been approved longest and has no separate
-          schedule. It does not take manual articles, unapproved drafts or articles with a recorded publishing failure.
+          The publishing check runs every five minutes. An approved AI article whose earlier publishing failed goes
+          first, oldest approval first, while it has attempts left. Next comes an AI article scheduled for that exact
+          slot, then the AI article that has been approved longest and has no separate schedule. If the slot&apos;s
+          article fails, the same slot moves on to the next one. It does not take manual articles or unapproved drafts.
         </p>
       </Section>
       <Section title="Schedule one article, or publish now">
@@ -78,12 +79,15 @@ export default function PublishingPage() {
         <p>
           Open <strong>Last publishing error</strong> on the article. Fix the connection, category or image issue, then
           use <strong>Retry publishing</strong>. Retrying checks for the existing WordPress post before creating one.
-          A failed publication is retried automatically three times, ten minutes apart. After that it stays in the
-          review queue until someone uses <strong>Retry publishing</strong>.
+          An AI article whose publishing failed is retried at the website&apos;s next publishing times, ahead of other
+          approved articles, up to four attempts in all. That leaves time to fix the cause between attempts. After
+          that it stays in the review queue until someone uses <strong>Retry publishing</strong>. Returning it to draft
+          and approving it again gives it its automatic attempts back.
         </p>
         <p>
-          Automatic retries wait while automation is paused or the WordPress connection needs attention. If an attempt
-          is still running, wait and reload rather than creating another article.
+          A brief WordPress outage is also retried within the same slot. Automatic retries wait while automation is
+          paused or the WordPress connection needs attention. If an attempt is still running, wait and reload rather
+          than creating another article.
         </p>
       </Section>
       <Section title="Take an article down and correct it">

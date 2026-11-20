@@ -59,7 +59,13 @@ async function slotWriteBlock(db, slot, worker) {
   return null;
 }
 
-async function runSlot(db, websiteId, slotAt) {
+/**
+ * A publishing failure lets the slot move on to its next candidate. A block (pause, broken connection,
+ * expired slot) would block the next article too, so the slot ends there.
+ */
+export const movesOn = (result) => ["failed", "attempts_exhausted"].includes(result.outcome);
+
+async function runSlot(db, websiteId, slotAt, deadline) {
   const worker = randomUUID();
   const { data, error } = await db.rpc("claim_publish_slot", {
     target_website: websiteId,
@@ -67,18 +73,27 @@ async function runSlot(db, websiteId, slotAt) {
     worker,
   });
   failOn(error);
-  const slot = data?.[0];
+  let slot = data?.[0];
   if (!slot) return null;
   let status = "skipped";
   let note = "No approved automated article was ready";
-  if (slot.article_id) {
-    const result = await publishArticle(slot.article_id, null, createSupabasePublishStore(), createWordPressClient, {
-      beforeWrite: () => slotWriteBlock(db, slot, worker),
+  const tried = new Set();
+  while (slot.article_id && !tried.has(slot.article_id)) {
+    tried.add(slot.article_id);
+    const current = slot;
+    const result = await publishArticle(current.article_id, null, createSupabasePublishStore(), createWordPressClient, {
+      beforeWrite: () => slotWriteBlock(db, current, worker),
     });
     if (result.outcome === "in_progress") return { slotId: slot.id, status: "running" };
     if (retrySlotLater(result, slot.slot_at)) return { slotId: slot.id, status: "retrying", note: result.error };
     status = ["published", "already_published"].includes(result.outcome) ? "published" : "failed";
     note = status === "published" ? null : (result.error ?? result.reason ?? result.outcome);
+    // The failed article keeps its remaining attempts for the next slot; this slot tries the next candidate.
+    if (!movesOn(result) || Date.now() >= deadline) break;
+    const { data: next, error: nextError } = await db.rpc("next_slot_article", { target_slot: slot.id, worker });
+    failOn(nextError);
+    if (!next?.[0]) break;
+    slot = next[0];
   }
   const { data: finished, error: finishError } = await db.rpc("finish_publish_slot", {
     target_slot: slot.id,
@@ -98,7 +113,10 @@ async function runSlot(db, websiteId, slotAt) {
   return { slotId: slot.id, websiteId, slotAt, articleId: slot.article_id, status: finished ? status : "lease_lost" };
 }
 
-/** Explicit schedules were chosen by a person and retain the manual-publishing pause exception. */
+/**
+ * Explicit schedules were chosen by a person and retain the manual-publishing pause exception. A failed
+ * scheduled article is retried by the website's next publishing slot, not here.
+ */
 async function publishScheduled(db, deadline) {
   const { data: due, error } = await db
     .from("articles")
@@ -121,40 +139,6 @@ async function publishScheduled(db, deadline) {
     if (failedIds.has(article.id)) continue;
     const result = await publishArticle(article.id, null, createSupabasePublishStore(), createWordPressClient);
     results.push({ articleId: article.id, outcome: result.outcome });
-  }
-  return results;
-}
-
-const RETRY_DELAY_MS = 10 * 60_000;
-// Matches publications.max_attempts (migration 54); filtered in the query so exhausted rows never fill the batch.
-const AUTO_ATTEMPTS = 4;
-
-/**
- * Failed publications are retried automatically: one attempt plus three retries, ten minutes apart.
- * After that they wait in the review queue for a person to press Retry publishing.
- */
-async function retryFailed(db, websites, network, deadline) {
-  // A pause or broken connection would only burn attempts, so those sites wait until it clears.
-  if (network.automation_paused) return [];
-  const siteIds = websites
-    .filter((site) => !site.automation_paused && site.wp_connection_status === "ok")
-    .map((site) => site.id);
-  const { data: failed, error } = await db
-    .from("publications")
-    .select("article_id, articles!inner(status)")
-    .eq("status", "failed")
-    .lt("attempt_count", AUTO_ATTEMPTS)
-    .eq("articles.status", "approved")
-    .in("website_id", siteIds)
-    .lte("updated_at", new Date(Date.now() - RETRY_DELAY_MS).toISOString())
-    .order("updated_at")
-    .limit(MAX_PER_RUN);
-  failOn(error);
-  const results = [];
-  for (const { article_id: articleId } of failed) {
-    if (Date.now() >= deadline) break;
-    const result = await publishArticle(articleId, null, createSupabasePublishStore(), createWordPressClient);
-    results.push({ articleId, outcome: result.outcome });
   }
   return results;
 }
@@ -190,9 +174,9 @@ export async function runScheduler(now = new Date()) {
   const slots = [];
   for (const slot of [...work.values()].slice(0, MAX_PER_RUN)) {
     if (Date.now() >= deadline) break;
-    const result = await runSlot(db, slot.website_id, slot.slot_at);
+    const result = await runSlot(db, slot.website_id, slot.slot_at, deadline);
     if (result) slots.push(result);
   }
   const scheduled = await publishScheduled(db, deadline);
-  return { slots, scheduled, retried: await retryFailed(db, websites, network, deadline) };
+  return { slots, scheduled };
 }

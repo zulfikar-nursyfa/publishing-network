@@ -44,6 +44,21 @@ export function plainEvidence(html) {
   );
 }
 
+// Bot checks and CAPTCHAs: drafting from one wrote an article about its arithmetic question (PM review 22 Nov).
+const BOT_CHECK_TITLE =
+  /captcha|human or (?:a )?bot|are you (?:a )?(?:human|robot)|just a moment|attention required|security check/i;
+const BOT_CHECK_TEXT =
+  /(?:confirm|verify|prove) (?:that )?you(?:'re| are) (?:a )?human|not a robot|solve this simple math problem|complete the security check|enable javascript and cookies to continue/i;
+
+/** A reason to skip a bot check or CAPTCHA page, which stands in for the article, or null. */
+export function botCheckReason(pageUrl, title, text) {
+  return /captcha|bot-?challenge/i.test(new URL(pageUrl).pathname) ||
+    BOT_CHECK_TITLE.test(title) ||
+    BOT_CHECK_TEXT.test(text.slice(0, 2000))
+    ? "Bot check or CAPTCHA page instead of the article"
+    : null;
+}
+
 /** Publication date from common article metadata, or null when the page does not state one. */
 export function publishedAt(html) {
   const found =

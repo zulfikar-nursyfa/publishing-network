@@ -42,9 +42,19 @@ const figures = (text) => latinDigits(text).match(FIGURE) ?? [];
  * calculated numbers. Single digits are skipped (often days of the month or spelled out in sources).
  */
 export function unsourcedFigures(article, evidence) {
+  const text = readerText(article);
   // Any digits in a source count, even inside a word: "Hub71" supports "هوب 71", and Arabic "و26%" means "and 26%".
-  const known = new Set(evidence.flatMap((page) => latinDigits(page.text).match(/\d+(?:\.\d+)?/g) ?? []));
-  const used = figures(readerText(article)).filter((figure) => figure.length > 1);
+  const known = new Set([
+    ...evidence.flatMap((page) => latinDigits(page.text).match(/\d+(?:\.\d+)?/g) ?? []),
+    ...scaledFigures(sourceText(evidence)).map(expanded),
+  ]);
+  // "650 ألف" where the source says "650,000" (PM review 22 Nov), and the reverse.
+  const written = new Set(
+    scaledFigures(text)
+      .filter((found) => known.has(expanded(found)))
+      .map(({ figure }) => figure),
+  );
+  const used = figures(text).filter((figure) => figure.length > 1 && !written.has(figure));
   return [...new Set(used.filter((figure) => !known.has(figure)))];
 }
 
@@ -70,6 +80,10 @@ const SCALES = {
 // A lone m or b only counts written against the number ("15.6bn", "5m"), not "5 m" for metres.
 const SCALED =
   /(?<![\p{L}\d.])(\d+(?:\.\d+)?)(?:\s?(thousand|million|billion|trillion|mn|bn|tn|ألف|آلاف|مليون|ملايين|مليارات|مليار|بليون|تريليون)|(m|b))(?!\p{L})/giu;
+
+const MULTIPLIERS = { thousand: 1e3, million: 1e6, billion: 1e9, trillion: 1e12 };
+// Rounded: 2.3 * 1e6 is 2299999.9999999995 in floating point.
+const expanded = ({ figure, scale }) => String(Math.round(Number(figure) * MULTIPLIERS[scale]));
 
 function scaledFigures(text) {
   return [...latinDigits(text).matchAll(SCALED)].map((match) => ({
@@ -431,11 +445,16 @@ const ACTIONS = [
   [/^tour(?:s|ed|ing)?$/, /جول|تفقد/],
 ];
 
+// "Its opening cycle" is the first cycle, not something that opened (PM review 22 Nov).
+const FIRST_OF =
+  /\bopening (?=(?:cycle|round|edition|season|session|phase|stage|batch|cohort|day|week|month|quarter|year|remarks|speech|address|keynote)s?\b)/giu;
+
 /** "Signed", "launched", "attended", "toured": outcomes, roles and presence no source states. */
 export function addedActions(article, evidence) {
   const sourceWords = [...new Set(words(sourceText(evidence)))];
   const missing = ACTIONS.filter((family) => !sourceWords.some((word) => family.some((pattern) => pattern.test(word))));
-  return [...new Set(words(readerText(article)))].filter((word) => missing.some(([flagged]) => flagged.test(word)));
+  const text = readerText(article).replace(FIRST_OF, "");
+  return [...new Set(words(text))].filter((word) => missing.some(([flagged]) => flagged.test(word)));
 }
 
 const MONTH =

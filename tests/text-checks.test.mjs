@@ -355,3 +355,16 @@ test("French source dates are read (PM review 19 Nov)", () => {
   assert.deepEqual(unsourcedDates(body("Its value stood at €6.8 billion on 30 June 2026."), [french]), []);
   assert.deepEqual(unsourcedDates(body("Its value stood at €6.8 billion on 30 July 2026."), [french]), ["30 July"]);
 });
+
+test("a figure written with a scale word matches the source's digits, and the reverse (PM review 22 Nov)", () => {
+  const evidence = [source("Capacity will reach 650,000 TEU and 2.3 million visitors.")];
+  const article = body("طاقة تصل إلى 650 ألف حاوية و2300000 زائر، و0.65 مليون حاوية.");
+  assert.deepEqual(unsourcedFigures(article, evidence), []);
+  assert.deepEqual(unsourcedFigures(body("طاقة تصل إلى 700 ألف حاوية."), evidence), ["700"]);
+});
+
+test("an opening cycle is the first one, not an action (PM review 22 Nov)", () => {
+  const evidence = [source("The programme drew 70 applications in its first cycle.")];
+  assert.deepEqual(addedActions(body("It drew 70 applications in its opening cycle."), evidence), []);
+  assert.deepEqual(addedActions(body("The minister is opening the centre."), evidence), ["opening"]);
+});

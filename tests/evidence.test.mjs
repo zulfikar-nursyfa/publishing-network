@@ -105,6 +105,19 @@ test("robots.txt refusals, paywalls and thin pages are skipped", async () => {
   );
 });
 
+test("bot checks and CAPTCHA pages are skipped (PM review 22 Nov)", async () => {
+  const url = "https://outlet.example.test/story";
+  const challenge = "https://outlet.example.test/bot-challenge?destpath=%2Fstory";
+  const captcha = `<title>Are you a Human or Bot | Outlet</title><main>Confirm you are a human, not a bot, to continue browsing this website. Math question 3 + 8 = Solve this simple math problem and enter the result. ${text}</main>`;
+  const request = fakeRequest({
+    [url]: { status: 302, headers: { location: challenge }, body: "" },
+    [challenge]: page(captcha),
+  });
+  await assert.rejects(collectEvidence(url, [], { requestImpl: request }), /Bot check or CAPTCHA/);
+  const plain = fakeRequest({ [url]: page(captcha.replace("bot-challenge", "x")) });
+  await assert.rejects(collectEvidence(url, [], { requestImpl: plain }), /Bot check or CAPTCHA/);
+});
+
 test("downloads over 8 MiB are rejected without being treated as retryable", async () => {
   const response = (chunks, headers = {}) =>
     Object.assign(Readable.from(chunks), { statusCode: 200, headers: { "content-type": "text/html", ...headers } });

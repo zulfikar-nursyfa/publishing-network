@@ -1,5 +1,5 @@
 import { allowedByRobots } from "./robots";
-import { paywallBlockReason, plainEvidence, publishedAt } from "./page-text";
+import { botCheckReason, paywallBlockReason, plainEvidence, publishedAt } from "./page-text";
 import { EvidenceError, isFetchableUrl, MAX_BYTES, pageTooLarge, publicRequest } from "./public-fetch";
 
 export { robotsAllows } from "./robots";
@@ -66,10 +66,12 @@ export async function collectEvidence(value, sources, { requestImpl = publicRequ
     const accessBlock = paywallBlockReason(response.body, article, url.href);
     if (accessBlock) throw new EvidenceError(accessBlock);
     const text = plainEvidence(article);
+    const pageTitle = response.body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? hostOf(url.href);
+    const botCheck = botCheckReason(url.href, plainEvidence(pageTitle), text);
+    if (botCheck) throw new EvidenceError(botCheck);
     if (text.length < MIN_TEXT_LENGTH) throw new EvidenceError("Page has too little readable text");
 
     const source = sourceForUrl(url.href, sources);
-    const pageTitle = response.body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? hostOf(url.href);
     return {
       url: url.href,
       source_id: source?.id ?? null,

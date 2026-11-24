@@ -353,7 +353,48 @@ test("a translated name in quotation marks is not checked against sources in ano
 test("French source dates are read (PM review 19 Nov)", () => {
   const french = source("Le portefeuille est valorisé à 6,8 milliards d'euros au 30 juin 2026.");
   assert.deepEqual(unsourcedDates(body("Its value stood at €6.8 billion on 30 June 2026."), [french]), []);
-  assert.deepEqual(unsourcedDates(body("Its value stood at €6.8 billion on 30 July 2026."), [french]), ["30 July"]);
+  assert.deepEqual(unsourcedDates(body("Its value stood at €6.8 billion on 30 July 2026."), [french]), [
+    "30 July",
+    "July 2026",
+  ]);
+});
+
+test("a year or day the sources do not give with the month is flagged (PM review 23 Nov)", () => {
+  const evidence = [
+    {
+      ...source("Contentful introduced Palmata in June. Adsroid, November 20, 2026."),
+      published_at: "2026-11-20T20:20:00Z",
+    },
+  ];
+  assert.deepEqual(unsourcedDates(body("Contentful introduced Palmata in June 2026."), evidence), ["June 2026"]);
+  assert.deepEqual(unsourcedDates(body("Contentful introduced Palmata in June."), evidence), []);
+  assert.deepEqual(unsourcedDates(body("The guide was published in November 2026."), evidence), []);
+  const undated = [{ ...source("Flights start in March."), published_at: "2026-11-23T10:00:00Z" }];
+  assert.deepEqual(unsourcedDates(body("The first flight left on 23 November 2026."), undated), []);
+  assert.deepEqual(unsourcedDates(body("Flights start in March 2027."), undated), ["March 2027"]);
+  const arabic = [source("وزيرة الإسكان تتابع المشروعات السبت 21 نوفمبر 2026 | 12:21 مساءً")];
+  assert.deepEqual(unsourcedDates(body("تابعت الوزيرة المشروعات في نوفمبر 2026"), arabic), []);
+  assert.deepEqual(unsourcedDates(body("تابعت الوزيرة المشروعات في أكتوبر 2026"), arabic), ["أكتوبر 2026"]);
+});
+
+test("each qualifier is matched to the figure it belongs to (PM review 23 Nov)", () => {
+  const basins = [
+    source("لخدمة المنطقة الممتدة حتى الحوض (49)، مع التغذية للمناطق من الحوض (6) حتى الحوض (16) ومن 20 حتى 30."),
+  ];
+  const english = body("It will serve the area extending to Basin 49 and feed Basins 6 to 16 and 20 to 30.");
+  assert.deepEqual(droppedQualifiers(english, basins), []);
+  assert.deepEqual(droppedQualifiers(body("درّب البرنامج 500 متدرب"), [source("يدرب البرنامج حتى 500 متدرب")]), [
+    '500 (sources: "حتى")',
+  ]);
+  const shortlist = [source("The final 100 representing more than 75 universities.")];
+  assert.deepEqual(droppedQualifiers(body("The 100 finalists came from 75 universities."), shortlist), [
+    '75 (sources: "more than")',
+  ]);
+  const twoMentions = [
+    source("Winners came from a shortlist of 100 projects."),
+    source("More than 100 public and private sector entities will take part."),
+  ];
+  assert.deepEqual(droppedQualifiers(body("Winners came from a shortlist of 100 projects."), twoMentions), []);
 });
 
 test("a figure written with a scale word matches the source's digits, and the reverse (PM review 22 Nov)", () => {

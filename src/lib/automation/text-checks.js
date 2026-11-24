@@ -356,8 +356,12 @@ export function addedCausalLinks(article, evidence) {
 const QUALIFIERS = [
   // "Over" and "under" only before a figure: "rose 32.9% over the past year" names a period, not "more than".
   /\b(?:up to|as many as|capacity|capable|able to|aims?|aiming|aimed|targets?|targeting|targeted|goals?|expected|expects?|projected|forecasts?|planned|plans?|proposed|potential|estimated|estimates?|could|might|about|around|approximately|nearly|almost|roughly|more than|at least|less than|fewer than)\b|\b(?:over|under)(?= \d)/u,
-  /(?:حتى|نحو|حوالي|قرابة|أكثر من|ما يزيد|أقل من|ما يصل|طاقة|قدرة|استيعاب|يستهدف|تستهدف|هدف|متوقع|يتوقع|مخطط|تقدير|محتمل)/u,
+  // "حتى" is "up to" only right before the figure: "حتى الحوض 49" is "to Basin 49", "من 6 حتى 16" a range.
+  /(?:حتى(?= \d)|نحو|حوالي|قرابة|أكثر من|ما يزيد|أقل من|ما يصل|طاقة|قدرة|استيعاب|يستهدف|تستهدف|هدف|متوقع|يتوقع|مخطط|تقدير|محتمل)/u,
 ];
+// A bound just before the next figure is that figure's: in "100 representing more than 75", "more than" is 75's.
+const NEXT_FIGURES_BOUND =
+  /\s(?:up to|as many as|about|around|approximately|nearly|almost|roughly|more than|at least|less than|fewer than|over|under|حتى|نحو|حوالي|قرابة|أكثر من|ما يزيد(?: عن| على)?|أقل من|ما يصل إلى)$/u;
 const qualifierIn = (context) => QUALIFIERS.map((pattern) => context.match(pattern)?.[0]).find(Boolean);
 
 /**
@@ -375,18 +379,25 @@ function figureContexts(text) {
       while (start > Math.max(0, index - 6) && !isFigure(tokens[start - 1])) start--;
       let end = index + 1;
       while (end < Math.min(tokens.length, index + 5) && !isFigure(tokens[end])) end++;
-      const context = tokens.slice(start, end).join(" ");
+      let context = tokens.slice(start, end).join(" ");
+      if (isFigure(tokens[end] ?? "")) context = context.replace(NEXT_FIGURES_BOUND, "");
+      if (isFigure(tokens[start - 1] ?? "")) context = context.replace(/^حتى /u, "");
       contexts.set(token, [...(contexts.get(token) ?? []), context]);
     });
   }
   return contexts;
 }
 
-/** "Trained 10,000 learners" where the source says "capacity to train up to 10,000": a target written as a result. */
+/**
+ * "Trained 10,000 learners" where the source says "capacity to train up to 10,000": a target written as a result.
+ * shortcut: a figure the sources also give unqualified passes, since the article may mean that mention ("100
+ * projects" beside "more than 100 entities"); compare the words after each figure if a real drop slips through.
+ */
 export function droppedQualifiers(article, evidence) {
   const sources = figureContexts(sourceText(evidence));
   return [...figureContexts(readerText(article))].flatMap(([figure, contexts]) => {
-    const qualifier = (sources.get(figure) ?? []).map(qualifierIn).find(Boolean);
+    const qualifiers = (sources.get(figure) ?? []).map(qualifierIn);
+    const qualifier = qualifiers.every(Boolean) && qualifiers[0];
     return qualifier && !contexts.some(qualifierIn) ? [`${figure} (sources: "${qualifier}")`] : [];
   });
 }
@@ -487,15 +498,18 @@ const DATES = [
   },
 ];
 
+const monthIndex = (name, names) =>
+  names
+    ? indexIn(names, name.toLowerCase())
+    : MONTHS.findIndex((month) => month.startsWith(name.toLowerCase().slice(0, 3)));
+
 /** Each day-and-month date in the text with its wording; a range ("10-12 November") gives every day in it. */
 export function datesIn(text, everyDay) {
   const found = [];
   for (const { pattern, groups, names } of DATES) {
     for (const match of latinDigits(text).matchAll(pattern)) {
       const [first, last, monthName] = groups.map((group) => match[group]);
-      const month = names
-        ? indexIn(names, monthName.toLowerCase())
-        : MONTHS.findIndex((name) => name.startsWith(monthName.toLowerCase().slice(0, 3)));
+      const month = monthIndex(monthName, names);
       const [start, end] = [Number(first), Number(last ?? first)];
       if (start < 1 || end > 31 || end < start) continue;
       const days = everyDay
@@ -513,13 +527,38 @@ export function publishedKey(page) {
   return date && !Number.isNaN(date.getTime()) ? `${date.getUTCMonth()}-${date.getUTCDate()}` : null;
 }
 
-/** Event dates in the article that no source gives, such as a summit's dates moved or widened. */
+// A month followed by a year, with or without a day between ("June 2026", "November 20, 2026").
+const MONTH_YEARS = [
+  { pattern: new RegExp(`${MONTH}(?:\\s+${DAYS})?,?\\s+(\\d{4})(?!\\d)`, "giu") },
+  { pattern: new RegExp(`(${AR_MONTHS.join("|")})\\s+(\\d{4})(?!\\d)`, "gu"), names: AR_MONTHS },
+  { pattern: new RegExp(`(${FR_MONTHS.join("|")})\\s+(\\d{4})(?!\\d)`, "giu"), names: FR_MONTHS },
+];
+const monthYearsIn = (text) =>
+  MONTH_YEARS.flatMap(({ pattern, names }) =>
+    [...latinDigits(text).matchAll(pattern)].map((match) => ({
+      key: `${monthIndex(match[1], names)}-${match.at(-1)}`,
+      wording: match[0],
+    })),
+  );
+
+/**
+ * Event dates in the article that no source gives, such as a summit's dates moved or widened,
+ * and years no source gives with that month ("June 2026" where the source says "in June").
+ */
 export function unsourcedDates(article, evidence) {
-  const known = new Set(datesIn(sourceText(evidence), true).map(({ key }) => key));
+  const sources = sourceText(evidence);
+  const known = new Set(datesIn(sources, true).map(({ key }) => key));
   for (const page of evidence) if (publishedKey(page)) known.add(publishedKey(page));
-  return datesIn(readerText(article), false)
-    .filter(({ key }) => !known.has(key))
-    .map(({ wording }) => wording);
+  const knownYears = new Set(monthYearsIn(sources).map(({ key }) => key));
+  for (const page of evidence) {
+    const date = page.published_at && new Date(page.published_at);
+    if (date && !Number.isNaN(date.getTime())) knownYears.add(`${date.getUTCMonth()}-${date.getUTCFullYear()}`);
+  }
+  const text = readerText(article);
+  return [
+    ...datesIn(text, false).filter(({ key }) => !known.has(key)),
+    ...monthYearsIn(text).filter(({ key }) => !knownYears.has(key)),
+  ].map(({ wording }) => wording);
 }
 
 const AI_TEXT = [

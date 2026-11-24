@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { draftReviewNote, outletCount, recheckedWarnings } from "@/lib/automation/drafting/recheck";
-import { copiedPassage, copiedWarning } from "@/lib/automation/draft-checks";
+import { copiedPassages, copiedWarning } from "@/lib/automation/draft-checks";
 
 const previous = [
   "No official source and only one outlet supports the story",
@@ -58,8 +58,18 @@ test("a re-check replaces the copied-wording warning with the current draft's (P
     body: `India led, followed by Saudi Arabia with 1.4 million and the UK with 1.1 million.`,
   };
   const edited = { ...old, body: "India was the largest market. Saudi Arabia and the UK came next." };
-  const copied = copiedPassage(old, [page]);
-  assert.ok(copied);
-  assert.equal(copiedPassage(edited, [page]), undefined);
+  const copied = copiedPassages(old, [page]);
+  assert.equal(copied.length, 1);
+  assert.deepEqual(copiedPassages(edited, [page]), []);
   assert.deepEqual(recheckedWarnings([copiedWarning(copied)], [], { hasCategory: true, hasImage: true }), []);
+});
+
+test("every copied passage is reported in one warning, overlapping runs merged (PM review 23 Nov)", () => {
+  const first = "DP World said the new corridor would cut shipping times between the Gulf and Latin American ports";
+  const second = "Dominican Republic President Luis Abinader said his country wants to strengthen its role as a bridge";
+  const page = { url: "https://news.example.test/dialogue", text: `${first}. Other news follows here. ${second}.` };
+  const article = { title: "Dialogue", excerpt: "", body: `${first}, officials said. Separately, ${second}.` };
+  const copied = copiedPassages(article, [page]);
+  assert.deepEqual(copied, [first, second]);
+  assert.equal(copiedWarning(copied), `The draft still repeats source wording ("${first}"; "${second}"); reword it`);
 });

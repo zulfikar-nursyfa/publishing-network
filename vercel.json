@@ -6,6 +6,7 @@
     { "path": "/api/cron/queue", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/traffic", "schedule": "0 4 * * *" },
     { "path": "/api/cron/alerts", "schedule": "*/15 * * * *" },
-    { "path": "/api/cron/weekly", "schedule": "0 7 * * 1" }
+    { "path": "/api/cron/weekly", "schedule": "0 7 * * 1" },
+    { "path": "/api/cron/social", "schedule": "*/5 * * * *" }
   ]
 }

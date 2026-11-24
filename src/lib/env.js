@@ -29,6 +29,13 @@ const serverEnvSchema = z.object({
   // e.g. "Publishing Network <alerts@cosmosprcampaign.com>". Without both, alerts are not sent.
   RESEND_API_KEY: z.string().optional(),
   ALERT_EMAIL_FROM: z.string().optional(),
+  // X app keys ("API Key and Secret" in the X developer portal). Each website's account signs in to
+  // this app from its settings; the callback URL <app URL>/api/social/callback/x must be allowed.
+  X_API_KEY: z.string().optional(),
+  X_API_SECRET: z.string().optional(),
+  // Reddit "web app" credentials; its redirect URI must be <app URL>/api/social/callback/reddit.
+  REDDIT_CLIENT_ID: z.string().optional(),
+  REDDIT_CLIENT_SECRET: z.string().optional(),
   // Allows http:// WordPress URLs. Only for the local Docker WordPress; never in staging/production.
   ALLOW_INSECURE_WORDPRESS: z
     .enum(["true", "false"])

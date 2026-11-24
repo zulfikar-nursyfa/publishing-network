@@ -13,9 +13,19 @@ import { TIMEZONES } from "@/lib/validation";
 import { WebsiteForm } from "../../website-form";
 import { CategoriesCard } from "./categories-card";
 import { SourcesCard } from "./sources-card";
+import { socialApps } from "@/lib/social/apps";
+import { SocialCard } from "./social-card";
 import { AutomationCard, ConnectionCard } from "./status-cards";
 
 const sections = ["overview", "sources", "categories", "website"];
+const SOCIAL_NOTICES = {
+  connected: { ok: true, message: "Account connected. New manual articles are posted once they are live." },
+  cancelled: { error: "The connection was cancelled." },
+  expired: { error: "The sign-in expired or was started in another browser. Connect again." },
+  other_user: { error: "Only the administrator who started the connection can finish it." },
+  failed: { error: "The account could not be connected. The reason is in the activity log." },
+};
+
 export default async function WebsiteSettingsPage({ params, searchParams }) {
   const { websiteId } = await params;
   const { user, website } = await requireWebsite(websiteId);
@@ -36,7 +46,7 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
       },
     },
   });
-  const [result, { data: niche }, [editors, members, niches]] = await Promise.all([
+  const [result, { data: niche }, [editors, members, niches], social] = await Promise.all([
     ["sources", "categories"].includes(section)
       ? readList(
           () => {
@@ -63,6 +73,20 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
           allRows(() => db.from("niches").select("id, name").order("sort_order").order("id")),
         ])
       : [[], [], []],
+    section === "overview"
+      ? Promise.all([
+          db
+            .from("social_accounts")
+            .select("platform, account_name, subreddit, last_error")
+            .eq("website_id", websiteId),
+          db
+            .from("social_posts")
+            .select("platform, article_id, status, external_url, last_error, created_at, articles(title)")
+            .eq("website_id", websiteId)
+            .order("created_at", { ascending: false })
+            .limit(5),
+        ])
+      : null,
   ]);
   return (
     <div className="mx-auto max-w-5xl">
@@ -109,10 +133,20 @@ export default async function WebsiteSettingsPage({ params, searchParams }) {
           }}
         />
       ) : null}
+      {SOCIAL_NOTICES[input.social] ? (
+        <RedirectNotice params={["social"]} result={SOCIAL_NOTICES[input.social]} />
+      ) : null}
       {section === "overview" ? (
         <div className="mb-6 grid gap-6 lg:grid-cols-2">
           <ConnectionCard website={website} />
           <AutomationCard website={website} isAdmin={user.isAdmin} />
+          <SocialCard
+            website={website}
+            accounts={social[0].data ?? []}
+            posts={social[1].data ?? []}
+            configured={{ x: Boolean(socialApps().x), reddit: Boolean(socialApps().reddit) }}
+            isAdmin={user.isAdmin}
+          />
         </div>
       ) : null}
       {["sources", "categories"].includes(section) ? (

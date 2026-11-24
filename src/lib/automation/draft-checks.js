@@ -10,10 +10,11 @@ const clipped = (max, min = 0) =>
     .overwrite((value) => value.slice(0, max));
 export class DraftCheckError extends Error {}
 export class CopiedPassageError extends DraftCheckError {
-  constructor(phrase) {
-    const wording = phrase.slice(0, 200);
-    super(`Draft contains a long copied passage ("${wording}"); revise the sourcing and retry`);
-    this.phrase = wording;
+  constructor(passages) {
+    const wording = passages.map((passage) => passage.slice(0, 200));
+    super(`Draft contains a long copied passage ("${wording.join('"; "')}"); revise the sourcing and retry`);
+    // One entry per redraft in the job state, so every passage of this draft goes in one string.
+    this.phrase = wording.join(" … ");
   }
 }
 export class ShortDraftError extends DraftCheckError {
@@ -98,18 +99,18 @@ const TITLE_CONNECTORS = new Set("of the and bin bint al el for at to from by on
  * Keep source casing for official titles; ordinary prose still counts as overlap. A 12-word run may
  * hold two ordinary words ("on behalf of His Highness…") because protocol titles alone fill it.
  */
-function sourceShingles(text, length) {
-  const tokens = text.normalize("NFKC").match(/[\p{L}\p{N}]+/gu) ?? [];
-  const phrases = new Map();
+function sourceShingles(tokens, length) {
+  const phrases = [];
   const allowedProse = Math.floor(length / 6);
   for (let index = 0; index <= tokens.length - length; index++) {
     const run = tokens.slice(index, index + length);
     const prose = run.filter((word) => !/^\p{Lu}|\p{N}/u.test(word) && !TITLE_CONNECTORS.has(word.toLowerCase()));
     if (prose.length <= allowedProse) continue;
-    phrases.set(words(run.join(" ")).join(" "), run.join(" "));
+    phrases.push([words(run.join(" ")).join(" "), index]);
   }
   return phrases;
 }
+const sourceTokens = (text) => text.normalize("NFKC").match(/[\p{L}\p{N}]+/gu) ?? [];
 
 const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
 const domainCount = (urls) => new Set(urls.map(hostOf)).size;
@@ -205,14 +206,29 @@ const shingles = (tokens, length) =>
   );
 const draftWords = (draft) => words(`${draft.title} ${draft.excerpt ?? ""} ${draft.body}`);
 
-/** The first 12-word source passage the draft repeats, in the source's wording, or undefined. */
-export function copiedPassage(draft, evidence) {
+/** Every source passage of 12 or more words the draft repeats, in the source's wording; overlapping runs merge. */
+export function copiedPassages(draft, evidence) {
   const phrases = shingles(draftWords(draft), 12);
-  return evidence.flatMap((page) => [...sourceShingles(page.text, 12)]).find(([phrase]) => phrases.has(phrase))?.[1];
+  const passages = new Set();
+  for (const page of evidence) {
+    const tokens = sourceTokens(page.text);
+    let run = null;
+    for (const [phrase, index] of sourceShingles(tokens, 12)) {
+      if (!phrases.has(phrase)) continue;
+      if (run && index <= run[1]) run[1] = index + 12;
+      else {
+        if (run) passages.add(tokens.slice(...run).join(" "));
+        run = [index, index + 12];
+      }
+    }
+    if (run) passages.add(tokens.slice(...run).join(" "));
+  }
+  return [...passages];
 }
 
 export const COPIED_WARNING = "The draft still repeats source wording";
-export const copiedWarning = (copied) => `${COPIED_WARNING} ("${copied.slice(0, 200)}"); reword it`;
+export const copiedWarning = (passages) =>
+  `${COPIED_WARNING} (${passages.map((passage) => `"${passage.slice(0, 200)}"`).join("; ")}); reword it`;
 
 /** `copiedAllowed`: after the automatic rewrites, a copied passage becomes a reviewer warning instead of failing the job. */
 export function checkDraft(draft, research, evidence, categories, language, strictChecks = [], copiedAllowed = false) {
@@ -227,14 +243,16 @@ export function checkDraft(draft, research, evidence, categories, language, stri
     (language === "ar" ? arabic.length / letters.length < 0.5 : arabic.length / letters.length > 0.2)
   )
     throw new DraftCheckError("Draft language does not match the website");
-  const copied = copiedPassage(draft, evidence);
-  if (copied && !copiedAllowed) throw new CopiedPassageError(copied);
+  const copied = copiedPassages(draft, evidence);
+  if (copied.length && !copiedAllowed) throw new CopiedPassageError(copied);
   const shortPhrases = shingles(draftWords(draft), 5);
-  const sourcePhrases = new Set(evidence.flatMap((page) => [...sourceShingles(page.text, 5).keys()]));
+  const sourcePhrases = new Set(
+    evidence.flatMap((page) => sourceShingles(sourceTokens(page.text), 5).map(([phrase]) => phrase)),
+  );
   if ([...shortPhrases].filter((phrase) => sourcePhrases.has(phrase)).length / Math.max(1, shortPhrases.size) > 0.35)
     throw new DraftCheckError("Draft is too similar to the collected source text");
 
-  const warnings = copied ? [copiedWarning(copied)] : [];
+  const warnings = copied.length ? [copiedWarning(copied)] : [];
   const warn = warnOrBlock(warnings, strictChecks);
   const collected = new Set(evidence.map((page) => page.url));
   const researched = [...new Set(research.claims.flatMap((claim) => claim.source_urls))];

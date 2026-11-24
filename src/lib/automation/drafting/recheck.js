@@ -3,7 +3,7 @@ import { generateForJob } from "@/lib/ai/usage";
 import {
   checkVerification,
   COPIED_WARNING,
-  copiedPassage,
+  copiedPassages,
   copiedWarning,
   draftSentences,
   verificationSchema,
@@ -114,12 +114,12 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
     assertControls,
     prompt: verifyPrompt(promptData(context, state.recheck_evidence), sentences, nicheGuideFor(context.website)),
   });
-  const copied = copiedPassage(article, state.recheck_evidence);
+  const copied = copiedPassages(article, state.recheck_evidence);
   state.warnings = recheckedWarnings(
     state.warnings,
     [
       ...(state.recheck_skipped ?? []),
-      ...(copied ? [copiedWarning(copied)] : []),
+      ...(copied.length ? [copiedWarning(copied)] : []),
       ...checkVerification(state.verification, [], state.recheck_evidence, sentences),
       ...textWarnings(article, state.recheck_evidence, { language: context.website.language }),
     ],

@@ -217,13 +217,13 @@ test("Arabic copied passages still fail with their matched phrase", () => {
 });
 
 test("copied phrase diagnostics are capped at 200 characters", () => {
-  const error = new CopiedPassageError("word ".repeat(100));
+  const error = new CopiedPassageError(["word ".repeat(100)]);
   assert.equal(error.phrase.length, 200);
   assert.ok(error.message.includes(error.phrase));
 });
 
 test("copied passage rejections request at most two redrafts", () => {
-  const error = new CopiedPassageError("source wording");
+  const error = new CopiedPassageError(["source wording"]);
   assert.equal(needsRedraft({}, error), true);
   assert.equal(needsRedraft({ copied_phrases: ["first"] }, error), true);
   assert.equal(needsRedraft({ copied_phrases: ["first", "second"] }, error), false);

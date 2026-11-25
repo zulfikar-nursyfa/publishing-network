@@ -102,7 +102,7 @@ export default function DraftMessagesPage() {
             <strong>Not checked by AI verification:</strong> and needs checking by hand. Each flagged sentence starts
             with the field it is in, such as <strong>[meta description]</strong>.
             Correct or reject the article, or restart a stopped job with better evidence. After correcting, use{" "}
-            <strong>Re-check after edits</strong> on the article so the warnings describe the saved version.
+            <strong>Save and re-check</strong> on the article so the warnings describe the saved version.
           </li>
           <li>
             <strong>Figures not found in the sources</strong>: these numbers appear in the article (including the SEO
@@ -135,7 +135,7 @@ export default function DraftMessagesPage() {
           </li>
           <li>
             <strong>AI image not generated</strong>: often the AI budget could not cover the image. Upload an image, or
-            use <strong>Re-check after edits</strong> once the budget allows; it adds an AI image when the article has
+            use <strong>Save and re-check</strong> once the budget allows; it adds an AI image when the article has
             none. <strong>Re-check stopped</strong> and <strong>Re-check could not read</strong> explain a re-check
             that did not finish or a source page it could not open.
           </li>

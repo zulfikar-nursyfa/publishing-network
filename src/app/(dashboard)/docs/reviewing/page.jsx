@@ -26,8 +26,8 @@ export default function ReviewingPage() {
           <Step title="Resolve warnings">
             Read the article&apos;s review note and <strong>Warnings for the reviewer</strong> on its job. Remove
             unsupported detail, correct mistakes or reject the article. A warning stays useful even when it did not stop
-            drafting. Warnings describe the AI draft, not your edits: after saving corrections or adding sources, use{" "}
-            <strong>Re-check after edits</strong> on the article. It reads the article&apos;s current sources, fact-checks
+            drafting. Warnings describe the AI draft, not your edits: after correcting the article or adding sources, use{" "}
+            <strong>Save and re-check</strong> on the article. It reads the article&apos;s current sources, fact-checks
             the saved text, replaces the old AI verification warnings and adds an AI image if the article still has
             none.
           </Step>

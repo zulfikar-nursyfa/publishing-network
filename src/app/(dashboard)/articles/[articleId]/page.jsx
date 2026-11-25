@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowRightLeft, ExternalLink, Eye, History, Info, Lock, RefreshCw, Trash2 } from "lucide-react";
-import { deletePrivateDraft, moveArticle, recheckArticle, saveArticle } from "@/app/actions/articles";
+import { ArrowRightLeft, ExternalLink, Eye, History, Info, Lock, Trash2 } from "lucide-react";
+import { deletePrivateDraft, moveArticle, saveArticle } from "@/app/actions/articles";
 import { RedirectNotice } from "@/components/action-notice";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
 import {
@@ -215,18 +215,9 @@ export default async function ArticlePage({ params, searchParams }) {
               before approving this article.
               {draftJob.status === "succeeded" ? (
                 editable ? (
-                  <ActionForm action={recheckArticle.bind(null, articleId)} className="mt-3">
-                    <SubmitButton
-                      variant="secondary"
-                      size="sm"
-                      pendingLabel="Queuing…"
-                      confirm="Fact-check the saved article again against its current sources? Save your edits first. This uses one AI call, plus an image if the article has none."
-                      confirmLabel="Re-check"
-                    >
-                      <RefreshCw />
-                      Re-check after edits
-                    </SubmitButton>
-                  </ActionForm>
+                  <span className="mt-2 block">
+                    After editing, use <strong>Save and re-check</strong> below to fact-check the saved article again.
+                  </span>
                 ) : null
               ) : (
                 <span className="mt-2 block font-medium">
@@ -267,6 +258,7 @@ export default async function ArticlePage({ params, searchParams }) {
             )}
             rtl={rtl}
             readOnly={!editable}
+            canRecheck={editable && draftJob?.status === "succeeded"}
             submitLabel="Save changes"
           />
           <FeaturedImage

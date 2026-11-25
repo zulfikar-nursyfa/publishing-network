@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { FileText, Link2, LoaderCircle, Search, Sparkles } from "lucide-react";
+import { FileText, Link2, LoaderCircle, RefreshCw, Search, Sparkles } from "lucide-react";
 import { suggestSeo } from "@/app/actions/articles";
 import { showActionNotice } from "@/components/action-notice";
 import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
@@ -20,6 +20,7 @@ export function ArticleForm({
   categories = [],
   websiteId,
   articleId = null,
+  canRecheck = false,
 }) {
   const [state, formAction] = useActionStateWithNotice(action, {});
   const errors = state.fieldErrors ?? {};
@@ -244,7 +245,21 @@ export function ArticleForm({
         </Card>
       </fieldset>
       {!readOnly ? (
-        <div className="sticky bottom-0 z-10 -mx-4 flex justify-end border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-4">
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-col justify-end gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:rounded-lg sm:border sm:px-4">
+          {canRecheck ? (
+            <SubmitButton
+              variant="secondary"
+              className="w-full sm:w-auto"
+              name="intent"
+              value="recheck"
+              pendingLabel="Saving…"
+              confirm="Save your edits and fact-check the article again against its sources? This uses one AI call, plus an image if the article has none."
+              confirmLabel="Save and re-check"
+            >
+              <RefreshCw />
+              Save and re-check
+            </SubmitButton>
+          ) : null}
           <SubmitButton className="w-full sm:w-auto" pendingLabel="Saving…">
             {submitLabel}
           </SubmitButton>

@@ -19,9 +19,11 @@ const MAX_AGE_MS = 48 * 60 * 60 * 1000;
 export async function runSocialPosts({ now = new Date() } = {}) {
   const db = createAdminClient();
   const apps = socialApps();
+  const summary = { posted: 0, failed: 0, unknown: 0 };
+  // Without app keys nothing can be posted, so the cron does not touch the database.
+  if (!apps.x && !apps.reddit) return summary;
   const { data: accounts, error } = await db.from("social_accounts").select("*, websites(archived_at)");
   if (error) throw new Error(`Could not load social accounts: ${error.message}`);
-  const summary = { posted: 0, failed: 0, unknown: 0 };
   for (const account of accounts ?? []) {
     if (!apps[account.platform] || account.websites?.archived_at) continue;
     await postForAccount(db, apps[account.platform], account, now, summary);

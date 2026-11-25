@@ -67,7 +67,7 @@ export default function HowItWorksPage() {
           retries can make a draft take longer. Refresh Draft jobs to see its current state.
         </p>
         <p>
-          <strong>Re-check after edits</strong> sends a finished job through three more steps: <strong>recollect</strong>{" "}
+          <strong>Save and re-check</strong> sends a finished job through three more steps: <strong>recollect</strong>{" "}
           (read the article&apos;s current sources), <strong>reverify</strong> (fact-check the saved article) and, when
           the article has no image and AI illustrations are on, <strong>reillustrate</strong>. The usual pause and budget
           controls apply.

@@ -162,6 +162,11 @@ export async function saveArticle(articleId, _prev, formData) {
     actorId: user.id,
   });
   refresh(article);
+  // "Save and re-check": the re-check reads the saved article and sources, so it runs only after a save.
+  if (formData.get("intent") === "recheck") {
+    const recheck = await recheckArticle(articleId);
+    return recheck.error ? { error: `Saved, but not re-checked: ${recheck.error}` } : recheck;
+  }
   return { ok: true, message: "Saved." };
 }
 

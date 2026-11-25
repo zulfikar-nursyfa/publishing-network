@@ -46,8 +46,12 @@ export default function AutomationSettingsGuidePage() {
             editors choose every story; enable only when automatic picks are wanted.
           </li>
           <li>
-            <strong>Generate AI illustrations for automated articles</strong>: starts off. Enable only when AI image
-            options are wanted. Their cost counts toward the AI budget and published AI images are labelled as
+            <strong>Generate AI illustrations for automated articles</strong>: starts off. Enable only when image
+            options are wanted. Each draft first gets a Shutterstock photo when one fits (credited
+            &ldquo;Shutterstock&rdquo;, never reused on the same website), otherwise a Nano Banana 2.1 AI image.
+            Shutterstock is used only when its four <code>SHUTTERSTOCK_*</code> server settings (search keys, an API
+            token and the paid plan&apos;s subscription id) are set; until then every draft gets the AI image. Choosing
+            the photo and the AI image count toward the AI budget, and published AI images are labelled as
             illustrations.
           </li>
         </List>

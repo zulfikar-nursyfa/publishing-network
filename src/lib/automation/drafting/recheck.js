@@ -12,7 +12,7 @@ import { collectEvidence } from "../evidence";
 import { TEXT_WARNINGS, textWarnings } from "../text-checks";
 import { nicheGuideFor } from "./context";
 import { PermanentJob } from "./errors";
-import { aiImage, stopsJob } from "./illustrate";
+import { newImage } from "./illustrate";
 import { bodyText } from "@/lib/publishing/content";
 import { verifyPrompt } from "./prompts";
 import { promptData } from "./write";
@@ -33,7 +33,7 @@ const REPLACED = [
   COPIED_WARNING,
   ...TEXT_WARNINGS,
 ];
-const IMAGE_WARNING = /^(AI image not generated|Source image not added): /;
+const IMAGE_WARNING = /^(AI image not generated|Source image not added|Stock photo not used|Image not saved): /;
 const NO_CATEGORY = "The draft has no category";
 // checkResearch's corroboration warnings; two outlets meet the rule even for a sensitive story.
 const SINGLE_SOURCE = [
@@ -140,24 +140,20 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
   return { state, next: imageNeeded ? "reillustrate" : null };
 }
 
-/** An AI image for an article that still has none; a failure only leaves a warning. */
+/** A stock photo or AI image for an article that still has none; a failure only leaves a warning. */
 async function reillustrateStep(db, job, worker, { assertControls }) {
   const state = structuredClone(job.state);
   const article = await loadArticle(db, job);
   if (article.hasImage || !EDITABLE.includes(article.status)) return { state, next: null };
-  let warning;
-  try {
-    const image = await aiImage(db, job, worker, article, article, assertControls);
+  const { image, warnings } = await newImage(db, job, worker, article, article, assertControls);
+  if (image) {
     const { error } = await db
       .from("article_images")
       .insert({ ...image, article_id: article.id, website_id: article.website_id, role: "featured" });
-    if (error) throw new Error(`Could not save the image: ${error.message}`);
-  } catch (error) {
-    if (stopsJob(error)) throw error;
-    warning = `AI image not generated: ${error.message}`;
+    if (error) warnings.push(`Image not saved: ${error.message}`);
   }
   const others = (state.warnings ?? []).filter((existing) => !IMAGE_WARNING.test(existing));
-  state.warnings = warning ? [...others, warning] : others;
+  state.warnings = [...others, ...warnings];
   return { state, next: null };
 }
 

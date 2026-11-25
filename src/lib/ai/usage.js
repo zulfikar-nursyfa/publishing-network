@@ -18,14 +18,23 @@ const MAX_SEARCHES = 5;
  * One budgeted Gemini call for a job. With `search`, returns the raw grounded response; with
  * `image`, the image bytes; otherwise the parsed JSON for `schema`. Completed text responses are
  * reused if a worker died before persisting the next job step (image bytes are not kept).
+ * `contents` replaces `prompt` for multimodal input.
  */
 export async function generateForJob(
   db,
   job,
   worker,
-  { model, operation, prompt, schema, search = false, image = false, assertControls },
+  {
+    model,
+    operation,
+    prompt,
+    contents = [{ role: "user", parts: [{ text: prompt }] }],
+    schema,
+    search = false,
+    image = false,
+    assertControls,
+  },
 ) {
-  const contents = [{ role: "user", parts: [{ text: prompt }] }];
   const jsonSchema = schema ? responseSchema(schema) : null;
   // An image is billed as output tokens (about 1,300 at 1K resolution).
   const outputTokens = search ? 2048 : image ? 4096 : 8192;

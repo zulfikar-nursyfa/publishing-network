@@ -136,7 +136,8 @@ export default function DraftMessagesPage() {
           <li>
             <strong>AI image not generated</strong>: often the AI budget could not cover the image. Upload an image, or
             use <strong>Re-check after edits</strong> once the budget allows; it adds an AI image when the article has
-            none. <strong>Re-check stopped</strong> and <strong>Re-check could not read</strong> explain a re-check
+            none. <strong>Stock photo not used</strong>: the Shutterstock search, pick or licence failed (HTTP 429
+            means the hourly API quota is used up), so the draft got the AI image instead. <strong>Re-check stopped</strong> and <strong>Re-check could not read</strong> explain a re-check
             that did not finish or a source page it could not open.
           </li>
         </List>

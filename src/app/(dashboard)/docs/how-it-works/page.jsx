@@ -56,7 +56,8 @@ export default function HowItWorksPage() {
             <strong>verify</strong>: check the article against the collected pages.
           </li>
           <li>
-            <strong>illustrate</strong>: prepare permitted source images and, if enabled, an AI illustration.
+            <strong>illustrate</strong>: prepare permitted source images and, if enabled, a fitting Shutterstock photo or
+            else an AI illustration.
           </li>
           <li>
             <strong>create article</strong>: save the article, its sources, images and reviewer warnings.

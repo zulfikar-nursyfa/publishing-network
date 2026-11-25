@@ -8,6 +8,7 @@ import { MAX_ARTICLE_IMAGE_BYTES } from "@/lib/validation";
 import { fetchPublicImage } from "../evidence";
 import { DeferredJob, LostLease } from "./errors";
 import { imagePrompt } from "./prompts";
+import { stockImage } from "./stock";
 
 /** Errors that must stop the job rather than just skip the image. */
 export function stopsJob(error) {
@@ -54,8 +55,46 @@ export async function aiImage(db, job, worker, article, draft, assertControls) {
 }
 
 /**
+ * Tries `stock` (resolves to an image or null), then `ai`. Problems only add warnings, except
+ * errors that stop the job. Returns { image, warnings }; image is null when both failed.
+ */
+export async function stockThenAi(stock, ai) {
+  const warnings = [];
+  try {
+    const image = await stock();
+    if (image) return { image, warnings };
+  } catch (error) {
+    if (stopsJob(error)) throw error;
+    warnings.push(`Stock photo not used: ${error.message}`);
+  }
+  try {
+    return { image: await ai(), warnings };
+  } catch (error) {
+    if (stopsJob(error)) throw error;
+    return { image: null, warnings: [...warnings, `AI image not generated: ${error.message}`] };
+  }
+}
+
+/** A licensed Shutterstock photo when one fits, otherwise an AI image. Model calls are recorded on the job. */
+export function newImage(db, job, worker, article, draft, assertControls) {
+  const env = serverEnv();
+  const generateJson = (contents, schema) =>
+    generateForJob(db, job, worker, {
+      model: env.GEMINI_MODEL,
+      operation: "illustrate",
+      contents,
+      schema,
+      assertControls,
+    });
+  return stockThenAi(
+    () => stockImage(db, article, draft, { env, generateJson }),
+    () => aiImage(db, job, worker, article, draft, assertControls),
+  );
+}
+
+/**
  * Stores the draft's images before the article exists, under the article id fixed in state:
- * the source's image (when reuse is allowed) and an AI illustration (when the website wants one).
+ * the source's image (when reuse is allowed) and a stock photo or AI illustration (when the website wants one).
  * The first becomes the featured image, the other an option for the editor.
  * Image problems only add a warning; the editor can still upload an image. Returns warnings.
  */
@@ -76,12 +115,9 @@ export async function illustrateStep(db, job, worker, { state, context, assertCo
   }
 
   if (website.generate_illustrations) {
-    try {
-      images.push(await aiImage(db, job, worker, article, state.draft, assertControls));
-    } catch (error) {
-      if (stopsJob(error)) throw error;
-      warnings.push(`AI image not generated: ${error.message}`);
-    }
+    const result = await newImage(db, job, worker, article, state.draft, assertControls);
+    if (result.image) images.push(result.image);
+    warnings.push(...result.warnings);
   }
 
   state.images = images.map((image, index) => ({ ...image, role: index === 0 ? "featured" : "option" }));

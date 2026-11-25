@@ -22,7 +22,14 @@ const serverEnvSchema = z.object({
   GEMINI_IMAGE_MODEL: z
     .string()
     .regex(/^gemini-[A-Za-z0-9._-]+$/)
-    .default("gemini-3.1-flash-image"),
+    .default("gemini-nano-banana-2.1"),
+  // Shutterstock: drafting tries a stock photo before the AI image only when all four are set.
+  // Search uses the API app's consumer key and secret (account > Developers).
+  SHUTTERSTOCK_CONSUMER_KEY: z.string().optional(),
+  SHUTTERSTOCK_CONSUMER_SECRET: z.string().optional(),
+  // Licensing uses an OAuth access token from a Shutterstock user and the paid API plan's subscription id.
+  SHUTTERSTOCK_API_TOKEN: z.string().optional(),
+  SHUTTERSTOCK_SUBSCRIPTION_ID: z.string().optional(),
   // Google service account JSON key (raw or base64) with read access to GA4 and Search Console.
   GOOGLE_SERVICE_ACCOUNT_KEY: z.string().optional(),
   // Alert emails go through Resend. The sender's domain must be verified there,

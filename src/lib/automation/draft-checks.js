@@ -338,12 +338,22 @@ function sentenceNames(text, sentences) {
  * counts as unsupported: the verifier has to show its support, not only assert it. With the draft's
  * sentences, each one needs its own verdict and is reported in the draft's words, never the verifier's.
  */
+const quoteParts = (claim) =>
+  (claim.source_quote ?? "")
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+/**
+ * Pages holding the quoted support of a supported sentence. The draft lists at most four pages it drew on,
+ * so a fact from a fifth went uncited and Re-check, which reads only cited pages, failed it (PM review 25 Nov).
+ */
+export function quotedPages(verification, evidence) {
+  const parts = verification.checked_claims.filter((claim) => claim.supported).flatMap(quoteParts);
+  return evidence.filter((page) => parts.some((part) => quoteFound(part, page.text))).map((page) => page.url);
+}
+
 export function checkVerification(verification, strictChecks = [], evidence, sentences) {
-  const quoteParts = (claim) =>
-    (claim.source_quote ?? "")
-      .split("|")
-      .map((part) => part.trim())
-      .filter(Boolean);
   const quoted = (claim) => {
     const parts = quoteParts(claim);
     return (

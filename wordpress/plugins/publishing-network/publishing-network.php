@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Publishing Network Connector
- * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button embeds X and Instagram posts pasted on their own line, and reports clicks on phone, email and WhatsApp links to Google Analytics.
- * Version: 2.0.0
+ * Description: Lets the Publishing Network dashboard publish to this site safely. Stores the dashboard's article ID on each post so retries can find an existing post instead of creating a duplicate, and exposes a status endpoint for the "Test connection" button embeds X and Instagram posts pasted on their own line, and reports clicks on phone, email and WhatsApp links to Google Analytics, tells Bing (IndexNow) about new and updated posts, and allows AI search bots in robots.txt.
+ * Version: 2.1.0
  * Requires at least: 5.8
  * Author: Publishing Network
  * Update URI: __PN_DASHBOARD_URL__/api/connector/info
@@ -20,7 +20,7 @@ if ( defined( 'PN_CONNECTOR_VERSION' ) ) {
 	return;
 }
 
-const PN_CONNECTOR_VERSION = '2.0.0';
+const PN_CONNECTOR_VERSION = '2.1.0';
 const PN_ARTICLE_META      = 'pn_article_id';
 const PN_UPDATE_INFO_URL   = '__PN_DASHBOARD_URL__/api/connector/info';
 
@@ -180,6 +180,99 @@ document.addEventListener('click', function (event) {
 	}
 );
 
+// IndexNow: Bing (and through it Yahoo and DuckDuckGo) is told about every post that is published or
+// updated, whoever published it. The key is made on first use and served at /<key>.txt as the
+// protocol requires. Nothing is sent while the site asks search engines not to index it.
+function pn_indexnow_key() {
+	$key = get_option( 'pn_indexnow_key' );
+	if ( ! is_string( $key ) || ! preg_match( '/^[a-f0-9]{32}$/', $key ) ) {
+		$key = bin2hex( random_bytes( 16 ) );
+		update_option( 'pn_indexnow_key', $key, true );
+	}
+	return $key;
+}
+
+add_action(
+	'init',
+	static function () {
+		$path = wp_parse_url( isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '', PHP_URL_PATH );
+		$home = rtrim( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ), '/' );
+		if ( $path === $home . '/' . pn_indexnow_key() . '.txt' ) {
+			header( 'Content-Type: text/plain; charset=utf-8' );
+			echo esc_html( pn_indexnow_key() );
+			exit;
+		}
+	},
+	0
+);
+
+add_action(
+	'transition_post_status',
+	static function ( $new_status, $old_status, $post ) {
+		if ( 'publish' !== $new_status || 'post' !== $post->post_type || wp_is_post_revision( $post ) ) {
+			return;
+		}
+		$GLOBALS['pn_indexnow_posts'][ $post->ID ] = true;
+	},
+	10,
+	3
+);
+
+// Sent once per request, after the post and its slug are saved, without waiting for the answer.
+add_action(
+	'shutdown',
+	static function () {
+		if ( empty( $GLOBALS['pn_indexnow_posts'] ) || ! get_option( 'blog_public' ) ) {
+			return;
+		}
+		$urls = array();
+		foreach ( array_keys( $GLOBALS['pn_indexnow_posts'] ) as $id ) {
+			if ( 'publish' === get_post_status( $id ) ) {
+				$urls[] = get_permalink( $id );
+			}
+		}
+		if ( ! $urls ) {
+			return;
+		}
+		$key = pn_indexnow_key();
+		wp_remote_post(
+			'https://api.indexnow.org/indexnow',
+			array(
+				'blocking' => false,
+				'timeout'  => 5,
+				'headers'  => array( 'Content-Type' => 'application/json; charset=utf-8' ),
+				'body'     => wp_json_encode(
+					array(
+						'host'        => wp_parse_url( home_url(), PHP_URL_HOST ),
+						'key'         => $key,
+						'keyLocation' => home_url( '/' . $key . '.txt' ),
+						'urlList'     => array_values( array_unique( $urls ) ),
+					)
+				),
+			)
+		);
+	}
+);
+
+// AI search bots may read the site. Only WordPress's own robots.txt is changed; a robots.txt file
+// on the server, or a CDN rule that blocks bots (Cloudflare "Block AI bots"), still wins.
+add_filter(
+	'robots_txt',
+	static function ( $output, $public ) {
+		if ( ! $public ) {
+			return $output;
+		}
+		$bots = array( 'GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'PerplexityBot', 'Perplexity-User', 'ClaudeBot', 'Claude-SearchBot', 'Claude-User' );
+		$rules = '';
+		foreach ( $bots as $bot ) {
+			$rules .= 'User-agent: ' . $bot . "\n";
+		}
+		return rtrim( $output ) . "\n\n" . $rules . "Disallow: /wp-admin/\nAllow: /wp-admin/admin-ajax.php\n";
+	},
+	PHP_INT_MAX,
+	2
+);
+
 add_action(
 	'rest_api_init',
 	static function () {
@@ -203,6 +296,7 @@ add_action(
 						'timezone'       => wp_timezone_string(),
 						'multisite'      => is_multisite(),
 						'seo_plugin'     => defined( 'WPSEO_VERSION' ) ? 'yoast ' . WPSEO_VERSION : null,
+						'indexnow'       => (bool) get_option( 'blog_public' ),
 						'user'           => array(
 							'id'            => $user->ID,
 							'login'         => $user->user_login,

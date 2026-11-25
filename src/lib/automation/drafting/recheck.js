@@ -94,9 +94,14 @@ async function recollectStep(db, job, worker, { context }) {
     urls.map((url) => collected.get(url) ?? collectEvidence(url, context.sources, { robots })),
   );
   state.recheck_evidence = results.filter((result) => result.status === "fulfilled").map((result) => result.value);
-  state.recheck_skipped = results.flatMap((result, index) =>
-    result.status === "rejected" ? [`Re-check could not read ${urls[index]}: ${result.reason.message}`] : [],
-  );
+  state.recheck_skipped = [
+    ...results.flatMap((result, index) =>
+      result.status === "rejected" ? [`Re-check could not read ${urls[index]}: ${result.reason.message}`] : [],
+    ),
+    ...sources
+      .slice(MAX_PAGES)
+      .map((source) => `Re-check did not read ${source.url}: it reads ${MAX_PAGES} sources at most`),
+  ];
   if (!state.recheck_evidence.length)
     throw new PermanentJob("Re-check found no readable source pages; add accessible article pages as sources");
   return { state, next: "reverify" };

@@ -9,6 +9,7 @@ import {
   DraftCheckError,
   CopiedPassageError,
   ShortDraftError,
+  quotedPages,
   draftSentences,
   responseSchema,
   verificationSchema,
@@ -590,4 +591,24 @@ test("the AI cites pages by number and jobs keep URLs", () => {
 
   const generated = draftOutputSchema.parse({ ...draft([official.url]), sources: [2, 1] });
   assert.deepEqual(draftWithUrls(generated, pages).source_urls, [outletA.url, official.url]);
+});
+
+test("quotedPages finds the uncited page a supported sentence rests on (Hidab, PM review 25 Nov)", () => {
+  const page = (url, text) => ({ url, text });
+  const evidence = [
+    page("https://a.example/1", "Marwan Farid said the company aims to invest 10 billion pounds."),
+    page("https://a.example/2", "Chairman Abd El-Nasser Taha said clear rules protect buyers' rights."),
+    page("https://a.example/3", "An unrelated page about parking."),
+  ];
+  const claim = (supported, source_quote) => ({ sentence: 1, claim: "x", supported, source_quote, note: "" });
+  const verification = {
+    passed: true,
+    sensitive: false,
+    issues: [],
+    checked_claims: [
+      claim(true, "Abd El-Nasser Taha said clear rules protect buyers' rights."),
+      claim(false, "An unrelated page about parking."),
+    ],
+  };
+  assert.deepEqual(quotedPages(verification, evidence), ["https://a.example/2"]);
 });

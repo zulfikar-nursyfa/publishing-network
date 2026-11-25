@@ -6,6 +6,7 @@ import {
   checkVerification,
   CopiedPassageError,
   draftSentences,
+  quotedPages,
   ShortDraftError,
   verificationSchema,
 } from "../draft-checks";
@@ -149,8 +150,9 @@ export async function verifyStep(db, job, worker, { state, data, context, model,
   });
   const warnings = checkVerification(state.verification, context.strictChecks, state.evidence ?? [], sentences);
   state.draft.sensitive ||= state.verification.sensitive || warnings.length > 0;
+  const cited = new Set([...state.draft.source_urls, ...quotedPages(state.verification, state.evidence ?? [])]);
   state.sources = (state.evidence ?? [])
-    .filter((page) => state.draft.source_urls.includes(page.url))
+    .filter((page) => cited.has(page.url))
     .map(({ url, title, publisher, primary }) => ({
       url,
       title,

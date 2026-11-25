@@ -23,6 +23,7 @@ Internal dashboard for running a network of WordPress news sites (English and Ar
 - **SEO:** SEO title, meta description, focus keyphrase and tags per article (AI-filled, editable), sent to Yoast SEO with the post; after publishing the live URL is checked for errors, noindex and canonical.
 - **Auto-publish (off by default):** categories can allow automated articles to skip review in Automatic mode, but only when the draft is not sensitive, is corroborated, passed verification and has no warnings.
 - **Traffic and search:** Google Analytics and Search Console numbers per website (last 28 days), pulled daily with a service account.
+- **Search indexing and social posting:** the connector plugin tells Bing (IndexNow, which also covers Yahoo and DuckDuckGo) about every published or updated post and allows AI search bots in robots.txt. Live manual articles are posted to each website's own X account and subreddit, connected from Website settings (needs `X_API_KEY`/`X_API_SECRET` and `REDDIT_CLIENT_ID`/`REDDIT_CLIENT_SECRET`); each article is posted at most once per platform.
 - **Unpublish and preview:** live articles can be taken down (the WordPress post becomes a draft and is reused when the corrected article is published again); every article has a preview of exactly what WordPress will receive.
 
 Still pending: the multi-site cost forecast and WordPress themes.

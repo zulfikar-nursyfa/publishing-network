@@ -1,20 +1,22 @@
 import { ListToolbar, Pagination, ListEmpty } from "@/components/list-controls";
 import { allRows, readList } from "@/lib/lists";
-import { parseListParams, enumFilter, searchOr } from "@/lib/list-params";
+import { parseListParams, enumFilter, searchOr, uuidFilter } from "@/lib/list-params";
 import { nicheList } from "@/lib/list-configs";
 import Link from "next/link";
 import { ListLoading } from "@/components/list-loading";
-import { ChevronDown, ChevronRight, ExternalLink, Layers, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Layers, Network, Plus } from "lucide-react";
 import { addNicheSource, removeNicheSource, updateNicheSource } from "@/app/actions/niches";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
 import { Alert, Badge, Card, PageHeader } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { SOURCE_KINDS } from "@/lib/validation";
+import { NETWORK_KINDS, SOURCE_KINDS } from "@/lib/validation";
 import { SourceForm } from "../websites/[websiteId]/settings/settings-forms";
 import { AddNicheForm } from "./add-niche-form";
 import { NicheGuideForm } from "./niche-guide-form";
 import { NicheCategories } from "./niche-categories";
+import { NetworkForm } from "./network-form";
+import { NicheNetworkForm } from "./niche-network-form";
 import { SourceRow } from "./source-row";
 
 export const metadata = { title: "Niches" };
@@ -42,13 +44,14 @@ const feedHint = (sources) => {
   return `${feeds} with a feed · ${sources.length - feeds} research only`;
 };
 
-const guideHint = (niche) =>
+const textHint = (en, ar) =>
   [
-    ["English", niche.guide_en],
-    ["Arabic", niche.guide_ar],
+    ["English", en],
+    ["Arabic", ar],
   ]
-    .map(([label, guide]) => `${label} ${guide ? "set" : "not set"}`)
+    .map(([label, text]) => `${label} ${text ? "set" : "not set"}`)
     .join(" · ");
+const guideHint = (niche) => textHint(niche.guide_en, niche.guide_ar);
 
 function SourceDetails({ source }) {
   return (
@@ -84,6 +87,7 @@ export default async function NichesPage({ searchParams }) {
   const state = parseListParams(await searchParams, {
     ...nicheList,
     filters: {
+      network: uuidFilter("Network", "network_id"),
       source_q: { label: "Search sources", text: true, default: "" },
       category_q: { label: "Search categories", text: true, default: "" },
       source_kind: enumFilter("Source kind", ["all", "news", "newsroom", "government", "api"]),
@@ -91,6 +95,12 @@ export default async function NichesPage({ searchParams }) {
       archived: enumFilter("Categories archived", ["all", "yes", "no"]),
     },
   });
+  const [networksResult, nicheNetworks] = await Promise.all([
+    supabase.from("networks").select("*").order("sort_order").order("id"),
+    allRows(() => supabase.from("niches").select("id, network_id").order("id")).catch(() => []),
+  ]);
+  const networks = networksResult.data ?? [];
+  const networkName = new Map(networks.map((network) => [network.id, network.name]));
   const result = await readList(() => supabase.from("niches").select("*", { count: "exact" }), state);
   const { data: niches, error } = result;
   const ids = niches.map((niche) => niche.id);
@@ -120,7 +130,62 @@ export default async function NichesPage({ searchParams }) {
         title="Niches"
         description="Shared sources, writing guides and starting categories for English and Arabic websites."
       />
-      <ListToolbar path="/niches" state={state} searchLabel="Search niche names" />
+      {networksResult.error ? (
+        <Alert tone="error">Networks are unavailable. Apply migration 67 before using this page.</Alert>
+      ) : (
+        <Card
+          icon={Network}
+          title="Networks"
+          description="A network groups niches and holds rules shared by all their websites. The AI follows them above each niche's writing guide."
+        >
+          <div className="divide-y rounded-lg border">
+            {networks.map((network) => {
+              const count = nicheNetworks.filter((niche) => niche.network_id === network.id).length;
+              return (
+                <details key={network.id} className="group/network">
+                  <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-4 py-3 hover:bg-muted/30 [&::-webkit-details-marker]:hidden">
+                    <ChevronRight
+                      aria-hidden
+                      className="size-4 shrink-0 text-muted-foreground transition-transform group-open/network:rotate-90"
+                    />
+                    <span className="text-sm font-semibold">{network.name}</span>
+                    <Badge>{NETWORK_KINDS[network.kind] ?? network.kind}</Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {count} niche{count === 1 ? "" : "s"}
+                    </span>
+                    <span className="ms-auto truncate text-xs text-muted-foreground">
+                      Shared rules: {textHint(network.rules_en, network.rules_ar)}
+                    </span>
+                  </summary>
+                  <div className="border-t p-4">
+                    <NetworkForm network={network} />
+                  </div>
+                </details>
+              );
+            })}
+            <details>
+              <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium text-primary hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+                <Plus aria-hidden className="size-4" />
+                Add a network
+              </summary>
+              <div className="border-t p-4">
+                <NetworkForm />
+              </div>
+            </details>
+          </div>
+        </Card>
+      )}
+      <ListToolbar
+        path="/niches"
+        state={state}
+        searchLabel="Search niche names"
+        choices={{
+          network: [
+            { value: "all", label: "All networks" },
+            ...networks.map((network) => ({ value: network.id, label: network.name })),
+          ],
+        }}
+      />
       {!niches.length && !error ? (
         <ListEmpty path="/niches" state={state} title="No niches yet">
           Add a niche using the form below.
@@ -145,6 +210,7 @@ export default async function NichesPage({ searchParams }) {
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold">{niche.name}</div>
                         <div className="mt-0.5 text-xs text-muted-foreground">
+                          {networkName.get(niche.network_id) ? `${networkName.get(niche.network_id)} network · ` : ""}
                           {group.length} source{group.length === 1 ? "" : "s"} ·{" "}
                           {sites.length
                             ? sites.map((site) => `${site.name} (${site.language.toUpperCase()})`).join(", ")
@@ -218,6 +284,11 @@ export default async function NichesPage({ searchParams }) {
                       >
                         <NicheCategories nicheId={niche.id} categories={nicheCategories} />
                       </Section>
+                      {networks.length ? (
+                        <Section title="Network" hint={networkName.get(niche.network_id)}>
+                          <NicheNetworkForm niche={niche} networks={networks} />
+                        </Section>
+                      ) : null}
                       <Section title="Writing guides" hint={guideHint(niche)}>
                         {"guide_en" in niche ? (
                           <NicheGuideForm niche={niche} />
@@ -237,7 +308,7 @@ export default async function NichesPage({ searchParams }) {
             title="Add a niche"
             description="A niche shares sources, categories and writing guides between websites."
           >
-            <AddNicheForm />
+            <AddNicheForm networks={networks} />
           </Card>
         </>
       )}

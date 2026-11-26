@@ -23,7 +23,8 @@ import {
   researchWithNumbers,
   researchWithUrls,
 } from "@/lib/automation/drafting/sources";
-import { draftPrompt } from "@/lib/automation/drafting/prompts";
+import { draftPrompt, researchPrompt, verifyPrompt } from "@/lib/automation/drafting/prompts";
+import { networkRulesFor } from "@/lib/automation/drafting/context";
 import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
 import { strictDraftChecksSchema, nicheCategorySchema } from "@/lib/validation";
 import { readFileSync } from "node:fs";
@@ -244,6 +245,31 @@ test("draft prompts preserve full titles and include copied wording only on a re
     retry.includes('Your previous drafts repeated this source wording: "First copied wording"; "Second wording".'),
   );
   assert.ok(retry.includes("Write the whole article in your own words and sentence structure"));
+});
+
+test("network rules reach research, draft and fact-check prompts only when set", () => {
+  const website = {
+    language: "ar",
+    niche: { network: { rules_en: "<p>English rule</p>", rules_ar: "<ul><li>Arabic rule</li></ul>" } },
+  };
+  const rules = networkRulesFor(website);
+  assert.equal(rules, "- Arabic rule");
+  assert.equal(networkRulesFor({ language: "en", niche: { network: { rules_en: null } } }), null);
+  assert.equal(networkRulesFor({ language: "en", niche: null }), null);
+
+  const prompts = [
+    researchPrompt("{}", "Niche rule", rules),
+    draftPrompt("{}", {}, [], { language: "ar", nicheGuide: "Niche rule", networkRules: rules }),
+    verifyPrompt("{}", [], "Niche rule", rules),
+  ];
+  for (const prompt of prompts) assert.ok(prompt.includes("- Arabic rule"));
+  assert.ok(prompts[0].indexOf("NETWORK RULES") < prompts[0].indexOf("NICHE GUIDE"));
+  const without = [
+    researchPrompt("{}", null, null),
+    draftPrompt("{}", {}, [], { language: "en" }),
+    verifyPrompt("{}", [], null, null),
+  ];
+  for (const prompt of without) assert.equal(/network rules/i.test(prompt), false);
 });
 
 test("verification problems become warnings", () => {

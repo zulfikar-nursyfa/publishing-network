@@ -12,12 +12,14 @@ export function textModelFor({ website, network }) {
   return website.ai_model ?? network.default_ai_model ?? serverEnv().GEMINI_MODEL;
 }
 
+/** Admin-written HTML as plain text for prompts; list items keep a "- " so rules stay separate. */
+const promptText = (html) => (html ? bodyText(html.replace(/<li[^>]*>/gi, "$&- ")) : null);
+
 /** The niche's writing guide for the website's language, or null. */
-/** The niche's writing guide as plain text for prompts; list items keep a "- " so rules stay separate. */
-export const nicheGuideFor = (website) => {
-  const guide = website.niche?.[`guide_${website.language}`];
-  return guide ? bodyText(guide.replace(/<li[^>]*>/gi, "$&- ")) : null;
-};
+export const nicheGuideFor = (website) => promptText(website.niche?.[`guide_${website.language}`]);
+
+/** The rules shared by the niche's network, for the website's language, or null. */
+export const networkRulesFor = (website) => promptText(website.niche?.network?.[`rules_${website.language}`]);
 
 /**
  * Loads everything a step needs and re-checks the controls: this worker still holds the job,
@@ -25,7 +27,7 @@ export const nicheGuideFor = (website) => {
  */
 export async function loadJobContext(db, job, worker) {
   const results = await Promise.all([
-    db.from("websites").select("*, niche:niches(*)").eq("id", job.website_id).single(),
+    db.from("websites").select("*, niche:niches(*, network:networks(*))").eq("id", job.website_id).single(),
     db.from("network_settings").select("*").single(),
     db.from("story_candidates").select("*").eq("id", job.story_id).eq("website_id", job.website_id).single(),
     db.from("content_sources").select("*").eq("website_id", job.website_id).eq("active", true),

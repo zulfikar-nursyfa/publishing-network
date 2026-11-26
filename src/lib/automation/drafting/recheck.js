@@ -10,7 +10,7 @@ import {
 } from "../draft-checks";
 import { collectEvidence } from "../evidence";
 import { TEXT_WARNINGS, textWarnings } from "../text-checks";
-import { nicheGuideFor } from "./context";
+import { networkRulesFor, nicheGuideFor } from "./context";
 import { PermanentJob } from "./errors";
 import { aiImage, stopsJob } from "./illustrate";
 import { bodyText } from "@/lib/publishing/content";
@@ -117,7 +117,12 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
     operation: "verify",
     schema: verificationSchema,
     assertControls,
-    prompt: verifyPrompt(promptData(context, state.recheck_evidence), sentences, nicheGuideFor(context.website)),
+    prompt: verifyPrompt(
+      promptData(context, state.recheck_evidence),
+      sentences,
+      nicheGuideFor(context.website),
+      networkRulesFor(context.website),
+    ),
   });
   const copied = copiedPassages(article, state.recheck_evidence);
   state.warnings = recheckedWarnings(

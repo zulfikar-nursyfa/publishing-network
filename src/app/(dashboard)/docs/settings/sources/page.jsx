@@ -9,11 +9,26 @@ export default function SourceSettingsGuidePage() {
       title="Niches, sources and categories"
       description="Administrators manage the shared source groups and writing guides. A website can also have its own sources and category choices."
     >
+      <Section title="Networks">
+        <p>
+          A network groups niches, for example the lifestyle niches or the health specialties. Each niche belongs to
+          one network; existing niches start in <strong>General</strong>. Open <strong>Networks</strong> at the top of{" "}
+          <DocLink href="/niches">Niches</DocLink> to add a network or edit its <strong>Name</strong>,{" "}
+          <strong>Type</strong> and shared rules.
+        </p>
+        <p>
+          The shared rules for English and Arabic websites go into the research, draft and fact-check steps of every
+          website in the network&apos;s niches, and they take precedence over each niche&apos;s writing guide. Use{" "}
+          <strong>Save network</strong>; changes apply from the next research, draft or fact-check step. Long rules
+          make every AI call cost more, so keep them to the rules the AI must follow. To move a niche, open it and use{" "}
+          <strong>Change network</strong>. A network that still has niches cannot be deleted.
+        </p>
+      </Section>
       <Section title="Niches and writing guides">
         <p>
           A niche groups websites covering the same subject. Use <DocLink href="/niches">Niches</DocLink> to add a niche
-          by <strong>Name</strong>, manage its source group and edit its writing guides. A new niche&apos;s name must
-          include Latin letters.
+          by <strong>Name</strong> and <strong>Network</strong>, manage its source group and edit its writing guides. A
+          new niche&apos;s name must include Latin letters.
         </p>
         <p>
           The guide fields are <strong>English websites</strong> and <strong>Arabic websites</strong>. They guide

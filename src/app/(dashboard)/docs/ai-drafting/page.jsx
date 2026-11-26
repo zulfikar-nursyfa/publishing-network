@@ -48,7 +48,7 @@ export default function DraftingRulesPage() {
         </p>
         <p>
           English uses clear, neutral news language. Arabic uses Modern Standard Arabic. The website&apos;s topic,
-          audience and niche writing guide also guide the writing. Names and official titles should stay in full as the
+          audience, the network&apos;s shared rules and the niche writing guide also guide the writing; the shared rules come first. Names and official titles should stay in full as the
           sources give them.
         </p>
       </Section>

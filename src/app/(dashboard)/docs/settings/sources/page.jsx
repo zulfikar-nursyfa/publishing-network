@@ -23,6 +23,13 @@ export default function SourceSettingsGuidePage() {
           make every AI call cost more, so keep them to the rules the AI must follow. To move a niche, open it and use{" "}
           <strong>Change network</strong>. A network that still has niches cannot be deleted.
         </p>
+        <p>
+          <strong>Type</strong> adds built-in behaviour. A <strong>Health</strong> network adds the health review rules
+          to every research, draft and fact-check step (no diagnosis, no medicine or dose instructions, careful study
+          reporting, no medical review claims), uses health-safe AI image rules, and warns reviewers about claims such as
+          &quot;scientifically proven&quot; or &quot;completely safe&quot;, a claimed medical review, and medicine or
+          dose instructions, in English and Arabic. <strong>General</strong> adds nothing.
+        </p>
       </Section>
       <Section title="Niches and writing guides">
         <p>

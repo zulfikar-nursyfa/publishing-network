@@ -23,8 +23,8 @@ import {
   researchWithNumbers,
   researchWithUrls,
 } from "@/lib/automation/drafting/sources";
-import { draftPrompt, researchPrompt, verifyPrompt } from "@/lib/automation/drafting/prompts";
-import { networkRulesFor } from "@/lib/automation/drafting/context";
+import { draftPrompt, imagePrompt, researchPrompt, verifyPrompt } from "@/lib/automation/drafting/prompts";
+import { networkKindFor, networkRulesFor } from "@/lib/automation/drafting/context";
 import { DRAFT_CHECKS } from "@/lib/automation/strict-checks";
 import { strictDraftChecksSchema, nicheCategorySchema } from "@/lib/validation";
 import { readFileSync } from "node:fs";
@@ -270,6 +270,23 @@ test("network rules reach research, draft and fact-check prompts only when set",
     verifyPrompt("{}", [], null, null),
   ];
   for (const prompt of without) assert.equal(/network rules/i.test(prompt), false);
+});
+
+test("health networks add their built-in rules before the admin's, and health image rules", () => {
+  const health = { language: "en", niche: { network: { kind: "health", rules_en: "<p>Admin rule</p>" } } };
+  const rules = networkRulesFor(health);
+  assert.equal(networkKindFor(health), "health");
+  assert.ok(
+    rules.includes("observed an association") && rules.includes("start, stop or change a prescription medicine"),
+  );
+  assert.ok(rules.indexOf("medically reviewed") < rules.indexOf("Admin rule"));
+  assert.ok(networkRulesFor({ language: "ar", niche: { network: { kind: "health" } } }).includes("medically reviewed"));
+  assert.equal(networkKindFor({ language: "en", niche: null }), "general");
+
+  const draft = { title: "Sleep and heart health", excerpt: "A study examines the link." };
+  assert.ok(imagePrompt(draft, "health").includes("No before-and-after comparisons"));
+  assert.ok(imagePrompt(draft).includes("trading floor"));
+  assert.equal(imagePrompt(draft, "unknown"), imagePrompt(draft));
 });
 
 test("verification problems become warnings", () => {

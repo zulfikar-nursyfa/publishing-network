@@ -10,7 +10,7 @@ import {
 } from "../draft-checks";
 import { collectEvidence } from "../evidence";
 import { TEXT_WARNINGS, textWarnings } from "../text-checks";
-import { networkRulesFor, nicheGuideFor } from "./context";
+import { networkKindFor, networkRulesFor, nicheGuideFor } from "./context";
 import { PermanentJob } from "./errors";
 import { aiImage, stopsJob } from "./illustrate";
 import { bodyText } from "@/lib/publishing/content";
@@ -131,7 +131,10 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
       ...(state.recheck_skipped ?? []),
       ...(copied.length ? [copiedWarning(copied)] : []),
       ...checkVerification(state.verification, [], state.recheck_evidence, sentences),
-      ...textWarnings(article, state.recheck_evidence, { language: context.website.language }),
+      ...textWarnings(article, state.recheck_evidence, {
+        language: context.website.language,
+        kind: networkKindFor(context.website),
+      }),
     ],
     {
       hasCategory: Boolean(article.category_id),
@@ -146,13 +149,13 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
 }
 
 /** An AI image for an article that still has none; a failure only leaves a warning. */
-async function reillustrateStep(db, job, worker, { assertControls }) {
+async function reillustrateStep(db, job, worker, { context, assertControls }) {
   const state = structuredClone(job.state);
   const article = await loadArticle(db, job);
   if (article.hasImage || !EDITABLE.includes(article.status)) return { state, next: null };
   let warning;
   try {
-    const image = await aiImage(db, job, worker, article, article, assertControls);
+    const image = await aiImage(db, job, worker, article, article, assertControls, networkKindFor(context.website));
     const { error } = await db
       .from("article_images")
       .insert({ ...image, article_id: article.id, website_id: article.website_id, role: "featured" });

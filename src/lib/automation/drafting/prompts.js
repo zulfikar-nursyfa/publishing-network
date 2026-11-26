@@ -45,6 +45,22 @@ const LANGUAGE_STYLE = {
   ].join(" "),
 };
 
+/**
+ * Built-in rules for each network type, from the health network's shared review rules. They come before the
+ * network's own admin-written rules, so each type's essentials do not depend on what an admin pasted in.
+ */
+export const NETWORK_KIND_RULES = {
+  health: [
+    "Health information helps readers understand a condition, symptom, test or care option and prepare to discuss it with a specialist. Never diagnose a reader, choose a treatment for them or promise a cure; having some symptoms does not establish a condition.",
+    "Never tell readers to start, stop or change a prescription medicine or its dose, and never give an exercise programme, steps or repetitions the sources do not give.",
+    "Keep each finding's population (age, condition, risk level), the country of any approval, screening or vaccination recommendation, and the source's date: adult findings do not apply to children, and an approval in one country is not an approval everywhere.",
+    "For a study, state its type, its population and whether it was done in a laboratory, in animals or in humans, and its limitations where the source gives them. An association is not a cause: write that the study observed an association unless the source shows cause. Preliminary findings stay preliminary, not a confirmed or available treatment. Give each figure's measure, period and population, and say whether a change is relative or absolute. One study is not advice to change treatment. Say when a study was done or published; recirculated coverage is not a new discovery.",
+    "Headlines and summaries must not be more certain than the source, frighten, promise results or suggest the reader has a condition. Do not write 'scientifically proven', 'guaranteed' or 'completely safe' unless a source says so with its limits. A translation keeps the source's certainty: 'may help' never becomes 'treats', 'is associated with' never becomes 'causes'.",
+    "Never call the article medically reviewed, name a doctor or reviewer, or invent a patient, testimonial or quotation. Label any hypothetical example as a hypothetical illustrative example.",
+    "Do not use wording that blames or demeans people for an illness, disability or developmental difference. Say a topic needs a medical assessment or urgent care when a source says so.",
+  ].join("\n"),
+};
+
 /** Rules shared by every website in the niche's network (admin-written, so trusted); they outrank the niche guide. */
 const networkBlock = (rules) =>
   rules
@@ -58,12 +74,22 @@ function styleGuide(language, nicheGuide) {
   return `STYLE GUIDE (follow unless it conflicts with the rules above):\n${lines.join("\n")}`;
 }
 
-const IMAGE_RULES = [
-  "Photorealistic editorial news photograph illustrating the subject of this article:",
-  "a generic, realistic scene such as a city skyline, port, office, trading floor, factory or product category.",
-  "No identifiable real people, no company logos or brand names, no readable text or watermarks,",
-  "and do not depict a specific real event. Natural light.",
-].join(" ");
+const IMAGE_RULES = {
+  general: [
+    "Photorealistic editorial news photograph illustrating the subject of this article:",
+    "a generic, realistic scene such as a city skyline, port, office, trading floor, factory or product category.",
+    "No identifiable real people, no company logos or brand names, no readable text or watermarks,",
+    "and do not depict a specific real event. Natural light.",
+  ].join(" "),
+  // The health network's image rules: nothing that reads as a real patient, a result or a medical instruction.
+  health: [
+    "Calm, photorealistic editorial photograph for a health information article:",
+    "a generic everyday scene such as a clinic waiting room, a consultation seen from behind, a family at home,",
+    "healthy food or an outdoor walk. No identifiable real people and nobody presented as a real patient or doctor.",
+    "No before-and-after comparisons, results of treatment, surgery, injections, wounds, medical procedures,",
+    "anatomical diagrams or medicine packaging. No logos, brand names, readable text or watermarks. Natural light.",
+  ].join(" "),
+};
 
 export function searchPrompt(story, publishedAt) {
   return `${RULES}
@@ -149,8 +175,8 @@ STORIES:
 ${numbered.join("\n")}`;
 }
 
-export function imagePrompt(draft) {
-  return `${IMAGE_RULES}
+export function imagePrompt(draft, kind = "general") {
+  return `${IMAGE_RULES[kind] ?? IMAGE_RULES.general}
 HEADLINE: ${draft.title}
 SUMMARY: ${draft.excerpt ?? ""}`;
 }

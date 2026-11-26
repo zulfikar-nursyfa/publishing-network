@@ -6,6 +6,7 @@ import { uploadArticleImage } from "@/lib/storage/article-images";
 import { sniffImage } from "@/lib/storage/image-file";
 import { MAX_ARTICLE_IMAGE_BYTES } from "@/lib/validation";
 import { fetchPublicImage } from "../evidence";
+import { networkKindFor } from "./context";
 import { DeferredJob, LostLease } from "./errors";
 import { imagePrompt } from "./prompts";
 
@@ -32,9 +33,9 @@ async function sourceImage(db, article, story, source) {
   };
 }
 
-export async function aiImage(db, job, worker, article, draft, assertControls) {
+export async function aiImage(db, job, worker, article, draft, assertControls, kind) {
   const model = serverEnv().GEMINI_IMAGE_MODEL;
-  const prompt = imagePrompt(draft);
+  const prompt = imagePrompt(draft, kind);
   const generated = await generateForJob(db, job, worker, {
     model,
     operation: "illustrate",
@@ -77,7 +78,7 @@ export async function illustrateStep(db, job, worker, { state, context, assertCo
 
   if (website.generate_illustrations) {
     try {
-      images.push(await aiImage(db, job, worker, article, state.draft, assertControls));
+      images.push(await aiImage(db, job, worker, article, state.draft, assertControls, networkKindFor(website)));
     } catch (error) {
       if (stopsJob(error)) throw error;
       warnings.push(`AI image not generated: ${error.message}`);

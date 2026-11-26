@@ -409,3 +409,60 @@ test("an opening cycle is the first one, not an action (PM review 22 Nov)", () =
   assert.deepEqual(addedActions(body("It drew 70 applications in its opening cycle."), evidence), []);
   assert.deepEqual(addedActions(body("The minister is opening the centre."), evidence), ["opening"]);
 });
+
+test("health websites get warnings for certainty, medical review and dosing claims", () => {
+  const evidence = [
+    { url: "https://who.int/a", text: "The trial found the vaccine was safe in adults. It is clinically proven." },
+  ];
+  const english = {
+    title: "New treatment is scientifically proven and completely safe",
+    body: "Medically reviewed by a doctor. Stop taking your medication and take 20 mg twice a day. It is clinically proven. There is no guarantee it works.",
+  };
+  const warnings = textWarnings(english, evidence, { language: "en", kind: "health" });
+  assert.ok(
+    warnings.some(
+      (w) =>
+        w.startsWith("Health claims of certainty or safety") &&
+        w.includes("scientifically proven") &&
+        w.includes("completely safe"),
+    ),
+  );
+  assert.ok(
+    !warnings.some((w) => w.startsWith("Health claims") && w.includes("clinically proven")),
+    "a source says it",
+  );
+  assert.ok(!warnings.some((w) => /guarantee/.test(w)), "'no guarantee' is not a promise");
+  assert.ok(warnings.some((w) => w.startsWith("Medical review claimed") && w.includes("Medically reviewed")));
+  assert.ok(
+    warnings.some(
+      (w) =>
+        w.startsWith("Medicine or dose instructions") &&
+        w.includes("Stop taking your medication") &&
+        w.includes("20 mg twice"),
+    ),
+  );
+
+  const arabic = {
+    title: "علاج نهائي آمن تمامًا",
+    body: "يتناول مضمون المقال نتائج الدراسة. المقال مراجع طبيًا. توقف عن الدواء وتناول 500 ملغ يوميًا.",
+  };
+  const arWarnings = textWarnings(arabic, evidence, { language: "ar", kind: "health" });
+  assert.ok(
+    arWarnings.some(
+      (w) =>
+        w.startsWith("Health claims") && w.includes("علاج نهائي") && w.includes("آمن تمامًا") && !w.includes("مضمون"),
+    ),
+  );
+  assert.ok(arWarnings.some((w) => w.startsWith("Medical review claimed")));
+  assert.ok(
+    arWarnings.some(
+      (w) =>
+        w.startsWith("Medicine or dose instructions") && w.includes("توقف عن الدواء") && w.includes("500 ملغ يوميًا"),
+    ),
+  );
+
+  assert.equal(
+    textWarnings(english, evidence, { language: "en" }).some((w) => /^(Health|Medical|Medicine)/.test(w)),
+    false,
+  );
+});

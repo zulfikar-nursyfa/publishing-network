@@ -10,7 +10,7 @@ import {
   ShortDraftError,
   verificationSchema,
 } from "../draft-checks";
-import { networkRulesFor, nicheGuideFor, storyTime } from "./context";
+import { networkKindFor, networkRulesFor, nicheGuideFor, storyTime } from "./context";
 import { PermanentJob } from "./errors";
 import { sameStory } from "../titles";
 import { draftPrompt, researchPrompt, verifyPrompt } from "./prompts";
@@ -120,6 +120,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
     context.website.language,
     context.strictChecks,
     (state.copied_phrases?.length ?? 0) >= MAX_REDRAFTS,
+    networkKindFor(context.website),
   );
   state.draft = checked.draft;
 

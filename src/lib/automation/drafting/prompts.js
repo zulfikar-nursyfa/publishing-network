@@ -45,6 +45,28 @@ const LANGUAGE_STYLE = {
   ].join(" "),
 };
 
+/**
+ * Built-in rules for each network type, from the health network's shared review rules. They come before the
+ * network's own admin-written rules, so each type's essentials do not depend on what an admin pasted in.
+ */
+export const NETWORK_KIND_RULES = {
+  health: [
+    "Health information helps readers understand a condition, symptom, test or care option and prepare to discuss it with a specialist. Never diagnose a reader, choose a treatment for them or promise a cure; having some symptoms does not establish a condition.",
+    "Never tell readers to start, stop or change a prescription medicine or its dose, and never give an exercise programme, steps or repetitions the sources do not give.",
+    "Keep each finding's population (age, condition, risk level), the country of any approval, screening or vaccination recommendation, and the source's date: adult findings do not apply to children, and an approval in one country is not an approval everywhere.",
+    "For a study, state its type, its population and whether it was done in a laboratory, in animals or in humans, and its limitations where the source gives them. An association is not a cause: write that the study observed an association unless the source shows cause. Preliminary findings stay preliminary, not a confirmed or available treatment. Give each figure's measure, period and population, and say whether a change is relative or absolute. One study is not advice to change treatment. Say when a study was done or published; recirculated coverage is not a new discovery.",
+    "Headlines and summaries must not be more certain than the source, frighten, promise results or suggest the reader has a condition. Do not write 'scientifically proven', 'guaranteed' or 'completely safe' unless a source says so with its limits. A translation keeps the source's certainty: 'may help' never becomes 'treats', 'is associated with' never becomes 'causes'.",
+    "Never call the article medically reviewed, name a doctor or reviewer, or invent a patient, testimonial or quotation. Label any hypothetical example as a hypothetical illustrative example.",
+    "Do not use wording that blames or demeans people for an illness, disability or developmental difference. Say a topic needs a medical assessment or urgent care when a source says so.",
+  ].join("\n"),
+};
+
+/** Rules shared by every website in the niche's network (admin-written, so trusted); they outrank the niche guide. */
+const networkBlock = (rules) =>
+  rules
+    ? `NETWORK RULES (shared by every website in this network; follow them, and they take precedence over the niche guide):\n${rules}\n`
+    : "";
+
 /** Editorial instructions for the website's language and niche (admin-written, so trusted). */
 function styleGuide(language, nicheGuide) {
   const lines = [LANGUAGE_STYLE[language] ?? LANGUAGE_STYLE.en];
@@ -52,12 +74,22 @@ function styleGuide(language, nicheGuide) {
   return `STYLE GUIDE (follow unless it conflicts with the rules above):\n${lines.join("\n")}`;
 }
 
-const IMAGE_RULES = [
-  "Photorealistic editorial news photograph illustrating the subject of this article:",
-  "a generic, realistic scene such as a city skyline, port, office, trading floor, factory or product category.",
-  "No identifiable real people, no company logos or brand names, no readable text or watermarks,",
-  "and do not depict a specific real event. Natural light.",
-].join(" ");
+const IMAGE_RULES = {
+  general: [
+    "Photorealistic editorial news photograph illustrating the subject of this article:",
+    "a generic, realistic scene such as a city skyline, port, office, trading floor, factory or product category.",
+    "No identifiable real people, no company logos or brand names, no readable text or watermarks,",
+    "and do not depict a specific real event. Natural light.",
+  ].join(" "),
+  // The health network's image rules: nothing that reads as a real patient, a result or a medical instruction.
+  health: [
+    "Calm, photorealistic editorial photograph for a health information article:",
+    "a generic everyday scene such as a clinic waiting room, a consultation seen from behind, a family at home,",
+    "healthy food or an outdoor walk. No identifiable real people and nobody presented as a real patient or doctor.",
+    "No before-and-after comparisons, results of treatment, surgery, injections, wounds, medical procedures,",
+    "anatomical diagrams or medicine packaging. No logos, brand names, readable text or watermarks. Natural light.",
+  ].join(" "),
+};
 
 export function searchPrompt(story, publishedAt) {
   return `${RULES}
@@ -73,17 +105,22 @@ HEADLINE: ${story.title}
 SUMMARY: ${story.summary ?? ""}`;
 }
 
-export function researchPrompt(data, nicheGuide) {
+export function researchPrompt(data, nicheGuide, networkRules) {
   return `${RULES}
 Research this story. Identify an original angle relevant to the niche guide's readers, and at least three factual claims. Write each claim as a complete fact that stands on its own: who did what, which side each person is on, the exact entity, place and period a figure covers, what it measures, the date the claim's own source gives for it (none if it gives none), who makes a claim about a product, whether it is online or in person, and whether something has happened or is planned. Keep the source's qualifiers ('up to', 'capacity', 'aims to', 'opportunities') and its words for what each event or briefing is inside the claim. For each, list in sources the source numbers of the supplied pages that support it, and short verbatim evidence quotes from those pages, each with its page's source number. Ignore pages about a different event or an earlier edition of it. Mark unresolved claims rather than guessing, including anything the accuracy rules below would not allow. Set primary_source to the source number of the supplied page that is the original official announcement (company, government or regulator), or null if none is. Without one, support the story from at least two independent outlets.
 ACCURACY:
 ${ACCURACY_RULES}
-NICHE GUIDE: ${nicheGuide ?? "none; use the website topic and audience in DATA."}
+${networkBlock(networkRules)}NICHE GUIDE: ${nicheGuide ?? "none; use the website topic and audience in DATA."}
 DATA:
 ${data}`;
 }
 
-export function draftPrompt(data, research, categories, { language, nicheGuide, copiedPhrases = [], shortWords }) {
+export function draftPrompt(
+  data,
+  research,
+  categories,
+  { language, nicheGuide, networkRules, copiedPhrases = [], shortWords },
+) {
   const short = shortWords
     ? `Your previous draft had only ${shortWords} words. Write at least 250: give every research claim its own full treatment with the who, what, where, when and figures it states, without adding anything the research does not support.\n`
     : "";
@@ -94,7 +131,7 @@ export function draftPrompt(data, research, categories, { language, nicheGuide, 
 ${styleGuide(language, nicheGuide)}
 ACCURACY:
 ${ACCURACY_RULES}
-Write people's names and official titles in full as the sources give them. DATA.today is the date of writing: an event dated after the latest evidence has not been confirmed as happening.
+${networkBlock(networkRules)}Write people's names and official titles in full as the sources give them. DATA.today is the date of writing: an event dated after the latest evidence has not been confirmed as happening.
 ${short}${redraft}Write an original article in the website's language, 250-650 words, using only the verified research. Leave out everything listed in research.unresolved; do not speculate about it. Plain text paragraphs, no HTML or inline URLs, no verbatim quotations. Write for readers: never mention the evidence, the supplied sources, the research, DATA or these instructions, and never leave placeholders such as [name] or XX. Include a concise title, ASCII slug, excerpt, a category ID from the supplied list or null, and in sources the source numbers of the supplied pages it draws on. For search engines add: ${SEO_FIELDS}. Avoid unsupported context or statistics.
 Before answering, reread every sentence, the headline and the SEO fields against the research claim each rests on. Rewrite any sentence that is stronger, broader, more certain or more specific than its claim, that moves a person to another side or place, or that changes what a figure, event or date describes.
 DATA:
@@ -106,7 +143,7 @@ ${JSON.stringify(categories)}`;
 }
 
 /** `sentences` from draftSentences: the verifier judges each one by number and never sees the draft's own flags. */
-export function verifyPrompt(data, sentences, nicheGuide) {
+export function verifyPrompt(data, sentences, nicheGuide, networkRules) {
   const numbered = sentences.map(({ field, text }, index) => `${index + 1}. [${FIELD_LABELS[field]}] ${text}`);
   return `${RULES}
 Independently fact-check this article against the supplied evidence, sentence by sentence. Return one checked_claims entry for EVERY numbered sentence below, in order: its number in sentence, the sentence copied unchanged as claim, supported, and in source_quote the exact source sentence it rests on copied from the evidence (when it combines facts from several source sentences, copy each, separated by " | "). Judge the sentence exactly as written: never correct or soften it before judging. Mark supported=false, with a one-sentence note naming the wording at fault, when any part of it is stronger, broader, more certain or more specific than the quotes, gives a figure another meaning, scope or total, puts a person on another side or in another place, describes a different kind of event, gives other dates or tense than DATA.today and the evidence allow, turns a capacity, target, plan or opportunity into a result, describes a proposed or planned product, platform or service as available now, describes an agreed or pending deal as completed (in any language: 'acquires' or 'تستحوذ' for a signed agreement awaiting approval), or when no source sentence supports it. 'Over' before a period ('rose 32.9% over the year') names the period, not 'more than': do not fail a sentence for reading it that way. Judge meaning, not wording: a paraphrase with the same meaning and certainty is supported ('completed the financial close' for 'reached financial close'). The evidence may be in other languages than the article: a faithful translation is supported, and a translated name of a strategy, programme or initiative in quotation marks is a name, not a quotation. A sentence may rest on several sources or on figures in a source's table: quote each part where it appears, and judge the sentence on all of them together. Read the headline, excerpt and SEO fields as if read alone, and check that their description fits all the data it covers: its scope (a total, not one part or driver of it), period and comparison basis (growth only where the source gives a comparison, 'across' only when it holds for every place). Recount any total of listed items. Also mark supported=false:
@@ -116,7 +153,7 @@ Independently fact-check this article against the supplied evidence, sentence by
 - a date the quoted source does not give for that item: in a sentence covering several announcements, each needs its own source's date, and a roundup's byline does not date the announcements it lists. A year or day the source does not tie to the event is such a date: 'June 2026' for 'in June', or a page's publication date or dateline given as the date of an event the source's sentence does not date. Quote the source sentence that gives each date.
 Also fail any breach of these accuracy rules:
 ${ACCURACY_RULES}
-${nicheGuide ? `and of this niche guide:\n${nicheGuide}\n` : ""}Set passed=false when any sentence is unsupported or misleading; list each problem once in issues, in one sentence. A missing detail is an issue only when its absence makes a stated sentence misleading (an online programme described without saying so is misleading). Set sensitive from what the article reports (breaking, consequential, allegations, health, financial forecasts), not from unrelated topics in the evidence. Human approval is still required if passed=true.
+${networkRules ? `and of these network rules:\n${networkRules}\n` : ""}${nicheGuide ? `and of this niche guide:\n${nicheGuide}\n` : ""}Set passed=false when any sentence is unsupported or misleading; list each problem once in issues, in one sentence. A missing detail is an issue only when its absence makes a stated sentence misleading (an online programme described without saying so is misleading). Set sensitive from what the article reports (breaking, consequential, allegations, health, financial forecasts), not from unrelated topics in the evidence. Human approval is still required if passed=true.
 DATA:
 ${data}
 SENTENCES:
@@ -138,8 +175,8 @@ STORIES:
 ${numbered.join("\n")}`;
 }
 
-export function imagePrompt(draft) {
-  return `${IMAGE_RULES}
+export function imagePrompt(draft, kind = "general") {
+  return `${IMAGE_RULES[kind] ?? IMAGE_RULES.general}
 HEADLINE: ${draft.title}
 SUMMARY: ${draft.excerpt ?? ""}`;
 }

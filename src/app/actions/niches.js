@@ -35,20 +35,50 @@ export async function addNiche(_prev, formData) {
     .maybeSingle();
   const { data: niche, error } = await supabase
     .from("niches")
-    .insert({ name: parsed.data.name, slug, sort_order: (last?.sort_order ?? 0) + 1 })
+    .insert({ ...parsed.data, slug, sort_order: (last?.sort_order ?? 0) + 1 })
     .select("id")
     .single();
-  if (error) return { error: error.code === "23505" ? "That niche already exists" : error.message };
+  if (error) {
+    if (error.code === "23503") return { error: "Choose a network", fieldErrors: { network_id: "Choose a network" } };
+    return { error: error.code === "23505" ? "That niche already exists" : error.message };
+  }
 
   await recordAudit({
     action: "niche.added",
     entityType: "niche",
     entityId: niche.id,
     actorId: user.id,
-    details: { name: parsed.data.name },
+    details: { name: parsed.data.name, network_id: parsed.data.network_id },
   });
   revalidatePath("/niches");
   return { ok: true, message: "Niche added." };
+}
+
+/** The niche's websites follow the new network's rules from their next research, draft or fact-check step. */
+export async function moveNicheToNetwork(nicheId, _prev, formData) {
+  const user = await requireAdmin();
+  const parsed = nicheSchema.pick({ network_id: true }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "Choose a network", fieldErrors: fieldErrorsFrom(parsed.error) };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("niches")
+    .update(parsed.data)
+    .eq("id", nicheId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.code === "23503" ? "That network no longer exists" : error.message };
+  if (!data) return { error: "Niche not found" };
+
+  await recordAudit({
+    action: "niche.network_changed",
+    entityType: "niche",
+    entityId: nicheId,
+    actorId: user.id,
+    details: { network_id: parsed.data.network_id },
+  });
+  revalidatePath("/niches");
+  return { ok: true, message: "Network changed." };
 }
 
 /** Writing guides are read by the drafting steps, so they apply from the next research or draft step. */

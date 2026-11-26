@@ -287,6 +287,16 @@ export const contentSourceSchema = z.object({
 
 export const nicheSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
+  network_id: z.uuid("Choose a network"),
+});
+
+export const NETWORK_KINDS = { general: "General", health: "Health" };
+
+export const networkSchema = z.object({
+  name: z.string().trim().min(2, "Name is required").max(120),
+  kind: z.enum(Object.keys(NETWORK_KINDS)),
+  rules_en: optionalText(16000),
+  rules_ar: optionalText(16000),
 });
 
 export const nicheGuideSchema = z.object({

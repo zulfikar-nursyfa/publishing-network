@@ -573,6 +573,39 @@ export function aiLeftovers(article) {
   return AI_TEXT.flatMap((pattern) => text.match(pattern) ?? []);
 }
 
+// Health network: claims of certainty or safety the shared rules forbid without a source and its limits.
+const HEALTH_CERTAINTY = [
+  /\b(?:scientifically proven|clinically proven|proven to (?:cure|treat|work|prevent)|guaranteed|completely safe|totally safe|100% (?:safe|effective)|risk[- ]free|no side effects|miracle|permanent cure|cures? (?:it )?for good)\b/giu,
+  /(?:مثبت(?:ة)? علمي(?:ًا|اً|ا)|(?:نتائج|نتيجة) مضمونة|(?:شفاء|نجاح) مضمون|مضمون(?:ة)? النتائج|آمن(?:ة)? تمام(?:ًا|اً|ا)|بلا مخاطر|دون مخاطر|بدون آثار جانبية|دون آثار جانبية|بلا آثار جانبية|علاج نهائي|العلاج النهائي|علاج سحري|معجزة)/gu,
+];
+
+/** "Scientifically proven", "guaranteed", "completely safe" and the like, kept only when a source says the same. */
+export function healthCertainty(article, evidence) {
+  const sources = normalise(sourceText(evidence));
+  return HEALTH_CERTAINTY.flatMap((pattern) => readerText(article).match(pattern) ?? [])
+    .map((term) => normalise(term))
+    .filter((term) => !sources.includes(term));
+}
+
+// A review the team has not documented, or a named reviewer: never added by drafting.
+const MEDICAL_REVIEW = [
+  /\b(?:medically reviewed|medical(?:ly)? review(?:ed)? by|reviewed by (?:a |our )?(?:doctor|physician|specialist|consultant|pharmacist)|fact[- ]checked by (?:a |our )?(?:doctor|physician))\b/giu,
+  /(?:مراج(?:َ)?ع(?:ة)? طبي(?:ًا|اً|ا)|مراجعة طبية|راجع(?:ه|ها)? (?:الطبيب|طبيب|د\.)|بمراجعة (?:الطبيب|طبيب|د\.))/gu,
+];
+
+export const medicalReviewClaims = (article) =>
+  MEDICAL_REVIEW.flatMap((pattern) => readerText(article).match(pattern) ?? []);
+
+// Telling the reader to start, stop or change a medicine or dose, or a dose with a schedule.
+const DOSING = [
+  /\b(?:take|start|stop|skip|increase|reduce|lower|double|change|adjust|halve)\s+(?:taking\s+)?(?:your|the|a)?\s*(?:dose|dosage|medication|medicine|prescription|tablets?|pills?|insulin|antibiotics?)\b/giu,
+  /\b\d+(?:\.\d+)?\s?(?:mg|mcg|µg|ml|iu|units?)\s+(?:a day|per day|daily|twice|once|three times|every)\b/giu,
+  /(?:تناول|توقف عن|توقّف عن|أوقف|ضاعف|خفّض|خفض|زد|غيّر|عدّل)\s+(?:جرعة|الجرعة|جرعتك|الدواء|دواءك|الأدوية|أدويتك|الإنسولين|المضاد الحيوي)/gu,
+  /\d+(?:[.,]\d+)?\s?(?:ملغ|ملغم|مغ|ميكروغرام|مل|وحدة)\s+(?:يومي(?:ًا|اً|ا)|في اليوم|مرة|مرتين|كل)/gu,
+];
+
+export const dosingInstructions = (article) => DOSING.flatMap((pattern) => readerText(article).match(pattern) ?? []);
+
 /** Prefixes of the warnings below, so a re-check can replace them. */
 export const TEXT_WARNINGS = [
   "Figures not found in the sources",
@@ -589,10 +622,13 @@ export const TEXT_WARNINGS = [
   "Actions not found in the sources",
   "Dates not found in the sources",
   "Causal links not found in the sources",
+  "Health claims of certainty or safety",
+  "Medical review claimed",
+  "Medicine or dose instructions",
 ];
 
-/** All of the checks above as reviewer warnings. */
-export function textWarnings(article, evidence, { language, today } = {}) {
+/** All of the checks above as reviewer warnings; `kind` is the website's network type. */
+export function textWarnings(article, evidence, { language, today, kind = "general" } = {}) {
   const checks = [
     [TEXT_WARNINGS[0], "check each one", unsourcedFigures(article, evidence)],
     [TEXT_WARNINGS[1], "check the scale", scaleMismatches(article, evidence)],
@@ -608,6 +644,17 @@ export function textWarnings(article, evidence, { language, today } = {}) {
     [TEXT_WARNINGS[11], "check the sources say this happened and who did it", addedActions(article, evidence)],
     [TEXT_WARNINGS[12], "check the source's dates", unsourcedDates(article, evidence)],
     [TEXT_WARNINGS[13], "keep facts the sources give separately apart", addedCausalLinks(article, evidence)],
+    ...(kind === "health"
+      ? [
+          [TEXT_WARNINGS[14], "remove unless a source says so, with its limits", healthCertainty(article, evidence)],
+          [TEXT_WARNINGS[15], "remove: no documented medical review", medicalReviewClaims(article)],
+          [
+            TEXT_WARNINGS[16],
+            "an article must not tell readers to start, stop or change a medicine",
+            dosingInstructions(article),
+          ],
+        ]
+      : []),
   ];
   return checks
     .filter(([, , found]) => found.length)

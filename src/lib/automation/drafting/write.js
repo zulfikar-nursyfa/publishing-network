@@ -10,7 +10,7 @@ import {
   ShortDraftError,
   verificationSchema,
 } from "../draft-checks";
-import { nicheGuideFor, storyTime } from "./context";
+import { networkKindFor, networkRulesFor, nicheGuideFor, storyTime } from "./context";
 import { PermanentJob } from "./errors";
 import { sameStory } from "../titles";
 import { draftPrompt, researchPrompt, verifyPrompt } from "./prompts";
@@ -68,7 +68,7 @@ export async function researchStep(db, job, worker, { state, data, context, mode
     operation: "research",
     schema: researchOutputSchema,
     assertControls,
-    prompt: researchPrompt(data, nicheGuideFor(context.website)),
+    prompt: researchPrompt(data, nicheGuideFor(context.website), networkRulesFor(context.website)),
   });
   // Give the existing second-source search its chance before enforcing corroboration failures.
   const strict = (context.strictChecks ?? []).filter(
@@ -107,6 +107,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
     prompt: draftPrompt(data, researchWithNumbers(state.research, evidence), context.categories, {
       language: context.website.language,
       nicheGuide: nicheGuideFor(context.website),
+      networkRules: networkRulesFor(context.website),
       copiedPhrases: state.copied_phrases,
       shortWords: state.short_draft_words,
     }),
@@ -119,6 +120,7 @@ export async function draftStep(db, job, worker, { state, data, context, model, 
     context.website.language,
     context.strictChecks,
     (state.copied_phrases?.length ?? 0) >= MAX_REDRAFTS,
+    networkKindFor(context.website),
   );
   state.draft = checked.draft;
 
@@ -146,7 +148,7 @@ export async function verifyStep(db, job, worker, { state, data, context, model,
     operation: "verify",
     schema: verificationSchema,
     assertControls,
-    prompt: verifyPrompt(data, sentences, nicheGuideFor(context.website)),
+    prompt: verifyPrompt(data, sentences, nicheGuideFor(context.website), networkRulesFor(context.website)),
   });
   const warnings = checkVerification(state.verification, context.strictChecks, state.evidence ?? [], sentences);
   state.draft.sensitive ||= state.verification.sensitive || warnings.length > 0;

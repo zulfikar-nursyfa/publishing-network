@@ -231,7 +231,16 @@ export const copiedWarning = (passages) =>
   `${COPIED_WARNING} (${passages.map((passage) => `"${passage.slice(0, 200)}"`).join("; ")}); reword it`;
 
 /** `copiedAllowed`: after the automatic rewrites, a copied passage becomes a reviewer warning instead of failing the job. */
-export function checkDraft(draft, research, evidence, categories, language, strictChecks = [], copiedAllowed = false) {
+export function checkDraft(
+  draft,
+  research,
+  evidence,
+  categories,
+  language,
+  strictChecks = [],
+  copiedAllowed = false,
+  kind = "general",
+) {
   if (/<\/?[A-Za-z][^>]*>|https?:\/\/|javascript:/i.test(draft.body))
     throw new DraftCheckError("Draft body must be plain text; sources are attached separately");
   const count = words(draft.body).length;
@@ -267,7 +276,7 @@ export function checkDraft(draft, research, evidence, categories, language, stri
     warn("research_not_cited", "Some researched facts are not covered by the draft's cited sources");
   const categoryId = categories.some((category) => category.id === draft.category_id) ? draft.category_id : null;
   if (!categoryId) warn("no_category", "The draft has no category; choose one before publishing");
-  warnings.push(...textWarnings(draft, evidence, { language }));
+  warnings.push(...textWarnings(draft, evidence, { language, kind }));
   return {
     draft: {
       ...draft,

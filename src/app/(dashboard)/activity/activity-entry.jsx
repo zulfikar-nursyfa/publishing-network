@@ -25,6 +25,7 @@ const AREAS = {
   source: { label: "Source", icon: Rss, tone: "bg-orange-500/10 text-orange-700 dark:text-orange-300" },
   niche_source: { label: "Niche source", icon: Rss, tone: "bg-orange-500/10 text-orange-700 dark:text-orange-300" },
   niche: { label: "Niche", icon: Layers, tone: "bg-teal-500/10 text-teal-700 dark:text-teal-300" },
+  site_network: { label: "Site network", icon: Layers, tone: "bg-teal-500/10 text-teal-700 dark:text-teal-300" },
   category: { label: "Category", icon: Tag, tone: "bg-teal-500/10 text-teal-700 dark:text-teal-300" },
   website: { label: "Website", icon: Globe, tone: "bg-sky-500/10 text-sky-700 dark:text-sky-300" },
   network: { label: "Network", icon: Settings, tone: "bg-muted text-muted-foreground" },

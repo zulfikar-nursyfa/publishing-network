@@ -3,6 +3,7 @@ import { serverEnv } from "@/lib/env";
 import { bodyText } from "@/lib/publishing/content";
 import { automationBlockReason } from "../policy";
 import { DeferredJob, LostLease, PermanentJob } from "./errors";
+import { NETWORK_KIND_RULES } from "./prompts";
 
 /** When the story happened: the feed's publication time, or when we found it. */
 export const storyTime = (story) => story.source_published_at ?? story.created_at;
@@ -12,12 +13,20 @@ export function textModelFor({ website, network }) {
   return website.ai_model ?? network.default_ai_model ?? serverEnv().GEMINI_MODEL;
 }
 
+/** Admin-written HTML as plain text for prompts; list items keep a "- " so rules stay separate. */
+const promptText = (html) => (html ? bodyText(html.replace(/<li[^>]*>/gi, "$&- ")) : null);
+
 /** The niche's writing guide for the website's language, or null. */
-/** The niche's writing guide as plain text for prompts; list items keep a "- " so rules stay separate. */
-export const nicheGuideFor = (website) => {
-  const guide = website.niche?.[`guide_${website.language}`];
-  return guide ? bodyText(guide.replace(/<li[^>]*>/gi, "$&- ")) : null;
-};
+export const nicheGuideFor = (website) => promptText(website.niche?.[`guide_${website.language}`]);
+
+/** The niche's network type; a website without a niche drafts as general. */
+export const networkKindFor = (website) => website.niche?.network?.kind ?? "general";
+
+/** The built-in rules for the network's type, then its own rules for the website's language, or null. */
+export const networkRulesFor = (website) =>
+  [NETWORK_KIND_RULES[networkKindFor(website)], promptText(website.niche?.network?.[`rules_${website.language}`])]
+    .filter(Boolean)
+    .join("\n") || null;
 
 /**
  * Loads everything a step needs and re-checks the controls: this worker still holds the job,
@@ -25,7 +34,7 @@ export const nicheGuideFor = (website) => {
  */
 export async function loadJobContext(db, job, worker) {
   const results = await Promise.all([
-    db.from("websites").select("*, niche:niches(*)").eq("id", job.website_id).single(),
+    db.from("websites").select("*, niche:niches(*, network:networks(*))").eq("id", job.website_id).single(),
     db.from("network_settings").select("*").single(),
     db.from("story_candidates").select("*").eq("id", job.story_id).eq("website_id", job.website_id).single(),
     db.from("content_sources").select("*").eq("website_id", job.website_id).eq("active", true),

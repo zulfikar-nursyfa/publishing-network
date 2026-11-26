@@ -11,7 +11,15 @@ import { Formatting } from "../articles/body-editor";
 export const GUIDE_MAX_LENGTH = 8000;
 
 /** The article editor's formatting for a writing guide; saves HTML in a hidden field named `name`. */
-export function GuideEditor({ name, defaultValue, dir, labelledBy, invalid, placeholder }) {
+export function GuideEditor({
+  name,
+  defaultValue,
+  dir,
+  labelledBy,
+  invalid,
+  placeholder,
+  maxLength = GUIDE_MAX_LENGTH,
+}) {
   const [html, setHtml] = useState(() => bodyHtml(defaultValue));
   const editor = useEditor({
     immediatelyRender: false,
@@ -40,7 +48,7 @@ export function GuideEditor({ name, defaultValue, dir, labelledBy, invalid, plac
     },
     onUpdate: ({ editor: current }) => setHtml(current.isEmpty ? "" : current.getHTML()),
   });
-  const over = html.length > GUIDE_MAX_LENGTH;
+  const over = html.length > maxLength;
   return (
     <div
       className={cn(
@@ -59,7 +67,7 @@ export function GuideEditor({ name, defaultValue, dir, labelledBy, invalid, plac
           over ? "text-destructive" : "text-muted-foreground",
         )}
       >
-        {html.length.toLocaleString()} / {GUIDE_MAX_LENGTH.toLocaleString()} characters
+        {html.length.toLocaleString()} / {maxLength.toLocaleString()} characters
       </div>
     </div>
   );

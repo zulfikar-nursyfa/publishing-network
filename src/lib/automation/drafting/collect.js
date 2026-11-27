@@ -8,8 +8,10 @@ import { corroborationPrompt, searchPrompt } from "./prompts";
 
 const MAX_CANDIDATES = 8;
 const MAX_PAGES = 5;
-// Pages published well before the story are background or a different event.
-const OLDEST_BEFORE_STORY_MS = 3 * 86_400_000;
+const DAY_MS = 86_400_000;
+
+/** Pages published more days than this before the story are background or a different event. */
+export const coverageWindowDays = (website) => website?.niche?.coverage_window_days ?? 3;
 
 /** True once research found no official source or second outlet (see corroboration()); asked once per job. */
 export function needsCorroboration(state) {
@@ -47,13 +49,22 @@ export async function searchStep(db, job, worker, { context, model, assertContro
 }
 
 /** Second collect run: reads the found pages in parallel, skipping unreadable or outdated ones. */
-export async function collectStep(job, context) {
+export async function collectStep(job, context, { read = collectEvidence } = {}) {
   const state = structuredClone(job.state);
   const robots = new Map();
-  const results = await Promise.allSettled(
-    state.candidate_urls.map((url) => collectEvidence(url, context.sources, { robots })),
-  );
-  const oldest = Date.parse(storyTime(context.story)) - OLDEST_BEFORE_STORY_MS;
+  const results = await Promise.allSettled(state.candidate_urls.map((url) => read(url, context.sources, { robots })));
+  const days = coverageWindowDays(context.website);
+  const listed = storyTime(context.story);
+  const oldest = Date.parse(listed) - days * DAY_MS;
+
+  // An old story page means the feed promoted an older article again: stop before spending on another search.
+  const storyPage = results[state.candidate_urls.indexOf(context.story.url)]?.value;
+  if (storyPage?.published_at && Date.parse(storyPage.published_at) < oldest) {
+    throw new PermanentJob(
+      `The story page was first published on ${storyPage.published_at.slice(0, 10)}, more than ${days} days ` +
+        `before the feed listed it on ${listed.slice(0, 10)}. It is an older article promoted again, so it was not drafted.`,
+    );
+  }
   // On a corroboration pass, only sites not already in the evidence count.
   const known = state.evidence ?? [];
   const knownHosts = new Set(known.map((page) => hostOf(page.url)));

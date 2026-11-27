@@ -302,6 +302,7 @@ export const networkSchema = z.object({
 export const nicheGuideSchema = z.object({
   guide_en: optionalText(8000),
   guide_ar: optionalText(8000),
+  coverage_window_days: z.coerce.number().int("Use whole days").min(1, "At least 1 day").max(30, "At most 30 days"),
 });
 
 export const networkSettingsSchema = z.object({

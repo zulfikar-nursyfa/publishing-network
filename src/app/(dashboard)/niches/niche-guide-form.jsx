@@ -2,6 +2,7 @@
 
 import { updateNicheGuides } from "@/app/actions/niches";
 import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
+import { cn, Field, inputClass } from "@/components/ui";
 import { GuideEditor } from "./guide-editor";
 
 const GUIDES = [
@@ -37,6 +38,30 @@ export function NicheGuideForm({ niche }) {
           );
         })}
       </div>
+      <Field
+        label="Coverage window"
+        htmlFor={`${niche.id}-coverage-window`}
+        hint="Pages published more days than this before the story are skipped as background, and a story page that old is not drafted. Use 7 for trade press that reports a week late."
+        error={errors.coverage_window_days}
+        className="max-w-sm"
+      >
+        <div className="relative">
+          <input
+            id={`${niche.id}-coverage-window`}
+            name="coverage_window_days"
+            type="number"
+            min="1"
+            max="30"
+            step="1"
+            required
+            defaultValue={niche.coverage_window_days ?? 3}
+            className={cn(inputClass, "pr-14 tabular-nums")}
+          />
+          <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+            days
+          </span>
+        </div>
+      </Field>
       <SubmitButton variant="secondary" size="sm" pendingLabel="Saving…">
         Save guides
       </SubmitButton>

@@ -107,6 +107,7 @@ export async function updateNicheGuides(nicheId, _prev, formData) {
     details: {
       guide_en: Boolean(parsed.data.guide_en),
       guide_ar: Boolean(parsed.data.guide_ar),
+      coverage_window_days: parsed.data.coverage_window_days,
       sync_error: syncError,
     },
   });

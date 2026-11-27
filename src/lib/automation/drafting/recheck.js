@@ -142,6 +142,8 @@ async function reverifyStep(db, job, worker, { context, model, assertControls })
       outlets: outletCount(state.recheck_evidence),
     },
   );
+  // Kept so a reviewer's verdict on a warning can save the pages it came from (warning_feedback).
+  state.checked_evidence = state.recheck_evidence;
   delete state.recheck_evidence;
   delete state.recheck_skipped;
   const imageNeeded = context.website.generate_illustrations && !article.hasImage && EDITABLE.includes(article.status);

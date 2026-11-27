@@ -1,7 +1,50 @@
 "use client";
-import { manageDraftJob, queueStoryDraft, reconcileAIUsage } from "@/app/actions/jobs";
-import { CheckboxLabel, Field, inputClass } from "@/components/ui";
+import { manageDraftJob, markWarning, queueStoryDraft, reconcileAIUsage } from "@/app/actions/jobs";
+import { Badge, CheckboxLabel, Field, inputClass } from "@/components/ui";
 import { useActionStateWithNotice, SubmitButton } from "@/components/form-controls";
+
+const VERDICT_LABELS = { false_alarm: "False alarm", real_problem: "Real problem" };
+
+/** One reviewer warning with its verdict buttons; `feedback` is the saved verdict, if any. */
+export function WarningVerdict({ jobId, warning, feedback }) {
+  const [, action] = useActionStateWithNotice(markWarning.bind(null, jobId), {});
+  return (
+    <form action={action} className="space-y-1.5">
+      <input type="hidden" name="warning" value={warning} />
+      <p dir="auto">{warning}</p>
+      {feedback ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={feedback.verdict === "false_alarm" ? "gray" : "amber"}>
+            {`${VERDICT_LABELS[feedback.verdict]}${feedback.author ? ` · ${feedback.author}` : ""}`}
+          </Badge>
+          {feedback.note ? (
+            <span className="text-xs text-muted-foreground" dir="auto">
+              {feedback.note}
+            </span>
+          ) : null}
+          <SubmitButton size="sm" variant="ghost" name="verdict" value="clear">
+            Undo
+          </SubmitButton>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            name="note"
+            maxLength={500}
+            aria-label="Note for this warning (optional)"
+            placeholder="Note (optional)"
+            className={`${inputClass} sm:max-w-56`}
+          />
+          {Object.entries(VERDICT_LABELS).map(([verdict, label]) => (
+            <SubmitButton key={verdict} size="sm" variant="secondary" name="verdict" value={verdict}>
+              {label}
+            </SubmitButton>
+          ))}
+        </div>
+      )}
+    </form>
+  );
+}
 
 export function QueueDraftForm({ storyId }) {
   const [, action] = useActionStateWithNotice(queueStoryDraft.bind(null, storyId), {});

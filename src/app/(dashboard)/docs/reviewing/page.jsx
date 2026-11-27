@@ -30,6 +30,12 @@ export default function ReviewingPage() {
             <strong>Save and re-check</strong> on the article. It reads the article&apos;s current sources, fact-checks
             the saved text, replaces the old AI verification warnings and adds an AI image if the article still has
             none.
+            <span className="mt-2 block">
+              Mark each warning <strong>False alarm</strong> or <strong>Real problem</strong> on the job, with a note
+              when only part of it is wrong (&quot;20 is in the source as twenty; 90 is a real conversion&quot;). Mark
+              before you edit, so the checker&apos;s fix can be tested against the text the warning was about. Marks
+              build the checker&apos;s test set; they do not change what needs review or let an article skip it.
+            </span>
           </Step>
           <Step title="Save the finished version">
             Check Headline, Body, Excerpt, Category and Sources. Body is a text editor with headings, bold, italic,

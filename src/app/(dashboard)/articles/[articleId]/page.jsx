@@ -2,7 +2,17 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowRightLeft, ExternalLink, Eye, History, Info, Lock, Trash2, TriangleAlert } from "lucide-react";
+import {
+  ArrowRightLeft,
+  ChevronDown,
+  ExternalLink,
+  Eye,
+  History,
+  Info,
+  Lock,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { warningFeedback } from "@/lib/automation/warning-feedback";
 import { WarningList } from "../../jobs/job-controls";
 import { deletePrivateDraft, moveArticle, saveArticle } from "@/app/actions/articles";
@@ -244,13 +254,22 @@ export default async function ArticlePage({ params, searchParams }) {
             </Alert>
           ) : null}
           {warnings.length ? (
-            <Card
-              icon={TriangleAlert}
-              title={`Warnings for the reviewer (${warnings.length})`}
-              description="Mark each as a false alarm or a real problem before you edit, to improve the checker. Marks do not change what needs review."
-            >
+            // Collapsed so the editor stays near the top; the summary still says how many are unmarked.
+            <details className="group rounded-lg bg-card p-4 text-card-foreground sm:p-5">
+              <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+                <TriangleAlert className="size-4 shrink-0 text-muted-foreground" />
+                <span className="font-medium">Warnings for the reviewer ({warnings.length})</span>
+                <span className="text-sm text-muted-foreground">
+                  {`${feedback.filter((row) => warnings.includes(row.warning)).length} of ${warnings.length} marked`}
+                </span>
+                <ChevronDown className="ms-auto size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+              </summary>
+              <p className="mt-3 mb-4 text-sm text-muted-foreground">
+                Mark each as a false alarm or a real problem before you edit, to improve the checker. Marks do not
+                change what needs review.
+              </p>
               <WarningList jobId={draftJob.id} warnings={warnings} feedback={feedback} />
-            </Card>
+            </details>
           ) : null}
           {!editable ? (
             <Alert tone="info" title={article.status === "approved" ? "Locked for publishing" : "Locked"}>

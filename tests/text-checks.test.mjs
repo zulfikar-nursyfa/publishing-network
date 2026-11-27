@@ -466,3 +466,23 @@ test("health websites get warnings for certainty, medical review and dosing clai
     false,
   );
 });
+
+test("figures a source writes in words are found (PM review 27 Nov)", () => {
+  const evidence = [source("It ran twenty in-depth interviews and forty-five surveys; 11 ألفًا و712 مواطنًا تقدموا.")];
+  assert.deepEqual(
+    unsourcedFigures(body("It ran 20 interviews and 45 surveys, with 11,712 applicants."), evidence),
+    [],
+  );
+  assert.deepEqual(unsourcedFigures(body("It ran 21 interviews and 11,713 applied."), evidence), ["21", "11713"]);
+});
+
+test("a qualifier further along the clause or written as يصل إلى is kept (PM review 27 Nov)", () => {
+  const healthcare = [source("While 70% expect better outcomes in healthcare.")];
+  assert.deepEqual(
+    droppedQualifiers(body("In addition, 70 percent of UAE respondents expect better results."), healthcare),
+    [],
+  );
+  const sale = [source("Members can save up to 45% with up to $150 in credits.")];
+  assert.deepEqual(droppedQualifiers(body("توفيراً يصل إلى 45%، ورصيد يصل إلى 150 دولاراً"), sale), []);
+  assert.deepEqual(droppedQualifiers(body("توفيراً 45%"), sale), ['45 (sources: "up to")']);
+});

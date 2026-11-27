@@ -47,6 +47,7 @@ export function unsourcedFigures(article, evidence) {
   const known = new Set([
     ...evidence.flatMap((page) => latinDigits(page.text).match(/\d+(?:\.\d+)?/g) ?? []),
     ...scaledFigures(sourceText(evidence)).map(expanded),
+    ...spelledFigures(sourceText(evidence)),
   ]);
   // "650 ألف" where the source says "650,000" (PM review 22 Nov), and the reverse.
   const written = new Set(
@@ -56,6 +57,29 @@ export function unsourcedFigures(article, evidence) {
   );
   const used = figures(text).filter((figure) => figure.length > 1 && !written.has(figure));
   return [...new Set(used.filter((figure) => !known.has(figure)))];
+}
+
+const TEENS = "ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split(" ");
+const TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split(" ");
+const UNITS = "one two three four five six seven eight nine".split(" ");
+const SPELLED = new RegExp(`\\b(?:(${TEENS.join("|")})|(${TENS.join("|")})(?:[- ](${UNITS.join("|")}))?)\\b`, "giu");
+// "11 ألفًا و712" is 11,712 (PM review 27 Nov).
+// shortcut: thousands only, not "2 مليون و300 ألف"; add other scales if a review finds them.
+const ARABIC_THOUSANDS = /(?<![\p{L}\d.])(\d+)\s?(?:ألف|آلاف)[\p{L}\p{M}]*\s+و\s?(\d{1,3})(?!\d)/gu;
+
+/** Figures a source writes in words: "twenty interviews" supports 20, "11 ألفًا و712" supports 11712. */
+function spelledFigures(text) {
+  const spelled = [...text.matchAll(SPELLED)].map(([, teen, tens, unit]) =>
+    String(
+      teen
+        ? 10 + TEENS.indexOf(teen.toLowerCase())
+        : 20 + TENS.indexOf(tens.toLowerCase()) * 10 + (unit ? UNITS.indexOf(unit.toLowerCase()) + 1 : 0),
+    ),
+  );
+  const thousands = [...latinDigits(text).matchAll(ARABIC_THOUSANDS)].map(([, high, low]) =>
+    String(Number(high) * 1000 + Number(low)),
+  );
+  return [...spelled, ...thousands];
 }
 
 const SCALES = {
@@ -357,18 +381,19 @@ const QUALIFIERS = [
   // "Over" and "under" only before a figure: "rose 32.9% over the past year" names a period, not "more than".
   /\b(?:up to|as many as|capacity|capable|able to|aims?|aiming|aimed|targets?|targeting|targeted|goals?|expected|expects?|projected|forecasts?|planned|plans?|proposed|potential|estimated|estimates?|could|might|about|around|approximately|nearly|almost|roughly|more than|at least|less than|fewer than)\b|\b(?:over|under)(?= \d)/u,
   // "حتى" is "up to" only right before the figure: "حتى الحوض 49" is "to Basin 49", "من 6 حتى 16" a range.
-  /(?:حتى(?= \d)|نحو|حوالي|قرابة|أكثر من|ما يزيد|أقل من|ما يصل|طاقة|قدرة|استيعاب|يستهدف|تستهدف|هدف|متوقع|يتوقع|مخطط|تقدير|محتمل)/u,
+  /(?:حتى(?= \d)|نحو|حوالي|قرابة|أكثر من|ما يزيد|أقل من|ما يصل|[يت]صل إلى|طاقة|قدرة|استيعاب|يستهدف|تستهدف|هدف|متوقع|يتوقع|مخطط|تقدير|محتمل)/u,
 ];
 // A bound just before the next figure is that figure's: in "100 representing more than 75", "more than" is 75's.
 const NEXT_FIGURES_BOUND =
-  /\s(?:up to|as many as|about|around|approximately|nearly|almost|roughly|more than|at least|less than|fewer than|over|under|حتى|نحو|حوالي|قرابة|أكثر من|ما يزيد(?: عن| على)?|أقل من|ما يصل إلى)$/u;
+  /\s(?:up to|as many as|about|around|approximately|nearly|almost|roughly|more than|at least|less than|fewer than|over|under|حتى|نحو|حوالي|قرابة|أكثر من|ما يزيد(?: عن| على)?|أقل من|(?:ما )?[يت]صل إلى)$/u;
 const qualifierIn = (context) => QUALIFIERS.map((pattern) => context.match(pattern)?.[0]).find(Boolean);
 
 /**
  * The words around each figure within its clause (years and single digits skipped), keyed by the figure.
  * Another figure ends the context: in "over 50 countries across 11 sections", "over" belongs to 50, not 11.
+ * `ahead` is how many words after the figure count.
  */
-function figureContexts(text) {
+function figureContexts(text, ahead = 4) {
   const contexts = new Map();
   for (const clause of latinDigits(normalise(text)).split(/[;:!?،؛]|[.,](?=\s|$)/u)) {
     const tokens = clause.match(/\d+(?:\.\d+)?|[\p{L}\p{M}]+/gu) ?? [];
@@ -378,7 +403,7 @@ function figureContexts(text) {
       let start = index;
       while (start > Math.max(0, index - 6) && !isFigure(tokens[start - 1])) start--;
       let end = index + 1;
-      while (end < Math.min(tokens.length, index + 5) && !isFigure(tokens[end])) end++;
+      while (end < Math.min(tokens.length, index + 1 + ahead) && !isFigure(tokens[end])) end++;
       let context = tokens.slice(start, end).join(" ");
       if (isFigure(tokens[end] ?? "")) context = context.replace(NEXT_FIGURES_BOUND, "");
       if (isFigure(tokens[start - 1] ?? "")) context = context.replace(/^حتى /u, "");
@@ -395,7 +420,8 @@ function figureContexts(text) {
  */
 export function droppedQualifiers(article, evidence) {
   const sources = figureContexts(sourceText(evidence));
-  return [...figureContexts(readerText(article))].flatMap(([figure, contexts]) => {
+  // The article's side reads further: "70 percent of UAE respondents expect" keeps the source's "expect".
+  return [...figureContexts(readerText(article), 8)].flatMap(([figure, contexts]) => {
     const qualifiers = (sources.get(figure) ?? []).map(qualifierIn);
     const qualifier = qualifiers.every(Boolean) && qualifiers[0];
     return qualifier && !contexts.some(qualifierIn) ? [`${figure} (sources: "${qualifier}")`] : [];

@@ -3,6 +3,7 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import {
   collectEvidence,
+  pageKey,
   isFetchableUrl,
   isPublicIPv4,
   publishedAt,
@@ -134,4 +135,24 @@ test("page text decodes HTML entities (PM review 19 Nov)", () => {
     plainEvidence("<p>valoris&#233; &#xE0; 6,8 milliards &ndash; MBA&rsquo;s report &amp;#233; &bogus; &#0;</p>"),
     "valorisé à 6,8 milliards – MBA’s report &#233; &bogus; &#0;",
   );
+});
+
+test("an error names the page that refused, not the search redirect that led there", async () => {
+  const redirect = "https://vertexaisearch.cloud.google.com/grounding-api-redirect/abc";
+  const target = "https://blocked.example.test/story";
+  const request = fakeRequest({
+    [redirect]: { status: 302, headers: { location: target }, body: "" },
+    [target]: { status: 202, headers: {}, body: "" },
+  });
+  await assert.rejects(collectEvidence(redirect, [], { requestImpl: request }), (error) => {
+    assert.equal(error.message, "Page returned HTTP 202");
+    assert.equal(error.url, target);
+    return true;
+  });
+});
+
+test("tracking parameters, fragments and a trailing slash do not make a different page", () => {
+  const plain = pageKey("https://www.example.test/red-bathroom");
+  assert.equal(pageKey("https://example.test/red-bathroom/?utm_source=RSS&utm_medium=feed#top"), plain);
+  assert.notEqual(pageKey("https://example.test/red-bathroom?id=2"), plain);
 });

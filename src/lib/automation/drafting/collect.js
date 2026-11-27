@@ -1,7 +1,7 @@
 import "server-only";
 import { groundingResults } from "@/lib/ai/gemini";
 import { generateForJob } from "@/lib/ai/usage";
-import { collectEvidence, hostOf, isFetchableUrl, SEARCH_REDIRECT_HOST } from "../evidence";
+import { collectEvidence, hostOf, isFetchableUrl, pageKey, SEARCH_REDIRECT_HOST } from "../evidence";
 import { storyTime } from "./context";
 import { PermanentJob } from "./errors";
 import { corroborationPrompt, searchPrompt } from "./prompts";
@@ -73,12 +73,12 @@ export async function collectStep(job, context, { read = collectEvidence } = {})
 
   results.forEach((result, index) => {
     if (result.status === "rejected") {
-      const { message, retryable } = result.reason;
-      skipped.push({ url: state.candidate_urls[index], reason: message, retryable });
+      const { message, retryable, url } = result.reason;
+      skipped.push({ url: url ?? state.candidate_urls[index], reason: message, retryable });
       return;
     }
     const page = result.value;
-    if (pages.some((existing) => existing.url === page.url)) return;
+    if (pages.some((existing) => pageKey(existing.url) === pageKey(page.url))) return;
     if (knownHosts.has(hostOf(page.url))) {
       skipped.push({ url: page.url, reason: "Same site as the evidence already collected" });
       return;
@@ -96,17 +96,22 @@ export async function collectStep(job, context, { read = collectEvidence } = {})
     return state;
   }
   if (!pages.length) {
-    const reasons = skipped
-      .map((page) => page.reason)
-      .slice(0, 3)
-      .join("; ");
+    const firstReasons = (list) =>
+      list
+        .map((page) => page.reason)
+        .slice(0, 3)
+        .join("; ");
+    // A second search can find no other site at all; the first search's reasons still explain the failure.
+    const reasons = skipped.length
+      ? firstReasons(skipped)
+      : `the second search found no other sites; first search: ${firstReasons(state.skipped_pages) || "no pages found"}`;
     const summary = `No readable coverage found (${reasons})`;
     if (skipped.some((page) => page.retryable)) throw new Error(summary);
     if (!state.coverage_retried) {
       // One more search, away from the sites that blocked or paywalled us, before a person has to add URLs.
       state.coverage_retried = true;
       state.searched = false;
-      state.unreadable_hosts = [...new Set(state.candidate_urls.map(hostOf))].filter(
+      state.unreadable_hosts = [...new Set(skipped.map((page) => hostOf(page.url)))].filter(
         (host) => host !== SEARCH_REDIRECT_HOST,
       );
       return state;

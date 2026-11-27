@@ -142,6 +142,13 @@ function isPermanent(error) {
   );
 }
 
+/** The first few schema problems, e.g. "claims: Too small: expected array to have >=3 items". */
+export const validationIssues = (error) =>
+  error.issues
+    .slice(0, 3)
+    .map((issue) => `${issue.path.join(".") || "response"}: ${issue.message}`)
+    .join("; ");
+
 /** Records a failed step: wait (deferred), retry with backoff, or fail after the last attempt. */
 async function handleFailure(db, job, worker, error) {
   const deferred = isDeferred(error);
@@ -150,7 +157,7 @@ async function handleFailure(db, job, worker, error) {
   const rechecking = Boolean(job.article_id);
   const message =
     error.name === "ZodError"
-      ? "AI response failed structured validation; review the job before retrying"
+      ? `AI response failed structured validation (${validationIssues(error)}); review the job before retrying`
       : error.message;
   const retryDelaySeconds = deferred ? 300 : Math.min(3600, 30 * 2 ** job.attempt_count);
   const kind = deferred ? waitingKind(message) : null;

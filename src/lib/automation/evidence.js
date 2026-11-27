@@ -11,6 +11,15 @@ export const SEARCH_REDIRECT_HOST = "vertexaisearch.cloud.google.com";
 
 export const hostOf = (url) => new URL(url).hostname.replace(/^www\./, "");
 
+/** One key per article: tracking parameters and fragments do not make a different page. */
+export function pageKey(value) {
+  const url = new URL(value);
+  for (const name of [...url.searchParams.keys()]) {
+    if (/^(utm_|fbclid$|gclid$|mc_)/i.test(name)) url.searchParams.delete(name);
+  }
+  return `${hostOf(url.href)}${url.pathname.replace(/\/$/, "")}${url.search}`;
+}
+
 /** Configured source for a page's domain, used for the publisher name and official (primary) status. */
 export function sourceForUrl(value, sources) {
   try {
@@ -39,49 +48,55 @@ export async function collectEvidence(value, sources, { requestImpl = publicRequ
   const deadline = Date.now() + 20_000;
   let url = new URL(value);
 
-  for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
-    if (!isFetchableUrl(url.href)) {
-      throw new EvidenceError("Only HTTPS pages without credentials or custom ports are read");
-    }
-    if (url.hostname !== SEARCH_REDIRECT_HOST && !(await allowedByRobots(url, requestImpl, robots))) {
-      throw new EvidenceError(`${url.hostname} does not allow automated reading of this page (robots.txt)`);
-    }
+  // Errors name the page that refused (the publisher), not the search redirect that led there.
+  try {
+    for (let redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
+      if (!isFetchableUrl(url.href)) {
+        throw new EvidenceError("Only HTTPS pages without credentials or custom ports are read");
+      }
+      if (url.hostname !== SEARCH_REDIRECT_HOST && !(await allowedByRobots(url, requestImpl, robots))) {
+        throw new EvidenceError(`${url.hostname} does not allow automated reading of this page (robots.txt)`);
+      }
 
-    const response = await requestImpl(url, Math.max(1, deadline - Date.now()));
-    if (REDIRECT_STATUSES.includes(response.status)) {
-      if (!response.headers.location) throw new EvidenceError("Redirect has no destination");
-      url = new URL(response.headers.location, url);
-      continue;
-    }
-    if (response.status !== 200) {
-      const retryable = response.status === 429 || response.status >= 500;
-      throw new EvidenceError(`Page returned HTTP ${response.status}`, retryable);
-    }
-    if (!/text\/(html|plain)/i.test(response.headers["content-type"] ?? "")) {
-      throw new EvidenceError("Page is not HTML or plain text");
-    }
-    if (Buffer.byteLength(response.body, "utf8") > MAX_BYTES) throw pageTooLarge();
+      const response = await requestImpl(url, Math.max(1, deadline - Date.now()));
+      if (REDIRECT_STATUSES.includes(response.status)) {
+        if (!response.headers.location) throw new EvidenceError("Redirect has no destination");
+        url = new URL(response.headers.location, url);
+        continue;
+      }
+      if (response.status !== 200) {
+        const retryable = response.status === 429 || response.status >= 500;
+        throw new EvidenceError(`Page returned HTTP ${response.status}`, retryable);
+      }
+      if (!/text\/(html|plain)/i.test(response.headers["content-type"] ?? "")) {
+        throw new EvidenceError("Page is not HTML or plain text");
+      }
+      if (Buffer.byteLength(response.body, "utf8") > MAX_BYTES) throw pageTooLarge();
 
-    const article = articleHtml(response.body);
-    const accessBlock = paywallBlockReason(response.body, article, url.href);
-    if (accessBlock) throw new EvidenceError(accessBlock);
-    const text = plainEvidence(article);
-    const pageTitle = response.body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? hostOf(url.href);
-    const botCheck = botCheckReason(url.href, plainEvidence(pageTitle), text);
-    if (botCheck) throw new EvidenceError(botCheck);
-    if (text.length < MIN_TEXT_LENGTH) throw new EvidenceError("Page has too little readable text");
+      const article = articleHtml(response.body);
+      const accessBlock = paywallBlockReason(response.body, article, url.href);
+      if (accessBlock) throw new EvidenceError(accessBlock);
+      const text = plainEvidence(article);
+      const pageTitle = response.body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? hostOf(url.href);
+      const botCheck = botCheckReason(url.href, plainEvidence(pageTitle), text);
+      if (botCheck) throw new EvidenceError(botCheck);
+      if (text.length < MIN_TEXT_LENGTH) throw new EvidenceError("Page has too little readable text");
 
-    const source = sourceForUrl(url.href, sources);
-    return {
-      url: url.href,
-      source_id: source?.id ?? null,
-      publisher: source?.name ?? hostOf(url.href),
-      title: plainEvidence(pageTitle).slice(0, 250),
-      primary: ["newsroom", "government"].includes(source?.kind),
-      published_at: publishedAt(response.body),
-      text,
-      accessed_at: new Date().toISOString(),
-    };
+      const source = sourceForUrl(url.href, sources);
+      return {
+        url: url.href,
+        source_id: source?.id ?? null,
+        publisher: source?.name ?? hostOf(url.href),
+        title: plainEvidence(pageTitle).slice(0, 250),
+        primary: ["newsroom", "government"].includes(source?.kind),
+        published_at: publishedAt(response.body),
+        text,
+        accessed_at: new Date().toISOString(),
+      };
+    }
+    throw new EvidenceError("Too many redirects");
+  } catch (error) {
+    error.url ??= url.href;
+    throw error;
   }
-  throw new EvidenceError("Too many redirects");
 }

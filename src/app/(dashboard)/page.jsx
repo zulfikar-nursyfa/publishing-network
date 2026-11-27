@@ -196,79 +196,90 @@ export default async function OverviewPage() {
               </tr>
             </thead>
             <tbody>
-              {websites.slice(0, 5).map((site) => {
-                const row = statsBySite.get(site.id);
-                const aiSpend = spendBySite.get(site.id) ?? 0;
-                const budget = Number(site.monthly_ai_budget_usd);
-                return (
-                  <tr key={site.id}>
-                    <Td>
-                      <div className="flex items-center gap-3">
-                        <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground sm:flex">
-                          {site.language}
-                        </span>
-                        <div className="min-w-0">
-                          <Link href={`/websites/${site.id}`} className={linkClass}>
-                            {site.name}
-                          </Link>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {[site.domain, site.language === "ar" ? "Arabic" : "English", site.niche?.name]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </div>
-                          <div className="mt-1.5 flex flex-wrap gap-1 md:hidden">
-                            <ConnectionBadge website={site} />
+              {websites
+                .toSorted(
+                  (a, b) =>
+                    Number(statsBySite.get(b.id)?.published_total ?? 0) -
+                    Number(statsBySite.get(a.id)?.published_total ?? 0),
+                )
+                .slice(0, 5)
+                .map((site) => {
+                  const row = statsBySite.get(site.id);
+                  const aiSpend = spendBySite.get(site.id) ?? 0;
+                  const budget = Number(site.monthly_ai_budget_usd);
+                  return (
+                    <tr key={site.id}>
+                      <Td>
+                        <div className="flex items-center gap-3">
+                          <span className="hidden size-9 shrink-0 items-center justify-center rounded-lg border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground sm:flex">
+                            {site.language}
+                          </span>
+                          <div className="min-w-0">
+                            <Link href={`/websites/${site.id}`} className={linkClass}>
+                              {site.name}
+                            </Link>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {[site.domain, site.language === "ar" ? "Arabic" : "English", site.niche?.name]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                            <div className="mt-1.5 flex flex-wrap gap-1 md:hidden">
+                              <ConnectionBadge website={site} />
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Td>
-                    <Td className="hidden md:table-cell">
-                      <ConnectionBadge website={site} />
-                    </Td>
-                    <Td className="hidden md:table-cell">
-                      {site.automation_paused ? (
-                        <Badge dot>paused</Badge>
-                      ) : (
-                        <Badge tone="green" dot>
-                          {site.daily_quota}/day
-                        </Badge>
-                      )}
-                    </Td>
-                    <Td className="text-right tabular-nums">{row?.in_review ?? 0}</Td>
-                    <Td className="hidden text-right tabular-nums sm:table-cell">{row?.approved ?? 0}</Td>
-                    <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_total ?? 0}</Td>
-                    <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_today ?? 0}</Td>
-                    <Td className="text-right tabular-nums">
-                      {Number(row?.failed_publications ?? 0) > 0 ? (
-                        <span className="font-semibold text-red-600 dark:text-red-400">{row?.failed_publications}</span>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </Td>
-                    <Td className="hidden text-right whitespace-nowrap tabular-nums xl:table-cell">
-                      {site.ga4_property_id || site.search_console_site ? (
-                        <>
-                          {site.ga4_property_id ? trafficFor(site.id).pageViews : "—"}
-                          <span className="text-muted-foreground">
-                            {" "}
-                            / {site.search_console_site ? trafficFor(site.id).clicks : "—"}
+                      </Td>
+                      <Td className="hidden md:table-cell">
+                        <ConnectionBadge website={site} />
+                      </Td>
+                      <Td className="hidden md:table-cell">
+                        {site.automation_paused ? (
+                          <Badge dot>paused</Badge>
+                        ) : (
+                          <Badge tone="green" dot>
+                            {site.daily_quota}/day
+                          </Badge>
+                        )}
+                      </Td>
+                      <Td className="text-right tabular-nums">{row?.in_review ?? 0}</Td>
+                      <Td className="hidden text-right tabular-nums sm:table-cell">{row?.approved ?? 0}</Td>
+                      <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_total ?? 0}</Td>
+                      <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_today ?? 0}</Td>
+                      <Td className="text-right tabular-nums">
+                        {Number(row?.failed_publications ?? 0) > 0 ? (
+                          <span className="font-semibold text-red-600 dark:text-red-400">
+                            {row?.failed_publications}
                           </span>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">not connected</span>
-                      )}
-                    </Td>
-                    <Td className="hidden text-right whitespace-nowrap tabular-nums lg:table-cell">
-                      <span
-                        className={budget > 0 && aiSpend >= budget * 0.9 ? "font-semibold text-destructive" : undefined}
-                      >
-                        {spendError ? "—" : formatUsd(aiSpend)}
-                      </span>
-                      <span className="text-muted-foreground"> / {formatUsd(budget)}</span>
-                    </Td>
-                  </tr>
-                );
-              })}
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </Td>
+                      <Td className="hidden text-right whitespace-nowrap tabular-nums xl:table-cell">
+                        {site.ga4_property_id || site.search_console_site ? (
+                          <>
+                            {site.ga4_property_id ? trafficFor(site.id).pageViews : "—"}
+                            <span className="text-muted-foreground">
+                              {" "}
+                              / {site.search_console_site ? trafficFor(site.id).clicks : "—"}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">not connected</span>
+                        )}
+                      </Td>
+                      <Td className="hidden text-right whitespace-nowrap tabular-nums lg:table-cell">
+                        <span
+                          className={
+                            budget > 0 && aiSpend >= budget * 0.9 ? "font-semibold text-destructive" : undefined
+                          }
+                        >
+                          {spendError ? "—" : formatUsd(aiSpend)}
+                        </span>
+                        <span className="text-muted-foreground"> / {formatUsd(budget)}</span>
+                      </Td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </Table>
         ) : (

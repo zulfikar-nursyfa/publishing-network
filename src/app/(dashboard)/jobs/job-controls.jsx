@@ -5,8 +5,22 @@ import { useActionStateWithNotice, SubmitButton } from "@/components/form-contro
 
 const VERDICT_LABELS = { false_alarm: "False alarm", real_problem: "Real problem" };
 
+/** A job's reviewer warnings with verdict buttons; `feedback` is warningFeedback's rows. */
+export function WarningList({ jobId, warnings, feedback }) {
+  const saved = new Map(feedback.map((row) => [row.warning, row]));
+  return (
+    <ul className="list-disc space-y-4 ps-5 text-sm">
+      {warnings.map((warning, i) => (
+        <li key={i}>
+          <WarningVerdict jobId={jobId} warning={warning} feedback={saved.get(warning)} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /** One reviewer warning with its verdict buttons; `feedback` is the saved verdict, if any. */
-export function WarningVerdict({ jobId, warning, feedback }) {
+function WarningVerdict({ jobId, warning, feedback }) {
   const [, action] = useActionStateWithNotice(markWarning.bind(null, jobId), {});
   return (
     <form action={action} className="space-y-1.5">

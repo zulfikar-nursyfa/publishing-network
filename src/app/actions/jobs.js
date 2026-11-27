@@ -285,5 +285,6 @@ export async function markWarning(jobId, _prev, formData) {
     details: { check: warningCheck(warning), verdict },
   });
   revalidatePath(`/jobs/${jobId}`);
+  if (job.article_id) revalidatePath(`/articles/${job.article_id}`);
   return { ok: true, message: verdict === "clear" ? "Mark removed." : "Verdict saved." };
 }

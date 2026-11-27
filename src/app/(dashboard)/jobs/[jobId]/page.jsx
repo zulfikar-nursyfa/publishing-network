@@ -21,7 +21,8 @@ import {
   Wrench,
 } from "lucide-react";
 import { Alert, Badge, ButtonLink, Card, PageHeader, Table, Td, Th } from "@/components/ui";
-import { JobControls, UsageReconciliationForm, WarningVerdict } from "../job-controls";
+import { JobControls, UsageReconciliationForm, WarningList } from "../job-controls";
+import { warningFeedback } from "@/lib/automation/warning-feedback";
 import { RemoveDraftForm } from "@/components/draft-removal";
 import { DraftJobState } from "@/components/draft-job-state";
 import { canRemoveDraft } from "@/lib/draft-job-policy";
@@ -57,15 +58,7 @@ export default async function JobPage({ params, searchParams }) {
     job.websites?.timezone ?? "UTC",
   );
   const usage = usageResult.data;
-  const { data: feedback } = job.state.warnings?.length
-    ? await db
-        .from("warning_feedback")
-        .select("warning, verdict, note, profiles:created_by(full_name)")
-        .eq("job_id", jobId)
-    : { data: [] };
-  const feedbackFor = new Map(
-    (feedback ?? []).map((row) => [row.warning, { ...row, author: row.profiles?.full_name }]),
-  );
+  const feedback = job.state.warnings?.length ? await warningFeedback(db, jobId) : [];
   const evidence = job.state.evidence ?? [];
   const research = job.state.research;
   const verification = job.state.verification;
@@ -322,13 +315,7 @@ export default async function JobPage({ params, searchParams }) {
               title={`Warnings for the reviewer (${job.state.warnings.length})`}
               description="These did not stop the draft. They are copied into the article's review note. Mark each as a false alarm or a real problem to improve the checker; marks do not change what needs review."
             >
-              <ul className="list-disc space-y-4 ps-5 text-sm">
-                {job.state.warnings.map((warning, i) => (
-                  <li key={i}>
-                    <WarningVerdict jobId={job.id} warning={warning} feedback={feedbackFor.get(warning)} />
-                  </li>
-                ))}
-              </ul>
+              <WarningList jobId={job.id} warnings={job.state.warnings} feedback={feedback} />
             </Card>
           ) : null}
           {user.isAdmin && job.status !== "succeeded" ? (

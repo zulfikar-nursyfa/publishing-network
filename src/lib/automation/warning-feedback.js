@@ -7,6 +7,15 @@ import { TEXT_WARNINGS, textWarnings } from "./text-checks";
 export const VERDICTS = ["false_alarm", "real_problem"];
 const ARTICLE_FIELDS = ["title", "excerpt", "body", "seo_title", "meta_description"];
 
+/** A job's saved verdicts, for its warning list; author is null for others' marks a non-admin cannot read. */
+export async function warningFeedback(db, jobId) {
+  const { data } = await db
+    .from("warning_feedback")
+    .select("warning, verdict, note, profiles:created_by(full_name)")
+    .eq("job_id", jobId);
+  return (data ?? []).map(({ profiles, ...row }) => ({ ...row, author: profiles?.full_name ?? null }));
+}
+
 /** The check a warning came from: a text check's title, or the warning's own label. */
 export const warningCheck = (warning) =>
   TEXT_WARNINGS.find((title) => warning.startsWith(title)) ?? warning.split(/[:(]/)[0].trim().slice(0, 200);

@@ -2,7 +2,9 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowRightLeft, ExternalLink, Eye, History, Info, Lock, Trash2 } from "lucide-react";
+import { ArrowRightLeft, ExternalLink, Eye, History, Info, Lock, Trash2, TriangleAlert } from "lucide-react";
+import { warningFeedback } from "@/lib/automation/warning-feedback";
+import { WarningList } from "../../jobs/job-controls";
 import { deletePrivateDraft, moveArticle, saveArticle } from "@/app/actions/articles";
 import { RedirectNotice } from "@/components/action-notice";
 import { ActionForm, SubmitButton } from "@/components/form-controls";
@@ -113,7 +115,7 @@ export default async function ArticlePage({ params, searchParams }) {
       .order("created_at", { ascending: false })
       .limit(20),
     article.origin === "automated"
-      ? supabase.from("jobs").select("id, status").eq("article_id", articleId).maybeSingle()
+      ? supabase.from("jobs").select("id, status, warnings:state->warnings").eq("article_id", articleId).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from("categories")
@@ -141,21 +143,24 @@ export default async function ArticlePage({ params, searchParams }) {
   const editable = ["draft", "in_review", "rejected"].includes(article.status);
   // Only an article that never reached WordPress moves (migration 57); RLS lists the user's websites.
   const movable = editable && !article.wp_post_id && !publication;
-  const [{ data: usage }, { data: signed }, { data: actors }, schedule, { data: moveTargets }] = await Promise.all([
-    draftJob ? supabase.rpc("job_usage_summary", { target_job: draftJob.id }) : { data: null },
-    paths.length ? supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600) : { data: [] },
-    actorIds.length ? supabase.from("profiles").select("id, email, full_name").in("id", actorIds) : { data: [] },
-    article.status === "approved" ? scheduleFor(supabase, article, website) : null,
-    movable
-      ? supabase
-          .from("websites")
-          .select("id, name")
-          .eq("language", website.language)
-          .is("archived_at", null)
-          .neq("id", website.id)
-          .order("name")
-      : { data: [] },
-  ]);
+  const warnings = draftJob?.warnings ?? [];
+  const [{ data: usage }, { data: signed }, { data: actors }, schedule, { data: moveTargets }, feedback] =
+    await Promise.all([
+      draftJob ? supabase.rpc("job_usage_summary", { target_job: draftJob.id }) : { data: null },
+      paths.length ? supabase.storage.from(ARTICLE_IMAGE_BUCKET).createSignedUrls(paths, 3600) : { data: [] },
+      actorIds.length ? supabase.from("profiles").select("id, email, full_name").in("id", actorIds) : { data: [] },
+      article.status === "approved" ? scheduleFor(supabase, article, website) : null,
+      movable
+        ? supabase
+            .from("websites")
+            .select("id, name")
+            .eq("language", website.language)
+            .is("archived_at", null)
+            .neq("id", website.id)
+            .order("name")
+        : { data: [] },
+      warnings.length ? warningFeedback(supabase, draftJob.id) : [],
+    ]);
   const withPreview = (images ?? []).map((row) => ({
     ...row,
     previewUrl: signed?.find((entry) => entry.path === row.storage_path)?.signedUrl ?? row.url,
@@ -237,6 +242,15 @@ export default async function ArticlePage({ params, searchParams }) {
                 </span>
               )}
             </Alert>
+          ) : null}
+          {warnings.length ? (
+            <Card
+              icon={TriangleAlert}
+              title={`Warnings for the reviewer (${warnings.length})`}
+              description="Mark each as a false alarm or a real problem before you edit, to improve the checker. Marks do not change what needs review."
+            >
+              <WarningList jobId={draftJob.id} warnings={warnings} feedback={feedback} />
+            </Card>
           ) : null}
           {!editable ? (
             <Alert tone="info" title={article.status === "approved" ? "Locked for publishing" : "Locked"}>

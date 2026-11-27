@@ -155,8 +155,8 @@ export function WorkflowPanel({ articleId, status, websiteArchived, wordpressCon
             </SubmitButton>
             {publication?.status === "failed" ? (
               <p className="text-xs text-muted-foreground">
-                Attempt {publication.attemptCount} of {publication.maxAttempts} failed. Retrying checks WordPress first,
-                so it will not create a duplicate post.
+                Attempt {publication.attemptCount} of {publication.maxAttempts} failed. {publication.retry} Retrying
+                checks WordPress first, so it will not create a duplicate post.
               </p>
             ) : null}
           </form>

@@ -24,6 +24,7 @@ import { formatUsd, summariseAggregatedUsage } from "@/lib/costs";
 import { ARTICLE_IMAGE_BUCKET } from "@/lib/storage/article-images";
 import { createClient } from "@/lib/supabase/server";
 import { nextFreeSlot, toLocalInput } from "@/lib/schedule";
+import { publishRetry } from "@/lib/publishing/retry";
 import { formatSourceLines } from "@/lib/validation";
 import { ArticleForm } from "../article-form";
 import { ArticleTraffic } from "./article-traffic";
@@ -40,6 +41,15 @@ function Person({ when, who }) {
       <span className="block text-xs text-muted-foreground">by {who}</span>
     </span>
   );
+}
+
+/** One line under Retry publishing: when the slots retry it by themselves, or why a person must. */
+function retryNote(publication, article, website, networkPaused) {
+  if (publication.status !== "failed") return null;
+  const retry = publishRetry(publication, article, website, networkPaused);
+  return retry.auto
+    ? `It retries automatically at the next publishing slot, ${formatDateTime(retry.at, website.timezone)}.`
+    : `It will not retry automatically (${retry.reason.toLowerCase()}). Use Retry publishing once the problem is fixed.`;
 }
 
 /** Schedule panel data: the current schedule, or the next slot not already taken by another article. */
@@ -80,11 +90,12 @@ export default async function ArticlePage({ params, searchParams }) {
     { data: draftJob },
     { data: categories },
     { data: images },
+    { data: network },
   ] = await Promise.all([
     supabase
       .from("websites")
       .select(
-        "id, name, language, timezone, publish_times, text_direction, archived_at, wp_base_url, ga4_property_id, search_console_site",
+        "id, name, language, timezone, publish_times, automation_paused, text_direction, archived_at, wp_base_url, ga4_property_id, search_console_site",
       )
       .eq("id", article.website_id)
       .single(),
@@ -116,6 +127,7 @@ export default async function ArticlePage({ params, searchParams }) {
       .eq("article_id", articleId)
       .in("role", ["featured", "option"])
       .order("created_at"),
+    supabase.from("network_settings").select("automation_paused").maybeSingle(),
   ]);
   if (!website) notFound();
   const paths = (images ?? []).map((row) => row.storage_path).filter(Boolean);
@@ -282,6 +294,7 @@ export default async function ArticlePage({ params, searchParams }) {
                     attemptCount: publication.attempt_count,
                     maxAttempts: publication.max_attempts,
                     lastError: publication.last_error,
+                    retry: retryNote(publication, article, website, network?.automation_paused),
                   }
                 : null
             }

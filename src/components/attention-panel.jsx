@@ -44,7 +44,7 @@ export async function AttentionPanel({ db }) {
         .is("archived_at", null),
     ],
   ];
-  const [results, { data: waiting = [], error: waitingError, count: waitingCount }, slots] = await Promise.all([
+  const [results, { data: waiting = [], error: waitingError, count: waitingCount }, slots, names] = await Promise.all([
     Promise.all(definitions.map(([, , query]) => query)),
     db
       .from("job_list")
@@ -54,7 +54,10 @@ export async function AttentionPanel({ db }) {
       .order("waiting_since")
       .limit(3),
     allRows(() => db.from("slot_attention").select("website_id, total").order("website_id")).catch(() => null),
+    allRows(() => db.from("websites").select("id, name").order("id")).catch(() => []),
   ]);
+  const siteName = new Map(names.map((site) => [site.id, site.name]));
+  const slotTotal = (slots ?? []).reduce((sum, slot) => sum + Number(slot.total), 0);
   return (
     <Card title="Needs attention" className="mb-6">
       {results.some((result) => result.error) || !slots || waitingError ? (
@@ -75,16 +78,28 @@ export async function AttentionPanel({ db }) {
             </Link>
           ) : null,
         )}
-        {slots?.map((slot) => (
-          <Link
-            key={slot.website_id}
-            href={`/websites/${slot.website_id}?section=schedule&period=today&status=problems`}
-            className="flex items-center justify-between gap-3 rounded-lg border p-3 text-sm hover:bg-muted"
-          >
-            <span>Publishing slot problems today</span>
-            <strong className="tabular-nums">{slot.total}</strong>
-          </Link>
-        ))}
+        {slots?.length ? (
+          <div className="col-span-full rounded-lg border p-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span>Publishing slot problems today</span>
+              <strong className="tabular-nums">{slotTotal}</strong>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {slots
+                .map((slot) => ({ ...slot, name: siteName.get(slot.website_id) ?? "Website" }))
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((slot) => (
+                  <Link
+                    key={slot.website_id}
+                    href={`/websites/${slot.website_id}?section=schedule&period=today&status=problems`}
+                    className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                  >
+                    {slot.name} <strong className="tabular-nums">{slot.total}</strong>
+                  </Link>
+                ))}
+            </div>
+          </div>
+        ) : null}
       </div>
       {waiting?.length ? (
         <div className="mt-4 space-y-3 border-t pt-4">

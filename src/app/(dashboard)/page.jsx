@@ -36,6 +36,7 @@ import {
 import { requireUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/costs";
 import { trafficTotals } from "@/lib/traffic/totals";
+import { publishRetry } from "@/lib/publishing/retry";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function OverviewPage() {
@@ -55,7 +56,7 @@ export default async function OverviewPage() {
       supabase
         .from("websites")
         .select(
-          "id, name, domain, language, timezone, daily_quota, automation_paused, wp_base_url, wp_connection_status, archived_at, monthly_ai_budget_usd, ga4_property_id, search_console_site, niche:niches(name)",
+          "id, name, domain, language, timezone, daily_quota, publish_times, automation_paused, wp_base_url, wp_connection_status, archived_at, monthly_ai_budget_usd, ga4_property_id, search_console_site, niche:niches(name)",
         )
         .is("archived_at", null)
         .order("name")
@@ -69,7 +70,9 @@ export default async function OverviewPage() {
       .limit(10),
     supabase
       .from("publications")
-      .select("article_id, website_id, last_error, attempt_count, max_attempts, updated_at")
+      .select(
+        "article_id, website_id, last_error, attempt_count, max_attempts, updated_at, article:articles(status, origin, scheduled_for)",
+      )
       .eq("status", "failed")
       .order("updated_at", { ascending: false })
       .limit(10),
@@ -84,6 +87,7 @@ export default async function OverviewPage() {
     (spend ?? []).map((row) => [row.website_id, Number(row.estimated_cost_usd) + Number(row.reserved_cost_usd)]),
   );
   const siteName = new Map((websites ?? []).map((site) => [site.id, site.name]));
+  const siteById = new Map((websites ?? []).map((site) => [site.id, site]));
   const totals = (stats ?? []).reduce(
     (sum, row) => ({
       inReview: sum.inReview + Number(row.in_review),
@@ -184,6 +188,7 @@ export default async function OverviewPage() {
                 <Th className="hidden md:table-cell">Automation</Th>
                 <Th className="text-right">In review</Th>
                 <Th className="hidden text-right sm:table-cell">Approved</Th>
+                <Th className="hidden text-right sm:table-cell">Published</Th>
                 <Th className="hidden text-right sm:table-cell">Today</Th>
                 <Th className="text-right">Failed</Th>
                 <Th className="hidden text-right xl:table-cell">Views / clicks (28d)</Th>
@@ -231,6 +236,7 @@ export default async function OverviewPage() {
                     </Td>
                     <Td className="text-right tabular-nums">{row?.in_review ?? 0}</Td>
                     <Td className="hidden text-right tabular-nums sm:table-cell">{row?.approved ?? 0}</Td>
+                    <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_total ?? 0}</Td>
                     <Td className="hidden text-right tabular-nums sm:table-cell">{row?.published_today ?? 0}</Td>
                     <Td className="text-right tabular-nums">
                       {Number(row?.failed_publications ?? 0) > 0 ? (
@@ -338,37 +344,57 @@ export default async function OverviewPage() {
           />
           {failures && failures.length > 0 ? (
             <ul className="divide-y overflow-hidden rounded-lg bg-card">
-              {failures.map((failure) => (
-                <li key={failure.article_id}>
-                  <Link
-                    href={`/articles/${failure.article_id}`}
-                    className="flex gap-3 px-4 py-3 transition-colors hover:bg-red-500/5"
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
-                      <TriangleAlert className="size-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">
-                        {siteName.get(failure.website_id) ?? "Website"}
-                        <span className="font-normal text-muted-foreground">
-                          {" "}
-                          · attempt {failure.attempt_count} of {failure.max_attempts}
-                        </span>
-                      </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        Failed{" "}
-                        <time dateTime={failure.updated_at}>
-                          {formatDateTime(
-                            failure.updated_at,
-                            websites?.find((site) => site.id === failure.website_id)?.timezone,
+              {failures.map((failure) => {
+                const site = siteById.get(failure.website_id);
+                const retry =
+                  site && failure.article
+                    ? publishRetry(failure, failure.article, site, network?.automation_paused)
+                    : { auto: false, reason: "Website unavailable" };
+                return (
+                  <li key={failure.article_id}>
+                    <Link
+                      href={`/articles/${failure.article_id}`}
+                      className="flex gap-3 px-4 py-3 transition-colors hover:bg-red-500/5"
+                    >
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600 dark:text-red-400">
+                        <TriangleAlert className="size-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">
+                          {siteName.get(failure.website_id) ?? "Website"}
+                          <span className="font-normal text-muted-foreground">
+                            {" "}
+                            · attempt {failure.attempt_count} of {failure.max_attempts}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 text-xs">
+                          {retry.auto ? (
+                            <span className="text-muted-foreground">
+                              Retries automatically at the next slot, {formatDateTime(retry.at, site.timezone)}
+                            </span>
+                          ) : (
+                            <span className="font-medium text-red-700 dark:text-red-300">
+                              Needs a manual retry · {retry.reason}
+                            </span>
                           )}
-                        </time>
+                        </div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
+                          Failed{" "}
+                          <time dateTime={failure.updated_at}>
+                            {formatDateTime(
+                              failure.updated_at,
+                              websites?.find((site) => site.id === failure.website_id)?.timezone,
+                            )}
+                          </time>
+                        </div>
+                        <p className="mt-0.5 line-clamp-2 text-xs text-red-700 dark:text-red-300">
+                          {failure.last_error}
+                        </p>
                       </div>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-red-700 dark:text-red-300">{failure.last_error}</p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <EmptyState icon={CircleCheck}>No failed publishing attempts. All clear.</EmptyState>
